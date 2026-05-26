@@ -9,6 +9,7 @@ from pironman5.variants import (
     PERIPHERALS,
     VARIENT,
     PRODUCT_DEFINITIONS,
+    detect_hardware_variant,
     get_product_definition,
     normalize_variant_key,
 )
@@ -19,6 +20,7 @@ DASHBOARD_REF = '7a347dd84115949e916811cfe536172cb44cadf0'  # geoffbelknap/piron
 SF_RPI_STATUS_REF = 'cc9841628913a01315c009e72df5cec2bc4f45af'  # geoffbelknap/main
 PIPOWER5_REF = '46250a12e2e6b4b9e1f3d7e3787d02a2aaf1b373'  # 1.2.3
 SPC_REF = '3581063092fe669e7a5538f4a4dc67e9b766863c'
+VARIANT_HELP = f"Install for a specific Pironman variant; default: auto. Valid: auto, {', '.join(sorted(PRODUCT_DEFINITIONS))}"
 
 settings = {
     # - Setup venv options if needed, default to []
@@ -226,10 +228,12 @@ def parse_install_args(argv=None, parser=None):
     parser.add_argument(
         "--variant",
         type=normalize_variant_key,
-        choices=sorted(PRODUCT_DEFINITIONS),
+        choices=["auto", *sorted(PRODUCT_DEFINITIONS)],
+        default="auto",
         metavar="VARIANT",
-        help="Install for a specific Pironman variant instead of auto-detection",
+        help=VARIANT_HELP,
     )
+    parser.add_argument("--print-variant", action="store_true", help="Print detected/selected variant and exit")
     parser.add_argument("--enable-dashboard", action="store_true", help="Enable dashboard components")
     parser.add_argument("--enable-influxdb-legacy", action="store_true", help="Enable legacy InfluxDB dashboard history backend")
     parser.add_argument("--enable-ups", action="store_true", help="Enable PiPower5 UPS components")
@@ -239,9 +243,24 @@ def parse_install_args(argv=None, parser=None):
 
 
 def get_selected_variant_key(args):
-    if getattr(args, "variant", None):
+    if getattr(args, "variant", "auto") != "auto":
         return normalize_variant_key(args.variant)
-    return VARIENT
+    return detect_hardware_variant()["variant"]
+
+
+def describe_variant_selection(args):
+    if getattr(args, "variant", "auto") != "auto":
+        variant_key = normalize_variant_key(args.variant)
+        product = get_product_definition(variant_key)
+        return variant_key, f"Selected variant: {product['name']} ({variant_key})"
+    detected = detect_hardware_variant()
+    variant_key = detected["variant"]
+    product = get_product_definition(variant_key)
+    if detected["source"] == "hat-eeprom":
+        detail = f"HAT EEPROM {detected['part_number']}"
+    else:
+        detail = f"fallback {detected['part_number']}"
+    return variant_key, f"Auto-detected variant: {product['name']} ({variant_key}) from {detail}"
 
 
 def get_variant_peripherals(variant_key):
@@ -348,7 +367,10 @@ def build_installer_for_settings(names):
 def main(argv=None):
     installer_obj = build_installer()
     args = parse_install_args(argv, parser=installer_obj.parser)
-    variant_key = get_selected_variant_key(args)
+    variant_key, variant_description = describe_variant_selection(args)
+    print(variant_description)
+    if args.print_variant:
+        return
     installer_obj.friendly_name = get_product_definition(variant_key)["name"]
     names = resolve_enabled_setting_names(args)
     apply_settings_by_name(installer_obj, names)

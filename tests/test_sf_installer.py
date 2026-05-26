@@ -228,12 +228,28 @@ class InstallSettingsPolicyTest(unittest.TestCase):
 
         self.assertEqual("mini", args.variant)
 
+    def test_auto_variant_is_default(self):
+        import install
+
+        args = install.parse_install_args([])
+
+        self.assertEqual("auto", args.variant)
+
     def test_variant_flag_accepts_hyphenated_alias(self):
         import install
 
         args = install.parse_install_args(["--variant", "pro-max"])
 
         self.assertEqual("pro_max", args.variant)
+
+    def test_auto_variant_uses_hardware_detection(self):
+        import install
+
+        args = install.parse_install_args([])
+        with unittest.mock.patch.object(install, "detect_hardware_variant", return_value={"variant": "mini"}):
+            variant = install.get_selected_variant_key(args)
+
+        self.assertEqual("mini", variant)
 
     def test_variant_flag_controls_dependency_settings(self):
         import install
@@ -252,6 +268,18 @@ class InstallSettingsPolicyTest(unittest.TestCase):
         installer = install.build_installer_for_variant("mini")
 
         self.assertEqual({" .variant".strip(): "mini\n"}, installer.work_files)
+
+    def test_print_variant_flag_is_parsed(self):
+        import install
+
+        args = install.parse_install_args(["--print-variant"])
+
+        self.assertTrue(args.print_variant)
+
+    def test_variant_help_lists_canonical_values(self):
+        import install
+
+        self.assertIn("auto, base, max, mini, nas, pro_max, ups", install.VARIANT_HELP)
 
 
 class ServiceHardeningTest(unittest.TestCase):

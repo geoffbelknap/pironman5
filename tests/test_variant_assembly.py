@@ -65,6 +65,26 @@ class VariantAssemblyTest(unittest.TestCase):
         self.assertEqual("mini", variants.VARIENT)
         self.assertEqual("Pironman 5 Mini", variants.NAME)
 
+    def test_hardware_detection_ignores_runtime_environment_override(self):
+        with mock.patch.dict(os.environ, {"PIRONMAN5_VARIANT": "mini"}, clear=False):
+            variants = reload_variants()
+            with mock.patch.object(variants, "get_part_number", return_value="0306V11"):
+                detected = variants.detect_hardware_variant()
+
+        self.assertEqual("max", detected["variant"])
+        self.assertEqual("hat-eeprom", detected["source"])
+        self.assertEqual("0306V11", detected["part_number"])
+
+    def test_hardware_detection_falls_back_to_base(self):
+        from pironman5 import variants
+
+        with mock.patch.object(variants, "get_part_number", return_value=None):
+            detected = variants.detect_hardware_variant()
+
+        self.assertEqual("base", detected["variant"])
+        self.assertEqual("fallback", detected["source"])
+        self.assertEqual("0306V10", detected["part_number"])
+
 
 if __name__ == "__main__":
     unittest.main()

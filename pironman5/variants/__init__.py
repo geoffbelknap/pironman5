@@ -3,6 +3,8 @@ from os import path, listdir, getenv
 from .modules import assemble
 from .products import PRODUCT_DEFINITIONS
 
+DEFAULT_PART_NUMBER = "0306V10"
+
 VARIANT_ALIASES = {
     "base": "base",
     "pironman5": "base",
@@ -98,10 +100,17 @@ def get_varient_id_and_version():
     if part_number is None:
         part_number = get_part_number()
     if part_number is None:
-        part_number = "0306V10"
+        part_number = DEFAULT_PART_NUMBER
     varient_id = part_number.split('V')[0]
     version_id = part_number.split('V')[1]
     return varient_id, version_id
+
+
+def split_part_number(part_number):
+    if not part_number or "V" not in part_number:
+        return None, None
+    variant_id, version = part_number.split("V", 1)
+    return variant_id, version
 
 
 def get_variant(variant_id, version=None):
@@ -122,6 +131,23 @@ def get_variant(variant_id, version=None):
         return None
 
 
+def detect_hardware_variant():
+    part_number = get_part_number()
+    source = "hat-eeprom"
+    if part_number is None:
+        part_number = DEFAULT_PART_NUMBER
+        source = "fallback"
+    variant_id, version = split_part_number(part_number)
+    variant = get_variant(variant_id, version) or "base"
+    return {
+        "variant": variant,
+        "source": source,
+        "part_number": part_number,
+        "variant_id": variant_id,
+        "version": version,
+    }
+
+
 def _detect_variant_key():
     env_variant = getenv("PIRONMAN5_VARIANT")
     if env_variant:
@@ -134,8 +160,7 @@ def _detect_variant_key():
             if variant:
                 return variant
 
-    varient_id, version = get_varient_id_and_version()
-    return get_variant(varient_id, version) or "base"
+    return detect_hardware_variant()["variant"]
 
 
 def _custom_modules():
