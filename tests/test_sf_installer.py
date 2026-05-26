@@ -55,6 +55,50 @@ class InstallerCommandConstructionTest(unittest.TestCase):
             self.assertNotIn(" /opt/piron man;bad", command)
             self.assertNotIn(" /var/log/piron man;bad", command)
 
+    def test_setup_user_normalizes_service_home_permissions(self):
+        installer = SF_Installer("pironman5")
+        installer.args = SimpleNamespace(plain_text=True)
+        commands = []
+        installer.run_command = lambda _cmd, **_kwargs: (0, "", "")
+        installer.do = lambda _msg, cmd, **_kwargs: commands.append(cmd)
+
+        installer.setup_user()
+
+        self.assertIn("chmod 750 /opt/pironman5", commands)
+        self.assertIn("find /opt/pironman5 -mindepth 1 -maxdepth 1 -type f -exec chmod 640 '{}' +", commands)
+        self.assertIn("find /opt/pironman5 -mindepth 1 -maxdepth 1 -type d -exec chmod 750 '{}' +", commands)
+
+    def test_setup_user_does_not_copy_skeleton_files(self):
+        installer = SF_Installer("pironman5")
+        installer.args = SimpleNamespace(plain_text=True)
+        commands = []
+
+        def fake_run_command(cmd, **_kwargs):
+            if cmd.startswith("getent"):
+                return (1, "", "")
+            return (0, "", "")
+
+        installer.run_command = fake_run_command
+        installer.do = lambda _msg, cmd, **_kwargs: commands.append(cmd)
+
+        installer.setup_user()
+
+        useradd_commands = [cmd for cmd in commands if cmd.startswith("useradd ")]
+        self.assertEqual(len(useradd_commands), 1)
+        self.assertNotIn(" -m ", useradd_commands[0])
+        self.assertIn("--no-create-home", useradd_commands[0])
+
+    def test_work_dir_fix_keeps_directory_private(self):
+        installer = SF_Installer("pironman5", work_dir="/opt/pironman5")
+        installer.args = SimpleNamespace(plain_text=True)
+        commands = []
+        installer.do = lambda _msg, cmd, **_kwargs: commands.append(cmd)
+
+        installer.change_work_dir_owner()
+
+        self.assertIn("chmod 750 /opt/pironman5", commands)
+        self.assertNotIn("chmod +x /opt/pironman5", commands)
+
 
 class InstallSettingsPolicyTest(unittest.TestCase):
     def test_dashboard_settings_are_disabled_by_default(self):

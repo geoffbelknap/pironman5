@@ -415,7 +415,9 @@ class SF_Installer():
         if self.run_command(self.shell_join(['getent', 'passwd', self.user]))[0] == 0:
             print(f'{self.SKIPPED} User "{self.user}" already exists, skip')
         else:
-            self.do(f'Create user "{self.user}"', self.shell_join(['useradd', '-r', '-g', self.user, '-s', '/sbin/nologin', '-d', f'/opt/{self.user}', '-m', self.user]))
+            self.do(f'Create user "{self.user}"', self.shell_join(['useradd', '-r', '-g', self.user, '-s', '/sbin/nologin', '-d', f'/opt/{self.user}', '--no-create-home', self.user]))
+
+        self.normalize_work_dir_permissions()
 
         # Add sudo permission to user
         if shutil.which('sudo'):
@@ -429,6 +431,19 @@ class SF_Installer():
             self.do(f'Check sudoers file', self.shell_join(['visudo', '-c', '-f', sudoers_file]))
         else:
             print(f"{self.WARNING} Sudo is not exist, skip sudo permission setup")
+
+    def normalize_work_dir_permissions(self):
+        self.do('Create service home directory', self.shell_join(['mkdir', '-p', self.work_dir]))
+        self.do(f'Change service home owner to "{self.user}"', self.shell_join(['chown', '-R', f'{self.user}:{self.user}', self.work_dir]))
+        self.do(f'Change service home mode to 750', self.shell_join(['chmod', '750', self.work_dir]))
+        self.do(
+            'Change service home file modes to 640',
+            self.shell_join(['find', self.work_dir, '-mindepth', '1', '-maxdepth', '1', '-type', 'f', '-exec', 'chmod', '640', '{}', '+']),
+        )
+        self.do(
+            'Change service home directory modes to 750',
+            self.shell_join(['find', self.work_dir, '-mindepth', '1', '-maxdepth', '1', '-type', 'd', '-exec', 'chmod', '750', '{}', '+']),
+        )
 
     def add_user_to_groups(self):
         # Add groups to user
@@ -629,7 +644,7 @@ class SF_Installer():
 
     def change_work_dir_owner(self):
         self.print_title("Fix work directory permission...")
-        self.do('Add execution permission to directory', self.shell_join(['chmod', '+x', self.work_dir]))
+        self.do(f'Change work directory mode to 750', self.shell_join(['chmod', '750', self.work_dir]))
         self.do(f'Change work directory owner to {self.user}', self.shell_join(['chown', '-R', f'{self.user}:{self.user}', self.work_dir]))
 
     # Uninstall Steps:
