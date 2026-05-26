@@ -417,10 +417,6 @@ class SF_Installer():
         else:
             self.do(f'Create user "{self.user}"', f'useradd -r -g {self.user} -s /sbin/nologin -d /opt/{self.user} -m {self.user}')
 
-        # Add current user to group
-        current_user = self.get_current_username()
-        self.add_user_to_group(current_user, self.user)
-
         # Add sudo permission to user
         if shutil.which('sudo'):
             self.do(f'Add permission to user "{self.user}"', f'echo "{self.user} ALL=(ALL) NOPASSWD: {", ".join(self.SUDOER_PERMISSION)}" | tee /etc/sudoers.d/{self.user} > /dev/null')

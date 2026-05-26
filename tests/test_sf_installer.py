@@ -65,5 +65,22 @@ class InstallSettingsPolicyTest(unittest.TestCase):
         self.assertIn("pipower5", names)
 
 
+class ServiceHardeningTest(unittest.TestCase):
+    def test_service_runs_as_pironman5_user(self):
+        with open("bin/pironman5.service", "r", encoding="utf-8") as f:
+            service = f.read()
+
+        self.assertIn("User=pironman5", service)
+        self.assertIn("Group=pironman5", service)
+        self.assertNotIn("User=root", service)
+        self.assertNotIn("Group=root", service)
+
+    def test_installer_does_not_add_installing_user_to_service_group(self):
+        with open("tools/sf_installer.py", "r", encoding="utf-8") as f:
+            installer = f.read()
+
+        self.assertNotIn("self.add_user_to_group(current_user, self.user)", installer)
+
+
 if __name__ == "__main__":
     unittest.main()
