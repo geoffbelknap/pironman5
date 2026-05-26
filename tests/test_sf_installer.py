@@ -82,5 +82,27 @@ class ServiceHardeningTest(unittest.TestCase):
         self.assertNotIn("self.add_user_to_group(current_user, self.user)", installer)
 
 
+class InfluxDefaultPolicyTest(unittest.TestCase):
+    def test_default_install_does_not_reference_influxdb_script(self):
+        import install
+
+        args = install.parse_install_args([])
+        names = install.resolve_enabled_setting_names(args, peripherals=["oled"])
+        installer = install.build_installer_for_settings(names)
+
+        self.assertNotIn("install_influxdb.sh", installer.before_install_scripts)
+        self.assertNotIn("influxdb", installer.groups)
+
+    def test_legacy_influxdb_flag_adds_influxdb_script(self):
+        import install
+
+        args = install.parse_install_args(["--enable-dashboard", "--enable-influxdb-legacy"])
+        names = install.resolve_enabled_setting_names(args, peripherals=["oled"])
+        installer = install.build_installer_for_settings(names)
+
+        self.assertIn("install_influxdb.sh", installer.before_install_scripts)
+        self.assertIn("influxdb", installer.groups)
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -41,6 +41,18 @@ cd ~/pironman5
 sudo python3 install.py
 ```
 
+Dashboard and graph history are optional in this fork.
+
+```bash
+sudo python3 install.py --enable-dashboard
+```
+
+The default history backend is SQLite. The old InfluxDB path is legacy-only:
+
+```bash
+sudo python3 install.py --enable-dashboard --enable-influxdb-legacy
+```
+
 ## Auto launch dashboard on browser
 
 ```bash
