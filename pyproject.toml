@@ -10,9 +10,9 @@ authors = [
 description = "Library for monitoring Raspberry Pi system status"
 readme = "README.md"
 requires-python = ">=3.7"
+license = "GPL-2.0-only"
 classifiers = [
   "Programming Language :: Python :: 3",
-  "License :: OSI Approved :: GNU General Public License v2 (GPLv2)",
   "Operating System :: OS Independent",
 ]
 dynamic = ["version"]
@@ -26,8 +26,8 @@ pironman5 = "pironman5:_cli.main"
 packages = ["pironman5", "pironman5.variants", "pironman5.variants.modules"]
 
 [project.urls]
-"Homepage" = "https://github.com/sunfounder/pironman5"
-"Bug Tracker" = "https://github.com/sunfounder/pironman5/issues"
+"Homepage" = "https://github.com/geoffbelknap/pironman5"
+"Bug Tracker" = "https://github.com/geoffbelknap/pironman5/issues"
 
 [tool.setuptools.dynamic]
 version = {attr = "pironman5.version.__version__"}
