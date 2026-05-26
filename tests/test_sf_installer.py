@@ -20,5 +20,50 @@ class ShellCommandQuotingTest(unittest.TestCase):
         self.assertNotIn(" Adafruit-PureIO>=", command)
 
 
+class InstallSettingsPolicyTest(unittest.TestCase):
+    def test_dashboard_settings_are_disabled_by_default(self):
+        import install
+
+        args = install.parse_install_args([])
+        names = install.resolve_enabled_setting_names(args, peripherals=["oled", "ws2812"])
+
+        self.assertIn("base", names)
+        self.assertIn("oled", names)
+        self.assertIn("ws2812", names)
+        self.assertNotIn("dashboard", names)
+        self.assertNotIn("influxdb_legacy", names)
+
+    def test_dashboard_requires_explicit_flag(self):
+        import install
+
+        args = install.parse_install_args(["--enable-dashboard"])
+        names = install.resolve_enabled_setting_names(args, peripherals=["oled"])
+
+        self.assertIn("dashboard", names)
+        self.assertNotIn("influxdb_legacy", names)
+
+    def test_legacy_influxdb_requires_explicit_flag(self):
+        import install
+
+        args = install.parse_install_args(["--enable-dashboard", "--enable-influxdb-legacy"])
+        names = install.resolve_enabled_setting_names(args, peripherals=["oled"])
+
+        self.assertIn("dashboard", names)
+        self.assertIn("influxdb_legacy", names)
+
+    def test_ups_requires_explicit_flag_even_when_peripheral_exists(self):
+        import install
+
+        args = install.parse_install_args([])
+        names = install.resolve_enabled_setting_names(args, peripherals=["pipower5"])
+
+        self.assertNotIn("pipower5", names)
+
+        args = install.parse_install_args(["--enable-ups"])
+        names = install.resolve_enabled_setting_names(args, peripherals=["pipower5"])
+
+        self.assertIn("pipower5", names)
+
+
 if __name__ == "__main__":
     unittest.main()

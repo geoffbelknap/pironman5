@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
 
+import argparse
+
 from tools.sf_installer import SF_Installer
 from pironman5.version import __version__
 from pironman5.variants import NAME, DT_OVERLAYS, PERIPHERALS
@@ -150,6 +152,12 @@ rgb_matrix_settings = {
 }
 
 dashboard_settings = {
+    'python_source': {
+        'pm_dashboard': f'git+https://github.com/sunfounder/pm_dashboard.git@{DASHBOARD_VERSION}',
+    },
+}
+
+influxdb_legacy_settings = {
     'groups': ['influxdb'],
     # - Build required apt dependencies, default to []
     'build_dependencies': [
@@ -159,9 +167,6 @@ dashboard_settings = {
     'run_scripts_before_install': [
         "install_influxdb.sh",
     ],
-    'python_source': {
-        'pm_dashboard': f'git+https://github.com/sunfounder/pm_dashboard.git@{DASHBOARD_VERSION}',
-    },
 }
 
 pipower5_settings = {
@@ -192,35 +197,90 @@ rtl8125_settings = {
     ],
 }
 
-installer = SF_Installer(
-    name='pironman5',
-    friendly_name=NAME,
-    # - Setup install command description if needed, default to "Installer for {friendly_name}""
-    # description='Installer for Pironman 5',
-    # - Setup Work Dir if needed, default to /opt/{name}
-    # work_dir='/opt/pironman5',
-    # - Setup log dir if needed, default to /var/log/{name}
-    # log_dir='/var/log/pironman5',
-)
+def build_installer():
+    return SF_Installer(
+        name='pironman5',
+        friendly_name=NAME,
+        # - Setup install command description if needed, default to "Installer for {friendly_name}""
+        # description='Installer for Pironman 5',
+        # - Setup Work Dir if needed, default to /opt/{name}
+        # work_dir='/opt/pironman5',
+        # - Setup log dir if needed, default to /var/log/{name}
+        # log_dir='/var/log/pironman5',
+    )
 
-installer.parser.add_argument("--disable-dashboard", action='store_true', help="Disable dashboard")
-installer.update_settings(settings)
-args = installer.parser.parse_args()
-if not args.disable_dashboard:
-    installer.update_settings(dashboard_settings)
-if 'oled' in PERIPHERALS:
-    installer.update_settings(oled_settings)
-if 'gpio_fan_state' in PERIPHERALS or \
-    'vibration_switch' in PERIPHERALS:
-    installer.update_settings(gpio_settings)
-if 'ws2812' in PERIPHERALS:
-    installer.update_settings(ws2812_settings)
-if 'pi5_power_button' in PERIPHERALS:
-    installer.update_settings(pi5_power_button_settings)
-if 'rgb_matrix' in PERIPHERALS:
-    installer.update_settings(rgb_matrix_settings)
-if 'pipower5' in PERIPHERALS:
-    installer.update_settings(pipower5_settings)
-if 'rtl8125' in PERIPHERALS:
-    installer.update_settings(rtl8125_settings)
-installer.main()
+
+def parse_install_args(argv=None, parser=None):
+    if parser is None:
+        parser = build_installer().parser
+    parser.add_argument("--enable-dashboard", action="store_true", help="Enable dashboard components")
+    parser.add_argument("--enable-influxdb-legacy", action="store_true", help="Enable legacy InfluxDB dashboard history backend")
+    parser.add_argument("--enable-ups", action="store_true", help="Enable PiPower5 UPS components")
+    parser.add_argument("--enable-experimental-dependency", action="append", default=[], help="Enable a named experimental dependency")
+    parser.add_argument("--disable-dashboard", action="store_true", help=argparse.SUPPRESS)
+    return parser.parse_args(argv)
+
+
+def resolve_enabled_setting_names(args, peripherals=None):
+    if peripherals is None:
+        peripherals = PERIPHERALS
+
+    names = ["base"]
+
+    if "oled" in peripherals:
+        names.append("oled")
+    if "gpio_fan_state" in peripherals or "vibration_switch" in peripherals:
+        names.append("gpio")
+    if "ws2812" in peripherals:
+        names.append("ws2812")
+    if "pi5_power_button" in peripherals:
+        names.append("pi5_power_button")
+    if "rgb_matrix" in peripherals:
+        names.append("rgb_matrix")
+    if "rtl8125" in peripherals:
+        names.append("rtl8125")
+
+    if args.enable_dashboard:
+        names.append("dashboard")
+    if args.enable_dashboard and args.enable_influxdb_legacy:
+        names.append("influxdb_legacy")
+    if args.enable_ups and "pipower5" in peripherals:
+        names.append("pipower5")
+
+    return names
+
+
+def apply_settings_by_name(installer_obj, names):
+    mapping = {
+        "base": settings,
+        "oled": oled_settings,
+        "gpio": gpio_settings,
+        "ws2812": ws2812_settings,
+        "pi5_power_button": pi5_power_button_settings,
+        "rgb_matrix": rgb_matrix_settings,
+        "dashboard": dashboard_settings,
+        "influxdb_legacy": influxdb_legacy_settings,
+        "pipower5": pipower5_settings,
+        "rtl8125": rtl8125_settings,
+    }
+    for name in names:
+        installer_obj.update_settings(mapping[name])
+
+
+def build_installer_for_settings(names):
+    installer_obj = build_installer()
+    apply_settings_by_name(installer_obj, names)
+    return installer_obj
+
+
+def main(argv=None):
+    installer_obj = build_installer()
+    args = parse_install_args(argv, parser=installer_obj.parser)
+    names = resolve_enabled_setting_names(args)
+    apply_settings_by_name(installer_obj, names)
+    installer_obj.args = args
+    installer_obj.main()
+
+
+if __name__ == "__main__":
+    main()
