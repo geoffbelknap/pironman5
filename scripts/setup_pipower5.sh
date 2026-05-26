@@ -18,14 +18,25 @@ if [ $# -ge 1 ] && [ "$1" == "--uninstall" ]; then
 fi
 
 DEBIAN_FRONTEND=noninteractive apt-get update
-DEBIAN_FRONTEND=noninteractive apt-get install wget unzip -y
+DEBIAN_FRONTEND=noninteractive apt-get install curl unzip -y
 DEBIAN_FRONTEND=noninteractive apt-get install linux-headers-$(uname -r) -y
 
+download_and_verify() {
+    local url="$1"
+    local output="$2"
+    local sha256="$3"
+
+    curl -fsSLo "$output" "$url"
+    echo "$sha256  $output" | sha256sum -c -
+}
 
 echo "Installing PiPower 5 driver"
 
 rm -rf driver.zip driver/
-wget https://github.com/sunfounder/pipower5/releases/download/1.2.1/driver.zip
+download_and_verify \
+    "https://github.com/sunfounder/pipower5/releases/download/1.2.1/driver.zip" \
+    "driver.zip" \
+    "0e346fb9fdeca94c5d2ca8f2388c494690576ef99b0aa1882f886a408db66d82"
 unzip driver.zip
 cd driver
 bash install.sh
@@ -34,7 +45,10 @@ rm -rf driver.zip driver/
 
 echo "Setting up email templates"
 
-wget https://github.com/sunfounder/pipower5/releases/download/1.2.1/email_templates.zip
+download_and_verify \
+    "https://github.com/sunfounder/pipower5/releases/download/1.2.1/email_templates.zip" \
+    "email_templates.zip" \
+    "7cc1bf3612c7bf4fcdf18846da9eeefc1043e16dd98a1262a1ac0afbfea1b868"
 unzip email_templates.zip
 if [ ! -d /opt/pipower5 ]; then
     mkdir /opt/pipower5
@@ -47,7 +61,7 @@ rm -rf email_templates.zip email_templates/
 
 # create pipower5 user
 if ! id -u pipower5 > /dev/null 2>&1; then
-    useradd -m pipower5
+    useradd --system --no-create-home --shell /usr/sbin/nologin pipower5
 fi
 #create udev rules
 if [ ! -d /etc/udev/rules.d ]; then

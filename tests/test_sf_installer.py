@@ -165,6 +165,21 @@ class ServiceHardeningTest(unittest.TestCase):
 
         self.assertNotIn("chmod 775", installer)
 
+    def test_installer_does_not_download_remote_dtoverlays(self):
+        with open("tools/sf_installer.py", "r", encoding="utf-8") as f:
+            installer = f.read()
+
+        self.assertNotIn("wget {overlay}", installer)
+        self.assertIn("Remote dtoverlay downloads are disabled", installer)
+
+    def test_pipower5_install_verifies_release_archives(self):
+        with open("scripts/setup_pipower5.sh", "r", encoding="utf-8") as f:
+            script = f.read()
+
+        self.assertIn("sha256sum -c", script)
+        self.assertIn("0e346fb9fdeca94c5d2ca8f2388c494690576ef99b0aa1882f886a408db66d82", script)
+        self.assertIn("7cc1bf3612c7bf4fcdf18846da9eeefc1043e16dd98a1262a1ac0afbfea1b868", script)
+
 
 class InfluxDefaultPolicyTest(unittest.TestCase):
     def test_default_install_does_not_reference_influxdb_script(self):
@@ -186,6 +201,14 @@ class InfluxDefaultPolicyTest(unittest.TestCase):
 
         self.assertIn("install_influxdb.sh", installer.before_install_scripts)
         self.assertIn("influxdb", installer.groups)
+
+    def test_legacy_influxdb_script_fails_closed_on_key_download(self):
+        with open("scripts/install_influxdb.sh", "r", encoding="utf-8") as f:
+            script = f.read()
+
+        self.assertIn("curl --fail --silent --show-error --location", script)
+        self.assertIn("mkdir -p /etc/apt/keyrings", script)
+        self.assertIn("24C975CBA61A024EE1B631787C3D57159FC2F927", script)
 
 
 if __name__ == "__main__":

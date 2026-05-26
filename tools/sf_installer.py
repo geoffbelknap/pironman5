@@ -610,12 +610,9 @@ class SF_Installer():
             return
         
         for overlay in self.dtoverlays:
-            # If is online dtoverlay, download it first
             if overlay.startswith('http'):
-                overlay = overlay.replace(self.MAIN_GIT_URL, self.GIT_URL)
-                self.do(f'Download dtoverlay {overlay}', f'wget {overlay}')
-                overlay = overlay.split('/')[-1]
-                self.do(f'Move dtoverlay {overlay}', f'mv {overlay} {overlays_path}/')
+                self.errors.append("Remote dtoverlay downloads are disabled; ship dtoverlays in overlays/")
+                continue
             else:
                 if not os.path.exists(f'overlays/{overlay}'):
                     self.errors.append(f"Device tree overlay file {overlay} not found")

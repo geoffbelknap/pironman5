@@ -187,7 +187,7 @@ pipower5_settings = {
     ],
     # - Copy device tree overlay to /boot/overlays
     'dtoverlays': [
-        f'https://github.com/sunfounder/pipower5/raw/refs/heads/main/sunfounder-pipower5.dtbo'
+        'sunfounder-pipower5.dtbo',
     ],
 }
 
