@@ -25,23 +25,40 @@ Quick Links:
 
 ## Installation
 
-For systems that don't have git, python3 pre-installed you need to install them first
+This fork is moving toward a split install model:
+
+1. install the Python application without root
+2. review the privileged system changes
+3. run the system setup command with `sudo`
+
+The recommended application installer is `pipx`, because it installs Python
+CLI applications into isolated environments.
 
 ```bash
 sudo apt-get update
-sudo apt-get install git python3 -y
+sudo apt-get install pipx -y
+pipx ensurepath
+pipx install git+https://github.com/geoffbelknap/pironman5.git
+pironman5 system plan
 ```
 
-Execute the installation script
+`uv` is also supported for users who already have it installed:
 
 ```bash
-cd ~
-git clone https://github.com/sunfounder/pironman5.git
-cd ~/pironman5
+uv tool install git+https://github.com/geoffbelknap/pironman5.git
+pironman5 system plan
+```
+
+The legacy installer still works while the privileged setup command is being
+split out:
+
+```bash
+git clone https://github.com/geoffbelknap/pironman5.git
+cd pironman5
 sudo python3 install.py
 ```
 
-Dashboard and graph history are optional in this fork.
+Dashboard and graph history are optional.
 
 ```bash
 sudo python3 install.py --enable-dashboard

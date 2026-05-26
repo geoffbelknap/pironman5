@@ -7,7 +7,6 @@ from importlib.resources import files as resource_files
 
 from ._launch_browser import run as launch_browser
 from .variants import NAME, PERIPHERALS
-from .pironman5 import Pironman5
 from .version import __version__
 from .utils import is_included, constrain
 from .security import write_json_private
@@ -29,6 +28,11 @@ def update_config_file(config, config_path):
 
 def main():
     global AVAILABLE_PAGES, AVAILABLE_EMAIL_MODES
+
+    if len(sys.argv) > 1 and sys.argv[1] == "system":
+        from .system import main as system_main
+        system_main(sys.argv[2:])
+        return
 
     TRUE_LIST = ['true', 'True', 'TRUE', '1', 'on', 'On', 'ON']
     FALSE_LIST = ['false', 'False', 'FALSE', '0', 'off', 'Off', 'OFF']
@@ -615,6 +619,7 @@ def main():
 
     # start
     if args.subcommand == 'start':
+        from .pironman5 import Pironman5
         pironman5 = Pironman5(config_path=config_path)
         pironman5.start()
     elif args.subcommand == 'stop':

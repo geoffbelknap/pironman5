@@ -1,7 +1,13 @@
 import unittest
+import unittest.mock
 from types import SimpleNamespace
 
 from tools.sf_installer import SF_Installer
+
+
+class Args(SimpleNamespace):
+    def __contains__(self, name):
+        return hasattr(self, name)
 
 
 class ShellCommandQuotingTest(unittest.TestCase):
@@ -111,6 +117,33 @@ class InstallerCommandConstructionTest(unittest.TestCase):
         self.assertIn("printf %s 'mini\n' | tee /opt/pironman5/.variant > /dev/null", commands)
         self.assertIn("chown pironman5:pironman5 /opt/pironman5/.variant", commands)
         self.assertIn("chmod 640 /opt/pironman5/.variant", commands)
+
+    def test_modules_probe_writes_dedicated_idempotent_modules_file(self):
+        installer = SF_Installer("pironman5")
+        installer.args = Args(plain_text=True, skip_modules=False)
+        installer.modules = {"i2c-dev"}
+        commands = []
+        installer.do = lambda _msg, cmd, **_kwargs: commands.append(cmd)
+
+        installer.modules_probe()
+
+        self.assertEqual(commands, [
+            "printf '%s\\n' i2c-dev | install -m 0644 -o root -g root /dev/stdin /etc/modules-load.d/pironman5.conf"
+        ])
+
+    def test_copy_dtoverlay_installs_root_owned_non_executable_file(self):
+        installer = SF_Installer("pironman5")
+        installer.args = Args(plain_text=True, skip_dtoverlay=False)
+        installer.dtoverlays = {"sunfounder-pironman5.dtbo"}
+        commands = []
+        installer.do = lambda _msg, cmd, **_kwargs: commands.append(cmd)
+
+        installer.copy_dtoverlay()
+
+        self.assertIn(
+            "install -m 0644 -o root -g root overlays/sunfounder-pironman5.dtbo /boot/firmware/overlays/sunfounder-pironman5.dtbo",
+            commands,
+        )
 
 
 class InstallSettingsPolicyTest(unittest.TestCase):

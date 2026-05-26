@@ -620,10 +620,11 @@ class SF_Installer():
             len(self.modules) == 0:
             return
         self.print_title("Probe modules...")
-        for module in self.modules:
-            self.do(f'Add module: "{module}"',
-                self.shell_join(['sh', '-c', f'echo {shlex.quote(module)} >> /etc/modules-load.d/modules.conf'])
-            )
+        modules = " ".join(shlex.quote(module) for module in sorted(self.modules))
+        self.do(
+            'Write module load config: "/etc/modules-load.d/pironman5.conf"',
+            f"printf '%s\\n' {modules} | install -m 0644 -o root -g root /dev/stdin /etc/modules-load.d/pironman5.conf",
+        )
 
     def copy_dtoverlay(self):
         # Copy device tree overlay
@@ -632,8 +633,8 @@ class SF_Installer():
             return
         self.print_title("Copy device tree overlay...")
         POSSIBLE_OVERLAY_PATHS = [
-            '/boot/overlays',
             '/boot/firmware/overlays',
+            '/boot/overlays',
             '/boot/firmware/current/overlays',
         ]
         overlays_path = None
@@ -653,7 +654,17 @@ class SF_Installer():
                 if not os.path.exists(f'overlays/{overlay}'):
                     self.errors.append(f"Device tree overlay file {overlay} not found")
                     continue
-                self.do(f'Copy dtoverlay {overlay}', self.shell_join(['cp', f'overlays/{overlay}', f'{overlays_path}/']))
+                self.do(
+                    f'Install dtoverlay {overlay}',
+                    self.shell_join([
+                        'install',
+                        '-m', '0644',
+                        '-o', 'root',
+                        '-g', 'root',
+                        f'overlays/{overlay}',
+                        f'{overlays_path}/{overlay}',
+                    ]),
+                )
 
         self.need_reboot = True
 
