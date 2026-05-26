@@ -9,6 +9,7 @@ import importlib
 import subprocess
 import grp
 import shutil
+import shlex
 
 class ConfigTxt(object):
     DEFAULT_BOOT_FILE = "/boot/firmware/config.txt"
@@ -280,6 +281,10 @@ class SF_Installer():
         status = p.poll()
         return status, result, error
 
+    @staticmethod
+    def shell_join(args):
+        return " ".join(shlex.quote(str(arg)) for arg in args)
+
     def spinner(self):
         char = "⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏"
         i = 0
@@ -367,9 +372,9 @@ class SF_Installer():
 
     def install_python_source(self, name, url='./'):
         self.do(f'Uninstall old "{name}" package',
-                f'{self.venv_pip} uninstall -y {name}')
+                self.shell_join([self.venv_pip, 'uninstall', '-y', name]))
         self.do(f'Install {name} from source',
-                f'{self.venv_pip} install {url}')
+                self.shell_join([self.venv_pip, 'install', url]))
 
     def is_group_exist(self, group: str) -> bool:
         """
@@ -500,9 +505,11 @@ class SF_Installer():
         if ('no_dep' in self.args and self.args.no_dep) or \
             len(self.custom_uninstall_pip_dependencies) == 0:
             return
-        deps = " ".join(self.custom_uninstall_pip_dependencies)
-        self.print_title(f"Uninstall: {deps}")
-        self.do(f'Uninstall {deps}', f'{self.venv_pip} uninstall -y {deps}')
+        deps = [ *self.custom_uninstall_pip_dependencies ]
+        deps_display = " ".join(deps)
+        self.print_title(f"Uninstall: {deps_display}")
+        self.do(f'Uninstall {deps_display}',
+                self.shell_join([self.venv_pip, 'uninstall', '-y', *deps]))
 
     def install_pip_dep(self):
         if ('no_dep' in self.args and self.args.no_dep) or \
@@ -512,9 +519,10 @@ class SF_Installer():
         deps = [ *self.PIP_DEPENDENCIES ]
         if self.custom_pip_dependencies is not None:
             deps += self.custom_pip_dependencies
-        deps = " ".join(deps)
+        deps_display = " ".join(deps)
         # Install everything together make it faster
-        self.do(f'Install {deps}', f'{self.venv_pip} install --upgrade {deps}')
+        self.do(f'Install {deps_display}',
+                self.shell_join([self.venv_pip, 'install', '--upgrade', *deps]))
         # for dep in deps:
         #     self.do(f'Install {dep}', f'{self.venv_pip} install --upgrade {dep}')
 
@@ -761,4 +769,3 @@ class SF_Installer():
                     "Try to fix it yourself, or contact service@sunfounder.com with this message"
                 )
                 sys.exit(1)
-
