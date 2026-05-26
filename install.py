@@ -7,7 +7,7 @@ from pironman5.version import __version__
 from pironman5.variants import NAME, DT_OVERLAYS, PERIPHERALS, VARIENT
 
 PM_AUTO_REF = 'b00dd490ce498e963c352876801b5cb4e59c4bd2'  # geoffbelknap/pironman5-1.4.7-hardened
-DASHBOARD_REF = '1924033f92b861b7a967900148ccc9b38111c696'  # 1.4.0
+DASHBOARD_REF = '7a347dd84115949e916811cfe536172cb44cadf0'  # geoffbelknap/pironman5-1.4.0-hardened
 SF_RPI_STATUS_REF = 'cc9841628913a01315c009e72df5cec2bc4f45af'  # geoffbelknap/main
 PIPOWER5_REF = '46250a12e2e6b4b9e1f3d7e3787d02a2aaf1b373'  # 1.2.3
 SPC_REF = '3581063092fe669e7a5538f4a4dc67e9b766863c'
@@ -154,7 +154,7 @@ rgb_matrix_settings = {
 
 dashboard_settings = {
     'python_source': {
-        'pm_dashboard': f'git+https://github.com/sunfounder/pm_dashboard.git@{DASHBOARD_REF}',
+        'pm_dashboard': f'git+https://github.com/geoffbelknap/pm_dashboard.git@{DASHBOARD_REF}',
     },
 }
 

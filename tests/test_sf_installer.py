@@ -135,6 +135,13 @@ class InstallSettingsPolicyTest(unittest.TestCase):
         self.assertIn("github.com/geoffbelknap/pm_auto", installer.python_source["pm_auto"])
         self.assertIn("github.com/geoffbelknap/sf_rpi_status", installer.python_source["sf_rpi_status"])
 
+    def test_dashboard_dependency_uses_reviewed_fork(self):
+        import install
+
+        installer = install.build_installer_for_settings(["dashboard"])
+
+        self.assertIn("github.com/geoffbelknap/pm_dashboard", installer.python_source["pm_dashboard"])
+
 
 class ServiceHardeningTest(unittest.TestCase):
     def test_service_runs_as_pironman5_user(self):
