@@ -8,6 +8,7 @@ from pm_auto.pm_auto import PMAuto
 from pm_auto import __version__ as pm_auto_version
 from .logger import Logger
 from .utils import merge_dict, log_error
+from .security import redact_secrets, write_json_private
 from .version import __version__ as pironman5_version
 from .variants import NAME, ID, PRODUCT_VERSION, PERIPHERALS, SYSTEM_DEFAULT_CONFIG, EVENT_MAP
 from ._constants import CONFIG_PATH, APP_NAME, DEFAULT_DEBUG_LEVEL
@@ -43,8 +44,7 @@ class Pironman5:
                 config = json.load(f)
             config = self.upgrade_config(config)
             self.config = merge_dict(self.config, config)
-        with open(self.config_path, 'w') as f:
-            json.dump(self.config, f, indent=4)
+        write_json_private(self.config_path, self.config)
 
         # Set debug level
         # -----------------------------------------
@@ -85,7 +85,7 @@ class Pironman5:
         self.log.info(f"Pironman5 version: {pironman5_version}")
         self.log.info(f"Variant: {NAME} {PRODUCT_VERSION}")
 
-        _config_json = json.dumps(self.config, indent=4)
+        _config_json = json.dumps(redact_secrets(self.config), indent=4)
         self.log.info(f"Config:")
         for line in _config_json.splitlines():
             self.log.info(line)
@@ -149,9 +149,8 @@ class Pironman5:
         if len(patch) > 0:
             self.log.debug(f"Update config: {patch}")
             self.config['system'].update(patch)
-            self.log.debug(f"New config: {json.dumps(self.config, indent=4)}")
-            with open(self.config_path, 'w') as f:
-                json.dump(self.config, f, indent=4)
+            self.log.debug(f"New config: {json.dumps(redact_secrets(self.config), indent=4)}")
+            write_json_private(self.config_path, self.config)
 
         return self.config
 

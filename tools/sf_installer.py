@@ -491,7 +491,7 @@ class SF_Installer():
         self.do(f'Change log directory mode to 775', f'chmod 775 {self.log_dir}')
         self.do(f'Change log directory owner to "{self.user}"', f'chown -R {self.user}:{self.user} {self.log_dir}')
         self.do(f'Create log file: "{self.log_file}"', f'touch {self.log_file}')
-        self.do(f'Change log file mode to 664', f'chmod 664 {self.log_file}')
+        self.do(f'Change log file mode to 640', f'chmod 640 {self.log_file}')
         self.do(f'Change log file owner to "{self.user}"', f'chown {self.user}:{self.user} {self.log_file}')
         if os.path.exists(self.venv_path):
             self.do('Remove old virtual environment', f'rm -r {self.venv_path}')

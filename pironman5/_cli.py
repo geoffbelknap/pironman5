@@ -10,6 +10,7 @@ from .variants import NAME, PERIPHERALS
 from .pironman5 import Pironman5
 from .version import __version__
 from .utils import is_included, constrain
+from .security import write_json_private
 
 AVAILABLE_PAGES = []
 AVAILABLE_EMAIL_MODES = []
@@ -24,8 +25,7 @@ def update_config_file(config, config_path):
             current[key].update(config[key])
         else:
             current[key] = config[key]
-    with open(config_path, 'w') as f:
-        json.dump(current, f, indent=4)
+    write_json_private(config_path, current)
 
 def main():
     global AVAILABLE_PAGES, AVAILABLE_EMAIL_MODES
@@ -139,12 +139,7 @@ def main():
     # load config file
     # ----------------------------------------
     if not os.path.exists(config_path):
-        with open(config_path, 'w') as f:
-            json.dump({'system': {}}, f, indent=4)
-        try:
-            os.chmod(config_path, 0o775)
-        except Exception as e:
-            print(f"Failed to set permissions for config file: {e}")
+        write_json_private(config_path, {'system': {}})
     else:
         with open(config_path, 'r') as f:
             try:
