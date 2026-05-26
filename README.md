@@ -40,6 +40,8 @@ sudo apt-get install pipx -y
 pipx ensurepath
 pipx install git+https://github.com/geoffbelknap/pironman5.git
 pironman5 system plan
+sudo pironman5 system setup
+pironman5 system doctor
 ```
 
 `uv` is also supported for users who already have it installed:
@@ -47,6 +49,8 @@ pironman5 system plan
 ```bash
 uv tool install git+https://github.com/geoffbelknap/pironman5.git
 pironman5 system plan
+sudo pironman5 system setup
+pironman5 system doctor
 ```
 
 The legacy installer still works while the privileged setup command is being

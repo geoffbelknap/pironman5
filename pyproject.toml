@@ -23,7 +23,18 @@ dependencies = []
 pironman5 = "pironman5:_cli.main"
 
 [tool.setuptools]
-packages = ["pironman5", "pironman5.variants", "pironman5.variants.modules"]
+packages = [
+  "pironman5",
+  "pironman5.assets",
+  "pironman5.assets.bin",
+  "pironman5.assets.overlays",
+  "pironman5.variants",
+  "pironman5.variants.modules",
+]
+include-package-data = true
+
+[tool.setuptools.package-data]
+pironman5 = ["assets/bin/*", "assets/overlays/*"]
 
 [project.urls]
 "Homepage" = "https://github.com/geoffbelknap/pironman5"
