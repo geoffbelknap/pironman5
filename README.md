@@ -99,7 +99,8 @@ https://www.reddit.com/r/Ubuntu/comments/1d0s8v5/ubuntu_2404_server_on_my_raspbe
 
 ### Debug
 
-Clone the dependency you want to debug or edit
+Clone the dependency you want to debug or edit. Treat SunFounder dependencies
+as unreviewed until pinned to an audited fork or exact commit.
 
 ```bash
 git clone https://github.com/sunfounder/pironman5.git
@@ -108,21 +109,16 @@ git clone https://github.com/sunfounder/pm_auto.git
 git clone https://github.com/sunfounder/sf_rpi_status.git
 ```
 
-Make adjustments, and manually install the package
+Make adjustments, then manually install from local folders. Avoid floating Git
+installs in hardened deployments.
 
 ```bash
 # install from folder
-sudo /opt/pironman5/venv/bin/pip3 uninstall pironman5 -y && sudo /opt/pironman5/venv/bin/pip3 install ~/pironman5 --no-build-isolation && sudo chown -R pironman5:pironman5 /opt/pironman5
-sudo /opt/pironman5/venv/bin/pip3 uninstall pm_dashboard -y && sudo /opt/pironman5/venv/bin/pip3 install ~/pm_dashboard --no-build-isolation && sudo chown -R pironman5:pironman5 /opt/pironman5
-sudo /opt/pironman5/venv/bin/pip3 uninstall pm_auto -y && sudo /opt/pironman5/venv/bin/pip3 install ~/pm_auto --no-build-isolation && sudo chown -R pironman5:pironman5 /opt/pironman5
-sudo /opt/pironman5/venv/bin/pip3 uninstall sf_rpi_status -y && sudo /opt/pironman5/venv/bin/pip3 install ~/sf_rpi_status --no-build-isolation && sudo chown -R pironman5:pironman5 /opt/pironman5
-sudo /opt/pironman5/venv/bin/pip3 uninstall pipower5 -y && sudo /opt/pironman5/venv/bin/pip3 install ~/pipower5 --no-build-isolation && sudo chown -R pironman5:pironman5 /opt/pironman5
+sudo /opt/pironman5/venv/bin/pip3 uninstall pironman5 -y
+sudo /opt/pironman5/venv/bin/pip3 install ~/pironman5 --no-build-isolation
 
-# install from github repo
-sudo /opt/pironman5/venv/bin/pip3 uninstall sf_rpi_status -y && sudo /opt/pironman5/venv/bin/pip3 install git+https://github.com/sunfounder/sf_rpi_status.git --no-build-isolation && sudo chown -R pironman5:pironman5 /opt/pironman5
-sudo /opt/pironman5/venv/bin/pip3 uninstall pipower5 -y && sudo /opt/pironman5/venv/bin/pip3 install git+https://github.com/sunfounder/pipower5.git --no-build-isolation && sudo chown -R pironman5:pironman5 /opt/pironman5
-sudo /opt/pironman5/venv/bin/pip3 uninstall pm_auto -y && sudo /opt/pironman5/venv/bin/pip3 install git+https://github.com/sunfounder/pm_auto.git@1.4.x --no-build-isolation && sudo chown -R pironman5:pironman5 /opt/pironman5
-sudo /opt/pironman5/venv/bin/pip3 uninstall pm_dashboard -y && sudo /opt/pironman5/venv/bin/pip3 install git+https://github.com/sunfounder/pm_dashboard.git@1.3.x --no-build-isolation && sudo chown -R pironman5:pironman5 /opt/pironman5
+sudo /opt/pironman5/venv/bin/pip3 uninstall pm_auto -y
+sudo /opt/pironman5/venv/bin/pip3 install ~/pm_auto --no-build-isolation
 ```
 
 

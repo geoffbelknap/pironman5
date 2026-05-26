@@ -485,10 +485,10 @@ class SF_Installer():
     def create_working_dir(self):
         self.print_title("Create working directory...")
         self.do('Create work directory', f'mkdir -p {self.work_dir}')
-        self.do(f'Change work directory mode to 775', f'chmod 775 {self.work_dir}')
+        self.do(f'Change work directory mode to 750', f'chmod 750 {self.work_dir}')
         self.do(f'Change work directory owner to "{self.user}"', f'chown -R {self.user}:{self.user} {self.work_dir}')
         self.do('Create log directory', f'mkdir -p {self.log_dir}')
-        self.do(f'Change log directory mode to 775', f'chmod 775 {self.log_dir}')
+        self.do(f'Change log directory mode to 750', f'chmod 750 {self.log_dir}')
         self.do(f'Change log directory owner to "{self.user}"', f'chown -R {self.user}:{self.user} {self.log_dir}')
         self.do(f'Create log file: "{self.log_file}"', f'touch {self.log_file}')
         self.do(f'Change log file mode to 640', f'chmod 640 {self.log_file}')
@@ -740,7 +740,8 @@ class SF_Installer():
 
     def main(self):
         self.check_admin()
-        self.args = self.parser.parse_args()
+        if self.args is None:
+            self.args = self.parser.parse_args()
         try:
             if self.args.uninstall:
                 self.uninstall()

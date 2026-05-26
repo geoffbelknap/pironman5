@@ -1,4 +1,5 @@
 import unittest
+from types import SimpleNamespace
 
 from tools.sf_installer import SF_Installer
 
@@ -18,6 +19,19 @@ class ShellCommandQuotingTest(unittest.TestCase):
         self.assertIn("'Adafruit-PureIO>=1.1.7'", command)
         self.assertNotIn(" pyftdi>=", command)
         self.assertNotIn(" Adafruit-PureIO>=", command)
+
+
+class InstallerMainArgumentTest(unittest.TestCase):
+    def test_main_uses_preparsed_args_when_available(self):
+        installer = SF_Installer("pironman5")
+        installer.args = SimpleNamespace(uninstall=True, skip_reboot=True)
+        installer.check_admin = lambda: None
+        installer.uninstall = lambda: None
+        installer.cleanup = lambda: None
+        installer.print_title = lambda *_args, **_kwargs: None
+        installer.parser.parse_args = lambda: self.fail("parse_args should not be called")
+
+        installer.main()
 
 
 class InstallSettingsPolicyTest(unittest.TestCase):
@@ -64,6 +78,19 @@ class InstallSettingsPolicyTest(unittest.TestCase):
 
         self.assertIn("pipower5", names)
 
+    def test_rtl8125_requires_explicit_experimental_flag(self):
+        import install
+
+        args = install.parse_install_args([])
+        names = install.resolve_enabled_setting_names(args, peripherals=["rtl8125"])
+
+        self.assertNotIn("rtl8125", names)
+
+        args = install.parse_install_args(["--enable-experimental-dependency", "rtl8125"])
+        names = install.resolve_enabled_setting_names(args, peripherals=["rtl8125"])
+
+        self.assertIn("rtl8125", names)
+
 
 class ServiceHardeningTest(unittest.TestCase):
     def test_service_runs_as_pironman5_user(self):
@@ -80,6 +107,12 @@ class ServiceHardeningTest(unittest.TestCase):
             installer = f.read()
 
         self.assertNotIn("self.add_user_to_group(current_user, self.user)", installer)
+
+    def test_installer_does_not_create_group_writable_runtime_dirs(self):
+        with open("tools/sf_installer.py", "r", encoding="utf-8") as f:
+            installer = f.read()
+
+        self.assertNotIn("chmod 775", installer)
 
 
 class InfluxDefaultPolicyTest(unittest.TestCase):
