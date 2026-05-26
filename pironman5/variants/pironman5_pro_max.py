@@ -65,4 +65,7 @@ class Pironman5ProMax:
     DT_OVERLAYS = [
         'sunfounder-pironman5promax.dtbo',
     ]
-
+    CONFIG_TXT = {
+        'dtparam=spi': 'on',
+        'dtparam=i2c_arm': 'on',
+    }

@@ -91,6 +91,23 @@ class InstallSettingsPolicyTest(unittest.TestCase):
 
         self.assertIn("rtl8125", names)
 
+    def test_pro_max_variant_config_txt_is_applied(self):
+        import install
+        from pironman5.variants.pironman5_pro_max import Pironman5ProMax
+
+        installer = install.build_installer_for_settings(["base"])
+        install.apply_variant_config_txt(installer, Pironman5ProMax)
+
+        self.assertEqual(installer.config_txt["dtparam=spi"], "on")
+        self.assertEqual(installer.config_txt["dtparam=i2c_arm"], "on")
+
+    def test_oled_timeout_zero_is_documented_as_disable(self):
+        with open("pironman5/_cli.py", "r", encoding="utf-8") as f:
+            cli = f.read()
+
+        self.assertIn("set to 0 to disable timeout", cli)
+        self.assertIn("Set OLED sleep timeout: disabled", cli)
+
 
 class ServiceHardeningTest(unittest.TestCase):
     def test_service_runs_as_pironman5_user(self):

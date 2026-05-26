@@ -4,7 +4,7 @@ import argparse
 
 from tools.sf_installer import SF_Installer
 from pironman5.version import __version__
-from pironman5.variants import NAME, DT_OVERLAYS, PERIPHERALS
+from pironman5.variants import NAME, DT_OVERLAYS, PERIPHERALS, VARIENT
 
 PM_AUTO_VERSION = '1.4.7'
 DASHBOARD_VERSION = '1.4.0'
@@ -267,9 +267,16 @@ def apply_settings_by_name(installer_obj, names):
         installer_obj.update_settings(mapping[name])
 
 
+def apply_variant_config_txt(installer_obj, variant=VARIENT):
+    config_txt = getattr(variant, "CONFIG_TXT", None)
+    if config_txt:
+        installer_obj.update_settings({"config_txt": config_txt})
+
+
 def build_installer_for_settings(names):
     installer_obj = build_installer()
     apply_settings_by_name(installer_obj, names)
+    apply_variant_config_txt(installer_obj)
     return installer_obj
 
 
@@ -278,6 +285,7 @@ def main(argv=None):
     args = parse_install_args(argv, parser=installer_obj.parser)
     names = resolve_enabled_setting_names(args)
     apply_settings_by_name(installer_obj, names)
+    apply_variant_config_txt(installer_obj)
     installer_obj.args = args
     installer_obj.main()
 

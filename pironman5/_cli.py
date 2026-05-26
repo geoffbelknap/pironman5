@@ -84,7 +84,7 @@ def main():
         parser.add_argument("-or", "--oled-rotation", nargs='?', default=-1, type=int, choices=[0, 180], help="Set to rotate OLED display, 0, 180")
         parser.add_argument("-op", "--oled-pages", nargs='?', default='', help=f"OLED pages, split by ',': {','.join(AVAILABLE_PAGES)}")
         if is_included(PERIPHERALS, "oled_sleep"):
-            parser.add_argument("-os", "--oled-sleep-timeout", nargs='?', default='', help="OLED sleep timeout in seconds")
+            parser.add_argument("-os", "--oled-sleep-timeout", nargs='?', default='', help="OLED sleep timeout in seconds (set to 0 to disable timeout)")
     # vibration_switch
     if is_included(PERIPHERALS, "vibration_switch"):
         parser.add_argument("-vp", "--vibration-switch-pin", nargs='?', default='', help="Vibration switch pin")
@@ -433,11 +433,14 @@ def main():
                     print(f"Invalid value for OLED sleep timeout, it should be greater than or equal to 0")
                     quit()
                 oled_sleep_timeout = args.oled_sleep_timeout
-                if args.oled_sleep_timeout < min or args.oled_sleep_timeout > max:
+                if args.oled_sleep_timeout != 0 and (args.oled_sleep_timeout < min or args.oled_sleep_timeout > max):
                     print(f"[WARNING] OLED sleep timeout value should be between {min} and {max}")
                     oled_sleep_timeout = constrain(oled_sleep_timeout, min, max)
                 new_sys_config['oled_sleep_timeout'] = oled_sleep_timeout
-                print(f"Set OLED sleep timeout: {oled_sleep_timeout}")
+                if oled_sleep_timeout == 0:
+                    print("Set OLED sleep timeout: disabled")
+                else:
+                    print(f"Set OLED sleep timeout: {oled_sleep_timeout}")
         # oled_pages
         if args.oled_pages != '':
             if args.oled_pages == None:

@@ -36,3 +36,10 @@ class SecretRedactionTest(unittest.TestCase):
 
             with open(path, "r", encoding="utf-8") as f:
                 self.assertEqual(json.load(f)["system"]["debug_level"], "INFO")
+
+
+class LoggingDefaultTest(unittest.TestCase):
+    def test_default_debug_level_is_warning(self):
+        from pironman5._constants import DEFAULT_DEBUG_LEVEL
+
+        self.assertEqual(DEFAULT_DEBUG_LEVEL, "WARNING")
