@@ -1,19 +1,12 @@
-from .pironman5 import Pironman5
-from .pironman5_max import Pironman5Max
-from .pironman5_mini import Pironman5Mini
-from .pironman5_nas import Pironman5NAS
-from .pironman5_ups import Pironman5UPS
-from .pironman5_pro_max import Pironman5ProMax
+from os import path, listdir, getenv
 
+from .modules import assemble
+from .products import PRODUCT_DEFINITIONS
+
+
+# --- HAT EEPROM detection (unchanged) ---
 
 def get_device_tree_path():
-    """
-    获取设备树路径。
-    
-    Returns:
-        str: 设备树路径，如果不存在则返回None。
-    """
-    from os import path
     device_tree_path = '/proc/device-tree'
     if not path.exists(device_tree_path):
         device_tree_path = '/device-tree'
@@ -21,8 +14,8 @@ def get_device_tree_path():
             return None
     return device_tree_path
 
+
 def read_device_tree_file(file_path):
-    from os import path
     if not path.exists(file_path):
         return None
     with open(file_path, "r") as f:
@@ -30,16 +23,8 @@ def read_device_tree_file(file_path):
         result = int(result, 16)
         return result
 
+
 def get_part_number():
-    """
-    获取HAT设备的版本号。
-    
-    如果未发现HAT设备或发生错误，则返回错误码。
-    
-    Returns:
-        str: HAT设备的PN号。
-    """
-    from os import listdir
     device_tree_path = get_device_tree_path()
     part_number = ""
     if device_tree_path is None:
@@ -60,52 +45,96 @@ def get_part_number():
         if product_id is None or product_ver is None:
             return
         part_number = f"{product_id:04d}V{product_ver:02d}"
-    except Exception as e:
-        # print(f"Error: {e}")
+    except Exception:
         pass
-    
     return part_number
 
+
 def get_varient_id_and_version():
-    import os
-    # Set Variant
-    # Check environment variable PIRONMAN5_PART_NUMBER
-    part_number = os.getenv('PIRONMAN5_PART_NUMBER', None)
-    if part_number == None:
-        # Get variant from hat info
+    part_number = getenv('PIRONMAN5_PART_NUMBER', None)
+    if part_number is None:
         part_number = get_part_number()
-    if part_number == None:
+    if part_number is None:
         part_number = "0306V10"
-    # Set variant
     varient_id = part_number.split('V')[0]
     version_id = part_number.split('V')[1]
     return varient_id, version_id
 
+
 def get_variant(variant_id, version=None):
     if variant_id == "0306":
         if version == "10":
-            return Pironman5
+            return "base"
         else:
-            return Pironman5Max
+            return "max"
     elif variant_id == "0308":
-        return Pironman5Mini
+        return "mini"
     elif variant_id == "0312":
-        return Pironman5NAS
+        return "nas"
     elif variant_id == "2602":
-        return Pironman5UPS
+        return "ups"
     elif variant_id == "0316":
-        return Pironman5ProMax
+        return "pro_max"
     else:
         return None
-    
-varient_id, version = get_varient_id_and_version()
-VARIENT = get_variant(varient_id, version)
-NAME = VARIENT.NAME
-ID = VARIENT.ID
-PRODUCT_VERSION = VARIENT.PRODUCT_VERSION
-PERIPHERALS = VARIENT.PERIPHERALS
-SYSTEM_DEFAULT_CONFIG = VARIENT.SYSTEM_DEFAULT_CONFIG
-DT_OVERLAYS = VARIENT.DT_OVERLAYS
-EVENT_MAP = {}
-if hasattr(VARIENT, 'EVENT_MAP'):
-    EVENT_MAP = VARIENT.EVENT_MAP
+
+
+def _detect_variant_key():
+    env_variant = getenv("PIRONMAN5_VARIANT")
+    if env_variant:
+        return env_variant
+
+    variant_path = "/opt/pironman5/.variant"
+    if path.exists(variant_path):
+        with open(variant_path, "r") as f:
+            variant = f.read().strip()
+            if variant:
+                return variant
+
+    varient_id, version = get_varient_id_and_version()
+    return get_variant(varient_id, version) or "base"
+
+
+def _custom_modules():
+    custom_path = "/opt/pironman5/.custom_module"
+    if not path.exists(custom_path):
+        return []
+    with open(custom_path) as f:
+        modules = [
+            line.strip() for line in f
+            if line.strip() and not line.strip().startswith("#")
+        ]
+    return modules
+
+
+# --- Assembly ---
+
+_variant_key = _detect_variant_key()
+_product = PRODUCT_DEFINITIONS.get(_variant_key, PRODUCT_DEFINITIONS["base"])
+
+_module_names = list(_product["modules"])
+_custom = _custom_modules()
+for m in _custom:
+    if m not in _module_names:
+        _module_names.append(m)
+_assembled = assemble(_module_names)
+
+_config = dict(_assembled["default_config"])
+_config.update(_product.get("config_overrides", {}))
+
+if "event_map_replace" in _product:
+    _event_map = dict(_product["event_map_replace"])
+else:
+    _event_map = dict(_assembled["event_map"])
+    _event_map.update(_product.get("event_map_overrides", {}))
+
+# --- Exports (same names as before) ---
+
+NAME = _product["name"]
+ID = _product["id"]
+PRODUCT_VERSION = _product["product_version"]
+PERIPHERALS = list(_assembled["peripherals"])
+SYSTEM_DEFAULT_CONFIG = _config
+EVENT_MAP = _event_map
+DT_OVERLAYS = _product["dt_overlays"]
+VARIENT = _variant_key

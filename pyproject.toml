@@ -23,7 +23,7 @@ dependencies = []
 pironman5 = "pironman5:_cli.main"
 
 [tool.setuptools]
-packages = ["pironman5", "pironman5.variants"]
+packages = ["pironman5", "pironman5.variants", "pironman5.variants.modules"]
 
 [project.urls]
 "Homepage" = "https://github.com/sunfounder/pironman5"
