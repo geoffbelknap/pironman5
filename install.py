@@ -6,10 +6,11 @@ from tools.sf_installer import SF_Installer
 from pironman5.version import __version__
 from pironman5.variants import NAME, DT_OVERLAYS, PERIPHERALS, VARIENT
 
-PM_AUTO_VERSION = '1.4.7'
-DASHBOARD_VERSION = '1.4.0'
-SF_RPI_STATUS_VERSION = '1.1.8'
-PIPOWER5_VERSION = 'main'
+PM_AUTO_REF = '963d2e8a6f8174e042b8fcd590e0cad46d4f4ef5'  # 1.4.7
+DASHBOARD_REF = '1924033f92b861b7a967900148ccc9b38111c696'  # 1.4.0
+SF_RPI_STATUS_REF = '06990abf5e72589257c74fe450012e02c253f59f'  # 1.1.8
+PIPOWER5_REF = '46250a12e2e6b4b9e1f3d7e3787d02a2aaf1b373'  # 1.2.3
+SPC_REF = '3581063092fe669e7a5538f4a4dc67e9b766863c'
 
 settings = {
     # - Setup venv options if needed, default to []
@@ -42,8 +43,8 @@ settings = {
     # - Install python source code from git
     'python_source': {
         'pironman5': './',
-        'pm_auto': f'git+https://github.com/sunfounder/pm_auto.git@{PM_AUTO_VERSION}',
-        'sf_rpi_status': f'git+https://github.com/sunfounder/sf_rpi_status.git@{SF_RPI_STATUS_VERSION}',
+        'pm_auto': f'git+https://github.com/sunfounder/pm_auto.git@{PM_AUTO_REF}',
+        'sf_rpi_status': f'git+https://github.com/sunfounder/sf_rpi_status.git@{SF_RPI_STATUS_REF}',
     },
 
     # create symbolic links from venv/bin/ to /usr/local/bin/
@@ -153,7 +154,7 @@ rgb_matrix_settings = {
 
 dashboard_settings = {
     'python_source': {
-        'pm_dashboard': f'git+https://github.com/sunfounder/pm_dashboard.git@{DASHBOARD_VERSION}',
+        'pm_dashboard': f'git+https://github.com/sunfounder/pm_dashboard.git@{DASHBOARD_REF}',
     },
 }
 
@@ -173,8 +174,8 @@ pipower5_settings = {
     # Install python packages from source
     'groups': ['i2c', 'pipower5'],
     'python_source': {
-        'pipower5': f'git+https://github.com/sunfounder/pipower5.git@{PIPOWER5_VERSION}',
-        'spc': f'git+https://github.com/sunfounder/spc.git',
+        'pipower5': f'git+https://github.com/sunfounder/pipower5.git@{PIPOWER5_REF}',
+        'spc': f'git+https://github.com/sunfounder/spc.git@{SPC_REF}',
     },
     # Add symbolic links
     'symlinks': [

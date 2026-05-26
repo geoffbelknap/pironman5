@@ -108,6 +108,25 @@ class InstallSettingsPolicyTest(unittest.TestCase):
         self.assertIn("set to 0 to disable timeout", cli)
         self.assertIn("Set OLED sleep timeout: disabled", cli)
 
+    def test_sunfounder_git_dependencies_are_pinned_to_commits(self):
+        import install
+
+        installer = install.build_installer_for_settings([
+            "base",
+            "dashboard",
+            "pipower5",
+        ])
+
+        sunfounder_urls = [
+            url for url in installer.python_source.values()
+            if isinstance(url, str) and "github.com/sunfounder" in url
+        ]
+
+        self.assertGreater(len(sunfounder_urls), 0)
+        for url in sunfounder_urls:
+            ref = url.rsplit("@", 1)[-1]
+            self.assertRegex(ref, r"^[0-9a-f]{40}$")
+
 
 class ServiceHardeningTest(unittest.TestCase):
     def test_service_runs_as_pironman5_user(self):
