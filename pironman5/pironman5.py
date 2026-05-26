@@ -9,6 +9,7 @@ from pm_auto import __version__ as pm_auto_version
 from .logger import Logger
 from .utils import merge_dict, log_error
 from .security import redact_secrets, write_json_private
+from .history import SQLiteHistory
 from .version import __version__ as pironman5_version
 from .variants import NAME, ID, PRODUCT_VERSION, PERIPHERALS, SYSTEM_DEFAULT_CONFIG, EVENT_MAP
 from ._constants import CONFIG_PATH, APP_NAME, DEFAULT_DEBUG_LEVEL
@@ -71,6 +72,16 @@ class Pironman5:
                 if 'clear_history' in _p:
                     _p.remove('clear_history')
             self.peripherals = list(_p)
+
+        self.history = None
+        if self.config['system'].get('enable_history', False):
+            history_path = self.config['system'].get(
+                'history_db_path',
+                '/opt/pironman5/history.sqlite3',
+            )
+            self.history = SQLiteHistory(history_path)
+            self.history.initialize()
+            self.history.apply_retention(self.config['system'].get('database_retention_days', 30))
 
         # init PMAuto and PMDashboard
         # -----------------------------------------
