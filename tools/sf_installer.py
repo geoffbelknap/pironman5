@@ -368,7 +368,7 @@ class SF_Installer():
         if not os.path.exists(self.work_dir):
             print(f"{self.SKIPPED} Work directory {self.work_dir} already removed, skip")
             return
-        self.do('Remove work directory', f'rm -r {self.work_dir}')
+        self.do('Remove work directory', self.shell_join(['rm', '-r', self.work_dir]))
 
     def install_python_source(self, name, url='./'):
         self.do(f'Uninstall old "{name}" package',
@@ -394,34 +394,39 @@ class SF_Installer():
             return False
 
     def add_user_to_group(self, user, group):
-        _, users, _ = self.run_command(f'getent group {group}')
+        _, users, _ = self.run_command(self.shell_join(['getent', 'group', group]))
         users = users.strip().split(':')
         if user in users:
             print(f'{self.SKIPPED} User "{user}" is already in group "{group}", skip')
         else:
-            self.do(f'Add user "{user}" to group "{group}"', f'usermod -aG {group} {user}')
+            self.do(f'Add user "{user}" to group "{group}"', self.shell_join(['usermod', '-aG', group, user]))
 
     # Install Steps:
 
     def setup_user(self):
         # Create group if not exist
         self.print_title(f"Setup user {self.user}...")
-        if self.run_command(f'getent group {self.user}')[0] == 0:
+        if self.run_command(self.shell_join(['getent', 'group', self.user]))[0] == 0:
             print(f'{self.SKIPPED} Group "{self.user}" already exists, skip')
         else:
-            self.do(f'Create group "{self.user}"', f'groupadd -r {self.user}')
+            self.do(f'Create group "{self.user}"', self.shell_join(['groupadd', '-r', self.user]))
 
         # Create user if not exist
-        if self.run_command(f'getent passwd {self.user}')[0] == 0:
+        if self.run_command(self.shell_join(['getent', 'passwd', self.user]))[0] == 0:
             print(f'{self.SKIPPED} User "{self.user}" already exists, skip')
         else:
-            self.do(f'Create user "{self.user}"', f'useradd -r -g {self.user} -s /sbin/nologin -d /opt/{self.user} -m {self.user}')
+            self.do(f'Create user "{self.user}"', self.shell_join(['useradd', '-r', '-g', self.user, '-s', '/sbin/nologin', '-d', f'/opt/{self.user}', '-m', self.user]))
 
         # Add sudo permission to user
         if shutil.which('sudo'):
-            self.do(f'Add permission to user "{self.user}"', f'echo "{self.user} ALL=(ALL) NOPASSWD: {", ".join(self.SUDOER_PERMISSION)}" | tee /etc/sudoers.d/{self.user} > /dev/null')
-            self.do(f'Change sudoers file mode to 0440', f'chmod 0440 /etc/sudoers.d/{self.user}')
-            self.do(f'Check sudoers file', f'visudo -c -f /etc/sudoers.d/{self.user}')
+            sudoers_file = f'/etc/sudoers.d/{self.user}'
+            sudoers_line = f'{self.user} ALL=(ALL) NOPASSWD: {", ".join(self.SUDOER_PERMISSION)}'
+            printf_cmd = self.shell_join(['printf', '%s\n', sudoers_line])
+            tee_cmd = self.shell_join(['tee', sudoers_file])
+            sudoers_cmd = f"{printf_cmd} | {tee_cmd} > /dev/null"
+            self.do(f'Add permission to user "{self.user}"', sudoers_cmd)
+            self.do(f'Change sudoers file mode to 0440', self.shell_join(['chmod', '0440', sudoers_file]))
+            self.do(f'Check sudoers file', self.shell_join(['visudo', '-c', '-f', sudoers_file]))
         else:
             print(f"{self.WARNING} Sudo is not exist, skip sudo permission setup")
 
@@ -442,32 +447,32 @@ class SF_Installer():
 
     def install_build_dep(self):
         self.print_title("Install build dependencies...")
-        self.do('Update package list', 'DEBIAN_FRONTEND=noninteractive apt-get update')
+        self.do('Update package list', self.shell_join(['env', 'DEBIAN_FRONTEND=noninteractive', 'apt-get', 'update']))
         deps = [ *self.APT_DEPENDENCIES ]
 
         if self.build_dependencies is not None:
             deps += self.build_dependencies
 
-        deps = " ".join(deps)
-        msg = f'Install build dependencies: {deps}'
+        deps_display = " ".join(deps)
+        msg = f'Install build dependencies: {deps_display}'
         width = int(os.environ.get('COLUMNS', 80))
         if len(msg) > width - 3:
             msg = msg[:width-3] + '...'
-        self.do(msg, f'DEBIAN_FRONTEND=noninteractive apt-get install -y {deps}')
+        self.do(msg, self.shell_join(['env', 'DEBIAN_FRONTEND=noninteractive', 'apt-get', 'install', '-y', *deps]))
 
     def run_scripts_before_install(self):
         if len(self.before_install_scripts) == 0:
             return
         self.print_title("Run scripts before install...")
         for script in self.before_install_scripts:
-            self.do(f'Run scripts before install: {script}', f'bash scripts/{script}')
+            self.do(f'Run scripts before install: {script}', self.shell_join(['bash', f'scripts/{script}']))
 
     def run_scripts_after_install(self):
         if len(self.after_install_scripts) == 0:
             return
         self.print_title("Run scripts after install...")
         for script in self.after_install_scripts:
-            self.do(f'Run scripts after install: {script}', f'bash scripts/{script}')
+            self.do(f'Run scripts after install: {script}', self.shell_join(['bash', f'scripts/{script}']))
 
     def install_apt_dep(self):
         if ('no_dep' in self.args and self.args.no_dep) or \
@@ -475,27 +480,28 @@ class SF_Installer():
             return
         self.print_title("Install APT dependencies...")
 
-        deps = " ".join(self.custom_apt_dependencies)
-        msg = f'Install APT dependencies: {deps}'
+        deps = [ *self.custom_apt_dependencies ]
+        deps_display = " ".join(deps)
+        msg = f'Install APT dependencies: {deps_display}'
         width = int(os.environ.get('COLUMNS', 80))
         if len(msg) > width-3:
             msg = msg[:width-3] + '...'
-        self.do(msg, f'DEBIAN_FRONTEND=noninteractive apt-get install -y {deps}')
+        self.do(msg, self.shell_join(['env', 'DEBIAN_FRONTEND=noninteractive', 'apt-get', 'install', '-y', *deps]))
 
     def create_working_dir(self):
         self.print_title("Create working directory...")
-        self.do('Create work directory', f'mkdir -p {self.work_dir}')
-        self.do(f'Change work directory mode to 750', f'chmod 750 {self.work_dir}')
-        self.do(f'Change work directory owner to "{self.user}"', f'chown -R {self.user}:{self.user} {self.work_dir}')
-        self.do('Create log directory', f'mkdir -p {self.log_dir}')
-        self.do(f'Change log directory mode to 750', f'chmod 750 {self.log_dir}')
-        self.do(f'Change log directory owner to "{self.user}"', f'chown -R {self.user}:{self.user} {self.log_dir}')
-        self.do(f'Create log file: "{self.log_file}"', f'touch {self.log_file}')
-        self.do(f'Change log file mode to 640', f'chmod 640 {self.log_file}')
-        self.do(f'Change log file owner to "{self.user}"', f'chown {self.user}:{self.user} {self.log_file}')
+        self.do('Create work directory', self.shell_join(['mkdir', '-p', self.work_dir]))
+        self.do(f'Change work directory mode to 750', self.shell_join(['chmod', '750', self.work_dir]))
+        self.do(f'Change work directory owner to "{self.user}"', self.shell_join(['chown', '-R', f'{self.user}:{self.user}', self.work_dir]))
+        self.do('Create log directory', self.shell_join(['mkdir', '-p', self.log_dir]))
+        self.do(f'Change log directory mode to 750', self.shell_join(['chmod', '750', self.log_dir]))
+        self.do(f'Change log directory owner to "{self.user}"', self.shell_join(['chown', '-R', f'{self.user}:{self.user}', self.log_dir]))
+        self.do(f'Create log file: "{self.log_file}"', self.shell_join(['touch', self.log_file]))
+        self.do(f'Change log file mode to 640', self.shell_join(['chmod', '640', self.log_file]))
+        self.do(f'Change log file owner to "{self.user}"', self.shell_join(['chown', f'{self.user}:{self.user}', self.log_file]))
         if os.path.exists(self.venv_path):
-            self.do('Remove old virtual environment', f'rm -r {self.venv_path}')
-        self.do('Create virtual environment', f'python3 -m venv {self.venv_path} {" ".join(self.venv_options)}')
+            self.do('Remove old virtual environment', self.shell_join(['rm', '-r', self.venv_path]))
+        self.do('Create virtual environment', self.shell_join(['python3', '-m', 'venv', self.venv_path, *self.venv_options]))
 
     def uninstall_pip_dep(self):
         if ('no_dep' in self.args and self.args.no_dep) or \
@@ -555,7 +561,7 @@ class SF_Installer():
         self.print_title("Create symlinks...")
         for script in self.symlinks:
             self.do(f'Create symbolic link: {self.venv_path}/bin/{script} -> /usr/local/bin/{script}',
-                    f'ln -s -f {self.venv_path}/bin/{script} /usr/local/bin/{script}')
+                    self.shell_join(['ln', '-s', '-f', f'{self.venv_path}/bin/{script}', f'/usr/local/bin/{script}']))
 
     def setup_auto_start(self):
         if ('skip_auto_start' in self.args and self.args.skip_auto_start) or \
@@ -563,11 +569,11 @@ class SF_Installer():
             return
         self.print_title("Setup auto start...")
         for bin in self.bin_files:
-            self.do('Copy binary file', f'cp bin/{bin} /usr/local/bin/')
-            self.do('Change binary file mode', f'chmod +x /usr/local/bin/{bin}')
+            self.do('Copy binary file', self.shell_join(['cp', f'bin/{bin}', '/usr/local/bin/']))
+            self.do('Change binary file mode', self.shell_join(['chmod', '+x', f'/usr/local/bin/{bin}']))
         for service in self.service_files:
-            self.do('Copy service file', f'cp bin/{service} /etc/systemd/system/')
-            self.do('Enable service', f'systemctl enable {service}')
+            self.do('Copy service file', self.shell_join(['cp', f'bin/{service}', '/etc/systemd/system/']))
+            self.do('Enable service', self.shell_join(['systemctl', 'enable', service]))
             self.do('Reload systemd', 'systemctl daemon-reload')
 
     def setup_config_txt(self):
@@ -586,7 +592,7 @@ class SF_Installer():
         self.print_title("Probe modules...")
         for module in self.modules:
             self.do(f'Add module: "{module}"',
-                f'sh -c "echo {module} >> /etc/modules-load.d/modules.conf"'
+                self.shell_join(['sh', '-c', f'echo {shlex.quote(module)} >> /etc/modules-load.d/modules.conf'])
             )
 
     def copy_dtoverlay(self):
@@ -617,14 +623,14 @@ class SF_Installer():
                 if not os.path.exists(f'overlays/{overlay}'):
                     self.errors.append(f"Device tree overlay file {overlay} not found")
                     continue
-                self.do(f'Copy dtoverlay {overlay}', f'cp overlays/{overlay} {overlays_path}/')
+                self.do(f'Copy dtoverlay {overlay}', self.shell_join(['cp', f'overlays/{overlay}', f'{overlays_path}/']))
 
         self.need_reboot = True
 
     def change_work_dir_owner(self):
         self.print_title("Fix work directory permission...")
-        self.do('Add execution permission to directory', f'chmod +x {self.work_dir}')
-        self.do(f'Change work directory owner to {self.user}', f'chown -R {self.user}:{self.user} {self.work_dir}')
+        self.do('Add execution permission to directory', self.shell_join(['chmod', '+x', self.work_dir]))
+        self.do(f'Change work directory owner to {self.user}', self.shell_join(['chown', '-R', f'{self.user}:{self.user}', self.work_dir]))
 
     # Uninstall Steps:
 
@@ -634,28 +640,28 @@ class SF_Installer():
         self.print_title("Remove symlinks...")
         for link in self.symlinks:
             self.do(f'Remove symbolic link: {link}',
-                    f'rm -f /usr/local/bin/{link}')
+                    self.shell_join(['rm', '-f', f'/usr/local/bin/{link}']))
 
     def uninstall_scripts(self):
         if len(self.before_install_scripts) == 0:
             return
         self.print_title("Uninstall scripts...")
         for script in self.before_install_scripts:
-            self.do(f'Uninstall script: {script}', f'bash scripts/{script} --uninstall')
+            self.do(f'Uninstall script: {script}', self.shell_join(['bash', f'scripts/{script}', '--uninstall']))
 
     def remove_auto_start(self):
         if len(self.service_files) == 0 and len(self.bin_files) == 0:
             return
         self.print_title("Remove auto start...")
         for bin in self.bin_files:
-            self.do('Remove binary file', f'rm -f /usr/local/bin/{bin}')
+            self.do('Remove binary file', self.shell_join(['rm', '-f', f'/usr/local/bin/{bin}']))
         for service in self.service_files:
             if not os.path.exists(f'/etc/systemd/system/{service}'):
                 self.errors.append(f"{self.SKIPPED} Service file {service} not found, skip")
                 continue
-            self.do('Stop service', f'systemctl stop {service}')
-            self.do('Disable service', f'systemctl disable {service}')
-            self.do('Remove service file', f'rm -f /etc/systemd/system/{service}')
+            self.do('Stop service', self.shell_join(['systemctl', 'stop', service]))
+            self.do('Disable service', self.shell_join(['systemctl', 'disable', service]))
+            self.do('Remove service file', self.shell_join(['rm', '-f', f'/etc/systemd/system/{service}']))
         self.do('Reload systemd', 'systemctl daemon-reload')
 
     def remove_dtoverlay(self):
@@ -679,12 +685,12 @@ class SF_Installer():
             if not os.path.exists(f'{overlays_path}/{overlay}'):
                 self.errors.append(f"{self.SKIPPED} Device tree overlay {overlay} not found, skip")
                 continue
-            self.do(f'Remove dtoverlay {overlay}', f'rm {overlays_path}/{overlay}')
+            self.do(f'Remove dtoverlay {overlay}', self.shell_join(['rm', f'{overlays_path}/{overlay}']))
             self.need_reboot = True
 
     def remove_logs(self):
         self.print_title("Remove logs...")
-        self.do('Remove logs', f'rm -rf {self.log_dir}', ignore_error=True)
+        self.do('Remove logs', self.shell_join(['rm', '-rf', self.log_dir]), ignore_error=True)
 
     def reboot_prompt(self):
         self.print_title("Reboot to apply the changes? (Y/N): ", end='')
@@ -701,7 +707,7 @@ class SF_Installer():
                 continue
 
     def cleanup(self):
-        self.do(f'Remove build', f'rm -r ./build', ignore_error=True)
+        self.do(f'Remove build', self.shell_join(['rm', '-r', './build']), ignore_error=True)
 
     def install(self):
         self.print_title(f"Installing {self.friendly_name} {self.version}")

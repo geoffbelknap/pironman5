@@ -34,6 +34,28 @@ class InstallerMainArgumentTest(unittest.TestCase):
         installer.main()
 
 
+class InstallerCommandConstructionTest(unittest.TestCase):
+    def test_working_directory_commands_quote_paths(self):
+        installer = SF_Installer(
+            "pironman5",
+            work_dir="/opt/piron man;bad",
+            log_dir="/var/log/piron man;bad",
+        )
+        installer.args = SimpleNamespace(plain_text=True)
+        commands = []
+        installer.do = lambda _msg, cmd, **_kwargs: commands.append(cmd)
+
+        installer.create_working_dir()
+
+        self.assertIn("mkdir -p '/opt/piron man;bad'", commands)
+        self.assertIn("chmod 750 '/opt/piron man;bad'", commands)
+        self.assertIn("mkdir -p '/var/log/piron man;bad'", commands)
+        self.assertIn("touch '/var/log/piron man;bad/pironman5.log'", commands)
+        for command in commands:
+            self.assertNotIn(" /opt/piron man;bad", command)
+            self.assertNotIn(" /var/log/piron man;bad", command)
+
+
 class InstallSettingsPolicyTest(unittest.TestCase):
     def test_dashboard_settings_are_disabled_by_default(self):
         import install
