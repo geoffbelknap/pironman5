@@ -99,6 +99,19 @@ class InstallerCommandConstructionTest(unittest.TestCase):
         self.assertIn("chmod 750 /opt/pironman5", commands)
         self.assertNotIn("chmod +x /opt/pironman5", commands)
 
+    def test_work_files_are_written_privately(self):
+        installer = SF_Installer("pironman5", work_dir="/opt/pironman5")
+        installer.args = SimpleNamespace(plain_text=True)
+        installer.work_files = {".variant": "mini\n"}
+        commands = []
+        installer.do = lambda _msg, cmd, **_kwargs: commands.append(cmd)
+
+        installer.write_work_files()
+
+        self.assertIn("printf %s 'mini\n' | tee /opt/pironman5/.variant > /dev/null", commands)
+        self.assertIn("chown pironman5:pironman5 /opt/pironman5/.variant", commands)
+        self.assertIn("chmod 640 /opt/pironman5/.variant", commands)
+
 
 class InstallSettingsPolicyTest(unittest.TestCase):
     def test_dashboard_settings_are_disabled_by_default(self):
@@ -208,6 +221,38 @@ class InstallSettingsPolicyTest(unittest.TestCase):
 
         self.assertIn("github.com/geoffbelknap/pm_dashboard", installer.python_source["pm_dashboard"])
 
+    def test_variant_flag_is_parsed(self):
+        import install
+
+        args = install.parse_install_args(["--variant", "mini"])
+
+        self.assertEqual("mini", args.variant)
+
+    def test_variant_flag_accepts_hyphenated_alias(self):
+        import install
+
+        args = install.parse_install_args(["--variant", "pro-max"])
+
+        self.assertEqual("pro_max", args.variant)
+
+    def test_variant_flag_controls_dependency_settings(self):
+        import install
+
+        args = install.parse_install_args(["--variant", "mini"])
+        names = install.resolve_enabled_setting_names(args)
+
+        self.assertIn("ws2812", names)
+        self.assertIn("gpio", names)
+        self.assertNotIn("oled", names)
+        self.assertNotIn("pi5_power_button", names)
+
+    def test_build_installer_persists_selected_variant(self):
+        import install
+
+        installer = install.build_installer_for_variant("mini")
+
+        self.assertEqual({" .variant".strip(): "mini\n"}, installer.work_files)
+
 
 class ServiceHardeningTest(unittest.TestCase):
     def test_service_runs_as_pironman5_user(self):
@@ -218,6 +263,12 @@ class ServiceHardeningTest(unittest.TestCase):
         self.assertIn("Group=pironman5", service)
         self.assertNotIn("User=root", service)
         self.assertNotIn("Group=root", service)
+
+    def test_service_loads_default_environment_file(self):
+        with open("bin/pironman5.service", "r", encoding="utf-8") as f:
+            service = f.read()
+
+        self.assertIn("EnvironmentFile=-/etc/default/pironman5", service)
 
     def test_installer_does_not_add_installing_user_to_service_group(self):
         with open("tools/sf_installer.py", "r", encoding="utf-8") as f:

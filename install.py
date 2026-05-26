@@ -4,7 +4,15 @@ import argparse
 
 from tools.sf_installer import SF_Installer
 from pironman5.version import __version__
-from pironman5.variants import NAME, DT_OVERLAYS, PERIPHERALS, VARIENT
+from pironman5.variants import (
+    NAME,
+    PERIPHERALS,
+    VARIENT,
+    PRODUCT_DEFINITIONS,
+    get_product_definition,
+    normalize_variant_key,
+)
+from pironman5.variants.modules import assemble
 
 PM_AUTO_REF = 'b00dd490ce498e963c352876801b5cb4e59c4bd2'  # geoffbelknap/pironman5-1.4.7-hardened
 DASHBOARD_REF = '7a347dd84115949e916811cfe536172cb44cadf0'  # geoffbelknap/pironman5-1.4.0-hardened
@@ -73,7 +81,7 @@ settings = {
     'bin_files': [],
 
     # - Copy device tree overlay to /boot/overlays
-    'dtoverlays': DT_OVERLAYS,
+    'dtoverlays': [],
 }
 
 ws2812_settings = {
@@ -198,10 +206,11 @@ rtl8125_settings = {
     ],
 }
 
-def build_installer():
+def build_installer(variant_key=None):
+    product = get_product_definition(variant_key) if variant_key else None
     return SF_Installer(
         name='pironman5',
-        friendly_name=NAME,
+        friendly_name=product["name"] if product else NAME,
         # - Setup install command description if needed, default to "Installer for {friendly_name}""
         # description='Installer for Pironman 5',
         # - Setup Work Dir if needed, default to /opt/{name}
@@ -214,6 +223,13 @@ def build_installer():
 def parse_install_args(argv=None, parser=None):
     if parser is None:
         parser = build_installer().parser
+    parser.add_argument(
+        "--variant",
+        type=normalize_variant_key,
+        choices=sorted(PRODUCT_DEFINITIONS),
+        metavar="VARIANT",
+        help="Install for a specific Pironman variant instead of auto-detection",
+    )
     parser.add_argument("--enable-dashboard", action="store_true", help="Enable dashboard components")
     parser.add_argument("--enable-influxdb-legacy", action="store_true", help="Enable legacy InfluxDB dashboard history backend")
     parser.add_argument("--enable-ups", action="store_true", help="Enable PiPower5 UPS components")
@@ -222,9 +238,22 @@ def parse_install_args(argv=None, parser=None):
     return parser.parse_args(argv)
 
 
+def get_selected_variant_key(args):
+    if getattr(args, "variant", None):
+        return normalize_variant_key(args.variant)
+    return VARIENT
+
+
+def get_variant_peripherals(variant_key):
+    product = get_product_definition(variant_key)
+    if product is None:
+        return PERIPHERALS
+    return assemble(product["modules"])["peripherals"]
+
+
 def resolve_enabled_setting_names(args, peripherals=None):
     if peripherals is None:
-        peripherals = PERIPHERALS
+        peripherals = get_variant_peripherals(get_selected_variant_key(args))
 
     names = ["base"]
 
@@ -269,9 +298,44 @@ def apply_settings_by_name(installer_obj, names):
 
 
 def apply_variant_config_txt(installer_obj, variant=VARIENT):
-    config_txt = getattr(variant, "CONFIG_TXT", None)
+    product = get_product_definition(variant)
+    config_txt = None
+    if product is not None:
+        config_txt = product.get("config_txt")
+    if config_txt is None:
+        config_txt = getattr(variant, "CONFIG_TXT", None)
     if config_txt:
         installer_obj.update_settings({"config_txt": config_txt})
+
+
+def apply_variant_install_settings(installer_obj, variant_key):
+    product = get_product_definition(variant_key)
+    if product is None:
+        return
+    installer_obj.update_settings({
+        "dtoverlays": product.get("dt_overlays", []),
+        "work_files": {
+            ".variant": f"{variant_key}\n",
+        },
+    })
+    apply_variant_config_txt(installer_obj, variant_key)
+
+
+def build_installer_for_variant(variant_key):
+    variant_key = normalize_variant_key(variant_key)
+    installer_obj = build_installer(variant_key)
+    names = resolve_enabled_setting_names(
+        argparse.Namespace(
+            variant=variant_key,
+            enable_dashboard=False,
+            enable_influxdb_legacy=False,
+            enable_ups=False,
+            enable_experimental_dependency=[],
+        )
+    )
+    apply_settings_by_name(installer_obj, names)
+    apply_variant_install_settings(installer_obj, variant_key)
+    return installer_obj
 
 
 def build_installer_for_settings(names):
@@ -284,9 +348,11 @@ def build_installer_for_settings(names):
 def main(argv=None):
     installer_obj = build_installer()
     args = parse_install_args(argv, parser=installer_obj.parser)
+    variant_key = get_selected_variant_key(args)
+    installer_obj.friendly_name = get_product_definition(variant_key)["name"]
     names = resolve_enabled_setting_names(args)
     apply_settings_by_name(installer_obj, names)
-    apply_variant_config_txt(installer_obj)
+    apply_variant_install_settings(installer_obj, variant_key)
     installer_obj.args = args
     installer_obj.main()
 

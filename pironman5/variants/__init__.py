@@ -3,6 +3,49 @@ from os import path, listdir, getenv
 from .modules import assemble
 from .products import PRODUCT_DEFINITIONS
 
+VARIANT_ALIASES = {
+    "base": "base",
+    "pironman5": "base",
+    "pironman-5": "base",
+    "max": "max",
+    "pironman5-max": "max",
+    "pironman-5-max": "max",
+    "mini": "mini",
+    "pironman5-mini": "mini",
+    "pironman-5-mini": "mini",
+    "nas": "nas",
+    "pironman5-nas": "nas",
+    "pironman-5-nas": "nas",
+    "ups": "ups",
+    "pironman5-ups": "ups",
+    "pironman-5-ups": "ups",
+    "pro_max": "pro_max",
+    "pro-max": "pro_max",
+    "promax": "pro_max",
+    "pironman5-pro-max": "pro_max",
+    "pironman-5-pro-max": "pro_max",
+}
+
+
+def normalize_variant_key(variant):
+    if variant is None:
+        return None
+    if not isinstance(variant, str):
+        return None
+    key = variant.strip().lower()
+    return VARIANT_ALIASES.get(key, key)
+
+
+def get_product_definition(variant):
+    key = normalize_variant_key(variant)
+    if key not in PRODUCT_DEFINITIONS:
+        return None
+    return PRODUCT_DEFINITIONS[key]
+
+
+def get_variant_choices():
+    return sorted(VARIANT_ALIASES)
+
 
 # --- HAT EEPROM detection (unchanged) ---
 
@@ -82,12 +125,12 @@ def get_variant(variant_id, version=None):
 def _detect_variant_key():
     env_variant = getenv("PIRONMAN5_VARIANT")
     if env_variant:
-        return env_variant
+        return normalize_variant_key(env_variant)
 
     variant_path = "/opt/pironman5/.variant"
     if path.exists(variant_path):
         with open(variant_path, "r") as f:
-            variant = f.read().strip()
+            variant = normalize_variant_key(f.read())
             if variant:
                 return variant
 

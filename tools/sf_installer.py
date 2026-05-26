@@ -168,6 +168,7 @@ class SF_Installer():
         self.dtoverlays = set()
         self.after_install_scripts = set()
         self.venv_options = set()
+        self.work_files = {}
 
         self.parser = argparse.ArgumentParser(description=description)
         self.parser.add_argument('--uninstall', action='store_true', help='Uninstall')
@@ -245,6 +246,8 @@ class SF_Installer():
             self.after_install_scripts.update(settings['run_scripts_after_install'])
         if 'venv_options' in settings:
             self.venv_options.update(settings['venv_options'])
+        if 'work_files' in settings:
+            self.work_files.update(settings['work_files'])
 
     def set_config_txt(self, name="", value=""):
         msg = f"Setting config.txt: {name}={value}"
@@ -518,6 +521,18 @@ class SF_Installer():
             self.do('Remove old virtual environment', self.shell_join(['rm', '-r', self.venv_path]))
         self.do('Create virtual environment', self.shell_join(['python3', '-m', 'venv', self.venv_path, *self.venv_options]))
 
+    def write_work_files(self):
+        if len(self.work_files) == 0:
+            return
+        self.print_title("Write work files...")
+        for filename, content in self.work_files.items():
+            destination = f"{self.work_dir}/{filename}"
+            printf_cmd = self.shell_join(['printf', '%s', content])
+            tee_cmd = self.shell_join(['tee', destination])
+            self.do(f'Write work file: "{destination}"', f"{printf_cmd} | {tee_cmd} > /dev/null")
+            self.do(f'Change work file owner to "{self.user}"', self.shell_join(['chown', f'{self.user}:{self.user}', destination]))
+            self.do(f'Change work file mode to 640', self.shell_join(['chmod', '640', destination]))
+
     def uninstall_pip_dep(self):
         if ('no_dep' in self.args and self.args.no_dep) or \
             len(self.custom_uninstall_pip_dependencies) == 0:
@@ -733,6 +748,7 @@ class SF_Installer():
         self.setup_user()
         self.add_user_to_groups()
         self.create_working_dir()
+        self.write_work_files()
         self.uninstall_pip_dep()
         self.install_pip_dep()
         self.check_git_url()

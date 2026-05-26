@@ -91,5 +91,9 @@ PRODUCT_DEFINITIONS = {
         },
         "event_map_overrides": {},
         "dt_overlays": ["sunfounder-pironman5promax.dtbo"],
+        "config_txt": {
+            "dtparam=spi": "on",
+            "dtparam=i2c_arm": "on",
+        },
     },
 }
