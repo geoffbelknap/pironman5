@@ -127,6 +127,14 @@ class InstallSettingsPolicyTest(unittest.TestCase):
             ref = url.rsplit("@", 1)[-1]
             self.assertRegex(ref, r"^[0-9a-f]{40}$")
 
+    def test_default_runtime_dependencies_use_reviewed_forks(self):
+        import install
+
+        installer = install.build_installer_for_settings(["base"])
+
+        self.assertIn("github.com/geoffbelknap/pm_auto", installer.python_source["pm_auto"])
+        self.assertIn("github.com/geoffbelknap/sf_rpi_status", installer.python_source["sf_rpi_status"])
+
 
 class ServiceHardeningTest(unittest.TestCase):
     def test_service_runs_as_pironman5_user(self):
