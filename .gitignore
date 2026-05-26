@@ -2,3 +2,5 @@
 pironman5.egg-info*
 *__pycache__*
 dev
+docs/
+=[0-9]*

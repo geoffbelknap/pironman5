@@ -2,14 +2,30 @@ import logging
 from logging.handlers import RotatingFileHandler
 import os
 
-class Logger(logging.Logger):
-    def __init__(self, appname, name='logger', level=0, maxBytes=10*1024*1024, backupCount=10):
-        super().__init__(name, level=level)
-        self.log_folder = f"/var/log/{appname}"
-        self.log_path = os.path.join(self.log_folder, f"{self.name.lower()}.log")
+# 添加颜色代码定义
+class ColoredFormatter(logging.Formatter):
+    COLOR_CODES = {
+        'DEBUG': '\033[94m',    # 蓝色
+        'INFO': '\033[92m',     # 绿色
+        'WARNING': '\033[93m',  # 黄色
+        'ERROR': '\033[91m',    # 红色
+        'CRITICAL': '\033[95m'  # 紫色
+    }
+    RESET_CODE = '\033[0m'     # 重置颜色
 
-        if not os.path.exists(os.path.dirname(self.log_path)):
-            os.makedirs(os.path.dirname(self.log_path), exist_ok=True)
+    def format(self, record):
+        levelname = record.levelname
+        color_code = self.COLOR_CODES.get(levelname, '')
+        reset_code = self.RESET_CODE if color_code else ''
+        # 添加颜色代码并保留原始格式
+        record.levelname = f'{color_code}{levelname}{reset_code}'
+        return super().format(record)
+
+class Logger(logging.Logger):
+    def __init__(self, appname, level=0, maxBytes=100*1024*1024, backupCount=5):
+        super().__init__(appname, level=level)
+        self.log_folder = f"/var/log/{appname}"
+        self.log_path = os.path.join(self.log_folder, f"{appname.lower()}.log")
 
         # Create a handler, used for output to a file
         file_handler = RotatingFileHandler(self.log_path, maxBytes=maxBytes, backupCount=backupCount)
@@ -20,9 +36,10 @@ class Logger(logging.Logger):
         console_handler.setLevel(level)
 
         # Define the output format of handler
-        formatter = logging.Formatter('%(asctime)s.%(msecs)03d [%(levelname)s] %(message)s', datefmt='%y/%m/%d %H:%M:%S')
-        file_handler.setFormatter(formatter)
-        console_handler.setFormatter(formatter)
+        file_logger_formatter = logging.Formatter('%(asctime)s.%(msecs)03d [%(levelname)s] %(message)s', datefmt='%y/%m/%d %H:%M:%S')
+        console_logger_formatter = ColoredFormatter('[%(levelname)s] %(message)s')
+        file_handler.setFormatter(file_logger_formatter)
+        console_handler.setFormatter(console_logger_formatter)
 
         # Add the handler to the logger
         self.addHandler(file_handler)
@@ -32,8 +49,3 @@ class Logger(logging.Logger):
         super().setLevel(level)
         for handler in self.handlers:
             handler.setLevel(level)
-
-def create_get_child_logger(app_name):
-    def get_child_logger(name):
-        return Logger(app_name, name)
-    return get_child_logger

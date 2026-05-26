@@ -1,0 +1,99 @@
+PRODUCT_DEFINITIONS = {
+    "base": {
+        "name": "Pironman 5",
+        "id": "pironman5",
+        "product_version": "",
+        "modules": [
+            "core", "network_info", "history", "oled",
+            "ws2812", "pwm_fan", "gpio_fan", "pi5_power_button",
+        ],
+        "config_overrides": {},
+        "event_map_overrides": {},
+        "dt_overlays": ["sunfounder-pironman5.dtbo"],
+    },
+    "max": {
+        "name": "Pironman 5 Max",
+        "id": "pironman5-max",
+        "product_version": "V2",
+        "modules": [
+            "core", "network_info", "history", "oled",
+            "ws2812", "pwm_fan", "gpio_fan", "gpio_fan_led",
+            "pi5_power_button",
+        ],
+        "config_overrides": {},
+        "event_map_overrides": {},
+        "dt_overlays": ["sunfounder-pironman5.dtbo"],
+    },
+    "mini": {
+        "name": "Pironman 5 Mini",
+        "id": "pironman5-mini",
+        "product_version": "",
+        "modules": [
+            "core", "network_info", "history", "ws2812",
+            "pwm_fan", "gpio_fan", "gpio_fan_led",
+        ],
+        "config_overrides": {
+            "rgb_style": "rainbow",
+            "rgb_color": "#ff00ff",
+        },
+        "event_map_overrides": {},
+        "dt_overlays": ["sunfounder-pironman5mini.dtbo"],
+    },
+    "nas": {
+        "name": "Pironman 5 NAS",
+        "id": "pironman5-nas",
+        "product_version": "",
+        "modules": [
+            "core", "network_info", "oled", "pwm_fan",
+            "pironman_mcu", "rtl8125",
+        ],
+        "config_overrides": {},
+        "event_map_overrides": {},
+        "dt_overlays": ["sunfounder-pironman5nas.dtbo"],
+    },
+    "ups": {
+        "name": "Pironman 5 UPS",
+        "id": "pironman5-ups",
+        "product_version": "V1",
+        "modules": [
+            "core", "network_info", "history", "oled",
+            "oled_ups_pages", "pwm_fan", "sf_rgb_led", "pipower5",
+        ],
+        "config_overrides": {
+            "debug_level": "INFO",
+            "oled_pages": ["mix", "battery", "input", "rpi_power"],
+        },
+        "event_map_overrides": {},
+        "dt_overlays": [],
+    },
+    "pro_max": {
+        "name": "Pironman 5 Pro Max",
+        "id": "pironman5-pro-max",
+        "product_version": "",
+        "modules": [
+            "core", "history", "oled", "ws2812",
+            "pi5_power_button",
+        ],
+        "config_overrides": {
+            "debug_level": "INFO",
+            "default_dashboard_page": "small",
+            "rgb_color": "#ff3dbe",
+            "rgb_brightness": 50,
+            "rgb_led_count": 18,
+            "rgb_led_count_min": 18,
+            "rgb_position": [
+                17, 16, 15, 14,
+                7, 6, 5, 4,
+                13, 12,
+                11, 10, 9, 8,
+                3, 2, 1, 0,
+            ],
+        },
+        "event_map_overrides": {},
+        "dt_overlays": ["sunfounder-pironman5promax.dtbo"],
+        "config_txt": {
+            "dtparam=spi": "on",
+            "dtparam=i2c_arm": "on",
+        },
+    },
+}

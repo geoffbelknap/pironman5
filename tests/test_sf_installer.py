@@ -1,0 +1,332 @@
+import unittest
+from types import SimpleNamespace
+
+from tools.sf_installer import SF_Installer
+
+
+class ShellCommandQuotingTest(unittest.TestCase):
+    def test_quotes_pip_dependency_specs_with_shell_metacharacters(self):
+        command = SF_Installer.shell_join([
+            "/opt/pironman5/venv/bin/pip3",
+            "install",
+            "--upgrade",
+            "pyftdi>=0.40.0",
+            "Adafruit-PureIO>=1.1.7",
+            "Adafruit-Blinka==8.59.0",
+        ])
+
+        self.assertIn("'pyftdi>=0.40.0'", command)
+        self.assertIn("'Adafruit-PureIO>=1.1.7'", command)
+        self.assertNotIn(" pyftdi>=", command)
+        self.assertNotIn(" Adafruit-PureIO>=", command)
+
+
+class InstallerMainArgumentTest(unittest.TestCase):
+    def test_main_uses_preparsed_args_when_available(self):
+        installer = SF_Installer("pironman5")
+        installer.args = SimpleNamespace(uninstall=True, skip_reboot=True)
+        installer.check_admin = lambda: None
+        installer.uninstall = lambda: None
+        installer.cleanup = lambda: None
+        installer.print_title = lambda *_args, **_kwargs: None
+        installer.parser.parse_args = lambda: self.fail("parse_args should not be called")
+
+        installer.main()
+
+
+class InstallerCommandConstructionTest(unittest.TestCase):
+    def test_working_directory_commands_quote_paths(self):
+        installer = SF_Installer(
+            "pironman5",
+            work_dir="/opt/piron man;bad",
+            log_dir="/var/log/piron man;bad",
+        )
+        installer.args = SimpleNamespace(plain_text=True)
+        commands = []
+        installer.do = lambda _msg, cmd, **_kwargs: commands.append(cmd)
+
+        installer.create_working_dir()
+
+        self.assertIn("mkdir -p '/opt/piron man;bad'", commands)
+        self.assertIn("chmod 750 '/opt/piron man;bad'", commands)
+        self.assertIn("mkdir -p '/var/log/piron man;bad'", commands)
+        self.assertIn("touch '/var/log/piron man;bad/pironman5.log'", commands)
+        for command in commands:
+            self.assertNotIn(" /opt/piron man;bad", command)
+            self.assertNotIn(" /var/log/piron man;bad", command)
+
+    def test_setup_user_normalizes_service_home_permissions(self):
+        installer = SF_Installer("pironman5")
+        installer.args = SimpleNamespace(plain_text=True)
+        commands = []
+        installer.run_command = lambda _cmd, **_kwargs: (0, "", "")
+        installer.do = lambda _msg, cmd, **_kwargs: commands.append(cmd)
+
+        installer.setup_user()
+
+        self.assertIn("chmod 750 /opt/pironman5", commands)
+        self.assertIn("find /opt/pironman5 -mindepth 1 -maxdepth 1 -type f -exec chmod 640 '{}' +", commands)
+        self.assertIn("find /opt/pironman5 -mindepth 1 -maxdepth 1 -type d -exec chmod 750 '{}' +", commands)
+
+    def test_setup_user_does_not_copy_skeleton_files(self):
+        installer = SF_Installer("pironman5")
+        installer.args = SimpleNamespace(plain_text=True)
+        commands = []
+
+        def fake_run_command(cmd, **_kwargs):
+            if cmd.startswith("getent"):
+                return (1, "", "")
+            return (0, "", "")
+
+        installer.run_command = fake_run_command
+        installer.do = lambda _msg, cmd, **_kwargs: commands.append(cmd)
+
+        installer.setup_user()
+
+        useradd_commands = [cmd for cmd in commands if cmd.startswith("useradd ")]
+        self.assertEqual(len(useradd_commands), 1)
+        self.assertNotIn(" -m ", useradd_commands[0])
+        self.assertIn("--no-create-home", useradd_commands[0])
+
+    def test_work_dir_fix_keeps_directory_private(self):
+        installer = SF_Installer("pironman5", work_dir="/opt/pironman5")
+        installer.args = SimpleNamespace(plain_text=True)
+        commands = []
+        installer.do = lambda _msg, cmd, **_kwargs: commands.append(cmd)
+
+        installer.change_work_dir_owner()
+
+        self.assertIn("chmod 750 /opt/pironman5", commands)
+        self.assertNotIn("chmod +x /opt/pironman5", commands)
+
+    def test_work_files_are_written_privately(self):
+        installer = SF_Installer("pironman5", work_dir="/opt/pironman5")
+        installer.args = SimpleNamespace(plain_text=True)
+        installer.work_files = {".variant": "mini\n"}
+        commands = []
+        installer.do = lambda _msg, cmd, **_kwargs: commands.append(cmd)
+
+        installer.write_work_files()
+
+        self.assertIn("printf %s 'mini\n' | tee /opt/pironman5/.variant > /dev/null", commands)
+        self.assertIn("chown pironman5:pironman5 /opt/pironman5/.variant", commands)
+        self.assertIn("chmod 640 /opt/pironman5/.variant", commands)
+
+
+class InstallSettingsPolicyTest(unittest.TestCase):
+    def test_dashboard_settings_are_disabled_by_default(self):
+        import install
+
+        args = install.parse_install_args([])
+        names = install.resolve_enabled_setting_names(args, peripherals=["oled", "ws2812"])
+
+        self.assertIn("base", names)
+        self.assertIn("oled", names)
+        self.assertIn("ws2812", names)
+        self.assertNotIn("dashboard", names)
+        self.assertNotIn("influxdb_legacy", names)
+
+    def test_dashboard_requires_explicit_flag(self):
+        import install
+
+        args = install.parse_install_args(["--enable-dashboard"])
+        names = install.resolve_enabled_setting_names(args, peripherals=["oled"])
+
+        self.assertIn("dashboard", names)
+        self.assertNotIn("influxdb_legacy", names)
+
+    def test_legacy_influxdb_requires_explicit_flag(self):
+        import install
+
+        args = install.parse_install_args(["--enable-dashboard", "--enable-influxdb-legacy"])
+        names = install.resolve_enabled_setting_names(args, peripherals=["oled"])
+
+        self.assertIn("dashboard", names)
+        self.assertIn("influxdb_legacy", names)
+
+    def test_ups_requires_explicit_flag_even_when_peripheral_exists(self):
+        import install
+
+        args = install.parse_install_args([])
+        names = install.resolve_enabled_setting_names(args, peripherals=["pipower5"])
+
+        self.assertNotIn("pipower5", names)
+
+        args = install.parse_install_args(["--enable-ups"])
+        names = install.resolve_enabled_setting_names(args, peripherals=["pipower5"])
+
+        self.assertIn("pipower5", names)
+
+    def test_rtl8125_requires_explicit_experimental_flag(self):
+        import install
+
+        args = install.parse_install_args([])
+        names = install.resolve_enabled_setting_names(args, peripherals=["rtl8125"])
+
+        self.assertNotIn("rtl8125", names)
+
+        args = install.parse_install_args(["--enable-experimental-dependency", "rtl8125"])
+        names = install.resolve_enabled_setting_names(args, peripherals=["rtl8125"])
+
+        self.assertIn("rtl8125", names)
+
+    def test_pro_max_variant_config_txt_is_applied(self):
+        import install
+        from pironman5.variants.pironman5_pro_max import Pironman5ProMax
+
+        installer = install.build_installer_for_settings(["base"])
+        install.apply_variant_config_txt(installer, Pironman5ProMax)
+
+        self.assertEqual(installer.config_txt["dtparam=spi"], "on")
+        self.assertEqual(installer.config_txt["dtparam=i2c_arm"], "on")
+
+    def test_oled_timeout_zero_is_documented_as_disable(self):
+        with open("pironman5/_cli.py", "r", encoding="utf-8") as f:
+            cli = f.read()
+
+        self.assertIn("set to 0 to disable timeout", cli)
+        self.assertIn("Set OLED sleep timeout: disabled", cli)
+
+    def test_sunfounder_git_dependencies_are_pinned_to_commits(self):
+        import install
+
+        installer = install.build_installer_for_settings([
+            "base",
+            "dashboard",
+            "pipower5",
+        ])
+
+        sunfounder_urls = [
+            url for url in installer.python_source.values()
+            if isinstance(url, str) and "github.com/sunfounder" in url
+        ]
+
+        self.assertGreater(len(sunfounder_urls), 0)
+        for url in sunfounder_urls:
+            ref = url.rsplit("@", 1)[-1]
+            self.assertRegex(ref, r"^[0-9a-f]{40}$")
+
+    def test_default_runtime_dependencies_use_reviewed_forks(self):
+        import install
+
+        installer = install.build_installer_for_settings(["base"])
+
+        self.assertIn("github.com/geoffbelknap/pm_auto", installer.python_source["pm_auto"])
+        self.assertIn("github.com/geoffbelknap/sf_rpi_status", installer.python_source["sf_rpi_status"])
+
+    def test_dashboard_dependency_uses_reviewed_fork(self):
+        import install
+
+        installer = install.build_installer_for_settings(["dashboard"])
+
+        self.assertIn("github.com/geoffbelknap/pm_dashboard", installer.python_source["pm_dashboard"])
+
+    def test_variant_flag_is_parsed(self):
+        import install
+
+        args = install.parse_install_args(["--variant", "mini"])
+
+        self.assertEqual("mini", args.variant)
+
+    def test_variant_flag_accepts_hyphenated_alias(self):
+        import install
+
+        args = install.parse_install_args(["--variant", "pro-max"])
+
+        self.assertEqual("pro_max", args.variant)
+
+    def test_variant_flag_controls_dependency_settings(self):
+        import install
+
+        args = install.parse_install_args(["--variant", "mini"])
+        names = install.resolve_enabled_setting_names(args)
+
+        self.assertIn("ws2812", names)
+        self.assertIn("gpio", names)
+        self.assertNotIn("oled", names)
+        self.assertNotIn("pi5_power_button", names)
+
+    def test_build_installer_persists_selected_variant(self):
+        import install
+
+        installer = install.build_installer_for_variant("mini")
+
+        self.assertEqual({" .variant".strip(): "mini\n"}, installer.work_files)
+
+
+class ServiceHardeningTest(unittest.TestCase):
+    def test_service_runs_as_pironman5_user(self):
+        with open("bin/pironman5.service", "r", encoding="utf-8") as f:
+            service = f.read()
+
+        self.assertIn("User=pironman5", service)
+        self.assertIn("Group=pironman5", service)
+        self.assertNotIn("User=root", service)
+        self.assertNotIn("Group=root", service)
+
+    def test_service_loads_default_environment_file(self):
+        with open("bin/pironman5.service", "r", encoding="utf-8") as f:
+            service = f.read()
+
+        self.assertIn("EnvironmentFile=-/etc/default/pironman5", service)
+
+    def test_installer_does_not_add_installing_user_to_service_group(self):
+        with open("tools/sf_installer.py", "r", encoding="utf-8") as f:
+            installer = f.read()
+
+        self.assertNotIn("self.add_user_to_group(current_user, self.user)", installer)
+
+    def test_installer_does_not_create_group_writable_runtime_dirs(self):
+        with open("tools/sf_installer.py", "r", encoding="utf-8") as f:
+            installer = f.read()
+
+        self.assertNotIn("chmod 775", installer)
+
+    def test_installer_does_not_download_remote_dtoverlays(self):
+        with open("tools/sf_installer.py", "r", encoding="utf-8") as f:
+            installer = f.read()
+
+        self.assertNotIn("wget {overlay}", installer)
+        self.assertIn("Remote dtoverlay downloads are disabled", installer)
+
+    def test_pipower5_install_verifies_release_archives(self):
+        with open("scripts/setup_pipower5.sh", "r", encoding="utf-8") as f:
+            script = f.read()
+
+        self.assertIn("sha256sum -c", script)
+        self.assertIn("0e346fb9fdeca94c5d2ca8f2388c494690576ef99b0aa1882f886a408db66d82", script)
+        self.assertIn("7cc1bf3612c7bf4fcdf18846da9eeefc1043e16dd98a1262a1ac0afbfea1b868", script)
+
+
+class InfluxDefaultPolicyTest(unittest.TestCase):
+    def test_default_install_does_not_reference_influxdb_script(self):
+        import install
+
+        args = install.parse_install_args([])
+        names = install.resolve_enabled_setting_names(args, peripherals=["oled"])
+        installer = install.build_installer_for_settings(names)
+
+        self.assertNotIn("install_influxdb.sh", installer.before_install_scripts)
+        self.assertNotIn("influxdb", installer.groups)
+
+    def test_legacy_influxdb_flag_adds_influxdb_script(self):
+        import install
+
+        args = install.parse_install_args(["--enable-dashboard", "--enable-influxdb-legacy"])
+        names = install.resolve_enabled_setting_names(args, peripherals=["oled"])
+        installer = install.build_installer_for_settings(names)
+
+        self.assertIn("install_influxdb.sh", installer.before_install_scripts)
+        self.assertIn("influxdb", installer.groups)
+
+    def test_legacy_influxdb_script_fails_closed_on_key_download(self):
+        with open("scripts/install_influxdb.sh", "r", encoding="utf-8") as f:
+            script = f.read()
+
+        self.assertIn("curl --fail --silent --show-error --location", script)
+        self.assertIn("mkdir -p /etc/apt/keyrings", script)
+        self.assertIn("24C975CBA61A024EE1B631787C3D57159FC2F927", script)
+
+
+if __name__ == "__main__":
+    unittest.main()
