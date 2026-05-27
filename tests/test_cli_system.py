@@ -1,7 +1,11 @@
 import contextlib
 import io
+import json
 import sys
+import tempfile
+import types
 import unittest
+from pathlib import Path
 from unittest import mock
 
 
@@ -69,6 +73,92 @@ class SystemCliTest(unittest.TestCase):
         self.assertIn("stop", output)
         self.assertIn("launch-browser", output)
         self.assertNotIn("{hardware", output)
+
+    def test_stop_does_not_rewrite_config_file(self):
+        from pironman5 import _cli
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            config_path = Path(tmpdir) / "config.json"
+            config_path.write_text(json.dumps({"system": {"debug_level": "INFO"}}), encoding="utf-8")
+            argv = ["pironman5", "--config-path", str(config_path), "stop"]
+
+            with mock.patch.object(sys, "argv", argv):
+                with mock.patch.object(_cli, "PERIPHERALS", []):
+                    with mock.patch.object(_cli, "update_config_file") as update_config_file:
+                        with mock.patch.object(_cli.os, "system") as system:
+                            _cli.main()
+
+            update_config_file.assert_not_called()
+            system.assert_called_once_with("pkill -f pironman5")
+
+    def test_stop_does_not_create_missing_config_file(self):
+        from pironman5 import _cli
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            config_path = Path(tmpdir) / "missing-config.json"
+            argv = ["pironman5", "--config-path", str(config_path), "stop"]
+
+            with mock.patch.object(sys, "argv", argv):
+                with mock.patch.object(_cli, "PERIPHERALS", []):
+                    with mock.patch.object(_cli, "write_json_private") as write_json_private:
+                        with mock.patch.object(_cli.os, "system"):
+                            _cli.main()
+
+            write_json_private.assert_not_called()
+            self.assertFalse(config_path.exists())
+
+    def test_start_does_not_create_missing_config_file(self):
+        from pironman5 import _cli
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            config_path = Path(tmpdir) / "missing-config.json"
+            argv = ["pironman5", "--config-path", str(config_path), "start"]
+
+            with mock.patch.object(sys, "argv", argv):
+                with mock.patch.object(_cli, "PERIPHERALS", []):
+                    with mock.patch.object(_cli, "write_json_private") as write_json_private:
+                        pironman5 = mock.Mock()
+                        fake_module = types.ModuleType("pironman5.pironman5")
+                        fake_module.Pironman5 = pironman5
+                        with mock.patch.dict(sys.modules, {"pironman5.pironman5": fake_module}):
+                            _cli.main()
+
+            write_json_private.assert_not_called()
+            pironman5.assert_called_once_with(config_path=str(config_path))
+            pironman5.return_value.start.assert_called_once_with()
+            self.assertFalse(config_path.exists())
+
+    def test_launch_browser_does_not_create_missing_config_file(self):
+        from pironman5 import _cli
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            config_path = Path(tmpdir) / "missing-config.json"
+            argv = ["pironman5", "--config-path", str(config_path), "launch-browser"]
+
+            with mock.patch.object(sys, "argv", argv):
+                with mock.patch.object(_cli, "PERIPHERALS", []):
+                    with mock.patch.object(_cli, "write_json_private") as write_json_private:
+                        with mock.patch.object(_cli, "launch_browser") as launch_browser:
+                            _cli.main()
+
+            write_json_private.assert_not_called()
+            launch_browser.assert_called_once_with()
+            self.assertFalse(config_path.exists())
+
+    def test_setting_change_rewrites_config_file(self):
+        from pironman5 import _cli
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            config_path = Path(tmpdir) / "config.json"
+            config_path.write_text(json.dumps({"system": {"debug_level": "INFO"}}), encoding="utf-8")
+            argv = ["pironman5", "--config-path", str(config_path), "--debug-level", "debug"]
+
+            with mock.patch.object(sys, "argv", argv):
+                with mock.patch.object(_cli, "PERIPHERALS", []):
+                    with mock.patch.object(_cli, "update_config_file") as update_config_file:
+                        _cli.main()
+
+            update_config_file.assert_called_once_with({"system": {"debug_level": "DEBUG"}}, str(config_path))
 
     def test_system_plan_does_not_require_runtime_hardware_dependencies(self):
         from pironman5 import _cli
