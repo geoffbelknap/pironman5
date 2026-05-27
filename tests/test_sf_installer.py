@@ -1,5 +1,6 @@
 import unittest
 import unittest.mock
+import io
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -178,6 +179,7 @@ class InstallerCommandConstructionTest(unittest.TestCase):
     def test_stale_manual_helper_files_are_not_tracked(self):
         stale_paths = [
             Path("scripts/setup_influxdb.sh"),
+            Path("scripts/install_influxdb.sh"),
             Path("scripts/test_dpkg_lock.sh"),
             Path("scripts/upload-1.2.ps1"),
             Path("scripts/wait_for_dpkg.sh"),
@@ -328,14 +330,11 @@ class InstallSettingsPolicyTest(unittest.TestCase):
         self.assertIn("dashboard", names)
         self.assertNotIn("influxdb_legacy", names)
 
-    def test_legacy_influxdb_requires_explicit_flag(self):
+    def test_legacy_influxdb_setting_is_not_available(self):
         import install
 
-        args = install.parse_install_args(["--enable-dashboard", "--enable-influxdb-legacy"])
-        names = install.resolve_enabled_setting_names(args, peripherals=["oled"])
-
-        self.assertIn("dashboard", names)
-        self.assertIn("influxdb_legacy", names)
+        with unittest.mock.patch("sys.stderr", new=io.StringIO()), self.assertRaises(SystemExit):
+            install.parse_install_args(["--enable-dashboard", "--enable-influxdb-legacy"])
 
     def test_ups_requires_explicit_flag_even_when_peripheral_exists(self):
         import install
@@ -559,23 +558,17 @@ class InfluxDefaultPolicyTest(unittest.TestCase):
         self.assertNotIn("install_influxdb.sh", installer.before_install_scripts)
         self.assertNotIn("influxdb", installer.groups)
 
-    def test_legacy_influxdb_flag_adds_influxdb_script(self):
+    def test_legacy_influxdb_flag_is_not_supported(self):
         import install
 
-        args = install.parse_install_args(["--enable-dashboard", "--enable-influxdb-legacy"])
-        names = install.resolve_enabled_setting_names(args, peripherals=["oled"])
-        installer = install.build_installer_for_settings(names)
+        with unittest.mock.patch("sys.stderr", new=io.StringIO()), self.assertRaises(SystemExit):
+            install.parse_install_args(["--enable-dashboard", "--enable-influxdb-legacy"])
 
-        self.assertIn("install_influxdb.sh", installer.before_install_scripts)
-        self.assertIn("influxdb", installer.groups)
+    def test_remove_dashboard_does_not_manage_influxdb(self):
+        with open("pironman5/_cli.py", "r", encoding="utf-8") as f:
+            cli = f.read()
 
-    def test_legacy_influxdb_script_fails_closed_on_key_download(self):
-        with open("scripts/install_influxdb.sh", "r", encoding="utf-8") as f:
-            script = f.read()
-
-        self.assertIn("curl --fail --silent --show-error --location", script)
-        self.assertIn("mkdir -p /etc/apt/keyrings", script)
-        self.assertIn("24C975CBA61A024EE1B631787C3D57159FC2F927", script)
+        self.assertNotIn("influxdb", cli.lower())
 
 
 if __name__ == "__main__":
