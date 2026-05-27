@@ -61,7 +61,7 @@ def main():
     parser.add_argument("-eh", "--enable-history", nargs='?', default='', help="Enable history, True/true/on/On/1 or False/false/off/Off/0")
     # ws2812
     if is_included(PERIPHERALS, "ws2812"):
-        from pm_auto.addons.ws2812 import RGB_STYLES
+        from .runtime import RGB_STYLES
         parser.add_argument("-re", "--rgb-enable", nargs='?', default='', help="RGB enable True/False")
         parser.add_argument("-rs", "--rgb-style", nargs='?', default='', help=f"RGB style: {RGB_STYLES}")
         parser.add_argument("-rc", "--rgb-color", nargs='?', default='', help='RGB color in hex format without # (e.g. 00aabb)')

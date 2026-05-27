@@ -9,7 +9,15 @@ class RuntimeTest(unittest.TestCase):
         with mock.patch("pironman5.runtime.Addons") as addons:
             LegacyHardwareRuntime(
                 config={},
-                peripherals=["cpu", "system", "gpio_fan_state", "gpio_fan_led", "pi5_power_button", "pwm_fan_speed"],
+                peripherals=[
+                    "cpu",
+                    "system",
+                    "gpio_fan_state",
+                    "gpio_fan_led",
+                    "pi5_power_button",
+                    "ws2812",
+                    "pwm_fan_speed",
+                ],
                 device_info={},
                 event=None,
                 log=None,
@@ -150,6 +158,77 @@ class RuntimeTest(unittest.TestCase):
             )
 
         module.assert_called_once_with(event=runtime.event, log=runtime.log)
+
+    def test_ws2812_config_update_keeps_compatible_patch_semantics(self):
+        from pironman5.runtime import EventBus, WS2812Module
+
+        module = WS2812Module(
+            config={"rgb_led_count": 4, "rgb_led_count_min": 4},
+            event=EventBus(),
+            log=mock.Mock(),
+            strip_factory=lambda _count: None,
+        )
+
+        patch = module.update_config(
+            {
+                "rgb_led_count": 2,
+                "rgb_enable": False,
+                "rgb_color": "#112233",
+                "rgb_brightness": 25,
+                "rgb_style": "rainbow",
+                "rgb_speed": 75,
+                "rgb_position": [3, 2],
+            }
+        )
+
+        self.assertEqual(
+            {
+                "rgb_led_count": 4,
+                "rgb_enable": False,
+                "rgb_color": "#112233",
+                "rgb_brightness": 25,
+                "rgb_style": "rainbow",
+                "rgb_speed": 75,
+                "rgb_position": [3, 2, 0, 1],
+            },
+            patch,
+        )
+
+    def test_ws2812_solid_renders_brightness_adjusted_color(self):
+        from pironman5.runtime import EventBus, WS2812Module
+
+        strip = mock.Mock()
+        module = WS2812Module(
+            config={
+                "rgb_led_count": 4,
+                "rgb_enable": True,
+                "rgb_color": "#204060",
+                "rgb_brightness": 50,
+                "rgb_style": "solid",
+            },
+            event=EventBus(),
+            strip_factory=lambda _count: strip,
+        )
+
+        delay = module.render_once()
+
+        strip.fill.assert_called_with((16, 32, 48))
+        strip.show.assert_called_once()
+        self.assertEqual(1, delay)
+
+    def test_runtime_starts_ws2812_when_present(self):
+        from pironman5.runtime import PironmanRuntime
+
+        with mock.patch("pironman5.runtime.WS2812Module") as module:
+            runtime = PironmanRuntime(
+                config={},
+                peripherals=["ws2812"],
+                device_info={},
+                event_map={},
+                log=None,
+            )
+
+        module.assert_called_once_with(config={}, event=runtime.event, log=runtime.log)
 
 
 if __name__ == "__main__":
