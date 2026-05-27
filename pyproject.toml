@@ -10,30 +10,60 @@ authors = [
 description = "Library for monitoring Raspberry Pi system status"
 readme = "README.md"
 requires-python = ">=3.7"
+license = "GPL-2.0-only"
 classifiers = [
   "Programming Language :: Python :: 3",
-  "License :: OSI Approved :: GNU General Public License v2 (GPLv2)",
   "Operating System :: OS Independent",
 ]
 dynamic = ["version"]
 
 dependencies = [
-  'smbus2',
-  'psutil',
-  'adafruit-circuitpython-neopixel-spi',
-  'Adafruit-Blinka==8.59.0',
-  'RPi.GPIO',
+  "psutil",
+  "Pillow",
+  "smbus2",
+  "evdev",
+  "rpi.lgpio",
+  "adafruit-circuitpython-neopixel-spi",
+  "adafruit_platformdetect",
+  "Adafruit-Blinka==8.59.0",
+  "adafruit-circuitpython-typing",
+  "Adafruit-PureIO>=1.1.7",
+  "pyftdi>=0.40.0",
+  "pm_auto @ git+https://github.com/geoffbelknap/pm_auto.git@b00dd490ce498e963c352876801b5cb4e59c4bd2",
+]
+
+[project.optional-dependencies]
+dashboard = [
+  "pm_dashboard @ git+https://github.com/geoffbelknap/pm_dashboard.git@7a347dd84115949e916811cfe536172cb44cadf0",
+]
+ups = [
+  "pipower5 @ git+https://github.com/sunfounder/pipower5.git@46250a12e2e6b4b9e1f3d7e3787d02a2aaf1b373",
+  "spc @ git+https://github.com/sunfounder/spc.git@3581063092fe669e7a5538f4a4dc67e9b766863c",
+]
+rgb-matrix = [
+  "numpy",
 ]
 
 [project.scripts]
-pironman5-service = "pironman5:main"
+pironman5 = "pironman5:_cli.main"
 
 [tool.setuptools]
-packages = ["pironman5", "pironman5.variants"]
+packages = [
+  "pironman5",
+  "pironman5.assets",
+  "pironman5.assets.bin",
+  "pironman5.assets.overlays",
+  "pironman5.variants",
+  "pironman5.variants.modules",
+]
+include-package-data = true
+
+[tool.setuptools.package-data]
+pironman5 = ["assets/bin/*", "assets/overlays/*"]
 
 [project.urls]
-"Homepage" = "https://github.com/sunfounder/pironman5"
-"Bug Tracker" = "https://github.com/sunfounder/pironman5/issues"
+"Homepage" = "https://github.com/geoffbelknap/pironman5"
+"Bug Tracker" = "https://github.com/geoffbelknap/pironman5/issues"
 
 [tool.setuptools.dynamic]
 version = {attr = "pironman5.version.__version__"}

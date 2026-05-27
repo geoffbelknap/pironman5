@@ -44,7 +44,7 @@ def main():
     parser.add_argument("-rd", "--remove-dashboard", action="store_true", help="Remove dashboard")
     parser.add_argument("-cp", "--config-path", nargs='?', default='', help="Config path")
     if is_included(PERIPHERALS, "ws2812"):
-        from pm_auto.ws2812 import RGB_STYLES
+        from .runtime import RGB_STYLES
         parser.add_argument("-rc", "--rgb-color", nargs='?', default='', help='RGB color in hex format without # (e.g. 00aabb)')
         parser.add_argument("-rb", "--rgb-brightness", nargs='?', default='', help="RGB brightness 0-100")
         parser.add_argument("-rs", "--rgb-style", choices=RGB_STYLES, nargs='?', default='', help="RGB style")
@@ -54,7 +54,7 @@ def main():
     if is_included(PERIPHERALS, "temperature_unit"):
         parser.add_argument("-u", "--temperature-unit", choices=["C", "F"], nargs='?', default='', help="Temperature unit")
     if is_included(PERIPHERALS, "gpio_fan_mode"):
-        from pm_auto.fan_control import GPIO_FAN_MODES
+        from .runtime import GPIO_FAN_MODES
         parser.add_argument("-gm", "--gpio-fan-mode", nargs='?', default='', help=f"GPIO fan mode, {', '.join([f'{i}: {mode}' for i, mode in enumerate(GPIO_FAN_MODES)])}")
         parser.add_argument("-gp", "--gpio-fan-pin", nargs='?', default='', help="GPIO fan pin")
     if is_included(PERIPHERALS, "gpio_fan_led"):
@@ -328,7 +328,7 @@ def main():
                     quit()
         # oled disk
         if args.oled_disk != '':
-            from sf_rpi_status import get_disks
+            from .host import get_disks
             disks = ['total']
             disks.extend(get_disks())
             if args.oled_disk == None:
@@ -341,7 +341,7 @@ def main():
                 print(f"Set OLED disk: {args.oled_disk}")
         # oled network interface
         if args.oled_network_interface != '':
-            from sf_rpi_status import get_ips
+            from .host import get_ips
             interfaces = ['all']
             interfaces.extend(get_ips().keys())
             if args.oled_network_interface == None:

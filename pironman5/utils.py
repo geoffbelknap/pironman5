@@ -9,7 +9,7 @@ def merge_dict(dict1, dict2):
         elif isinstance(dict2[key], list):
             if key not in dict1:
                 new_dict[key] = []
-            new_dict[key].extend(dict2[key])
+            new_dict[key] = list(dict2[key])
         else:
             new_dict[key] = dict2[key]
     return new_dict
@@ -34,3 +34,23 @@ def is_included(li, target):
     if isinstance(target, list):
         return has_common_items(li, target)
     return False
+
+def hex_to_rgb(hex):
+    '''
+    Convert hex color to rgb color.
+
+    Args:
+        hex (str): hex color string.
+
+    Returns:
+        tuple: rgb color tuple.
+    '''
+    if hex.startswith('#'):
+        hex = hex[1:]
+    return tuple(int(hex[i:i+2], 16) for i in (0, 2, 4))
+
+def constrain(value, min_value, max_value):
+    '''
+    Constrain value to be within min and max.
+    '''
+    return max(min_value, min(value, max_value))

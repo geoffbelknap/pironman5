@@ -8,7 +8,7 @@ Quick Links:
   - [About Pironman5](#about-pironman5)
   - [Links](#links)
   - [Installation](#installation)
-  - [Usage](#usage)
+  - [Auto launch dashboard on browser](#auto-launch-dashboard-on-browser)
   - [Update](#update)
   - [Compatible Systems](#compatible-systems)
     - [Ubuntu 24.04 server eth0 and wifi not work](#ubuntu-2404-server-eth0-and-wifi-not-work)
@@ -21,29 +21,98 @@ Quick Links:
 ## Links
 
 - SunFounder Online Store &emsp; <https://www.sunfounder.com/>
-- Documentation &emsp; <https://docs.sunfounder.com/en/latest/>
+- Documentation &emsp; <https://docs.sunfounder.com/projects/pironman5/en/latest/>
 
 ## Installation
 
-For systems that don't have git, python3 pre-installed you need to install them first
+`pipx` is the primary install path for this fork. It installs the user-facing
+CLI without root, and `pironman5 system setup` performs the small set of
+privileged OS integration steps explicitly.
+
+1. install the Python application without root with `pipx`
+2. review the privileged system changes
+3. run the system setup command with `sudo`
+
+System setup creates a root-owned service environment at `/opt/pironman5-venv`
+for systemd. This avoids running the service out of a user's home directory.
 
 ```bash
 sudo apt-get update
-sudo apt-get install git python3 -y
+sudo apt-get install pipx -y
+pipx ensurepath
+pipx install git+https://github.com/geoffbelknap/pironman5.git
+pironman5 system plan
+sudo pironman5 system setup
+pironman5 system doctor
 ```
 
-Execute the installation script
+`uv` is also supported for users who already have it installed:
 
 ```bash
-cd ~
-git clone https://github.com/sunfounder/pironman5.git
-cd ~/pironman5
+uv tool install git+https://github.com/geoffbelknap/pironman5.git
+pironman5 system plan
+sudo pironman5 system setup
+pironman5 system doctor
+```
+
+To force a refresh of the root-owned service environment:
+
+```bash
+sudo pironman5 system upgrade-service
+```
+
+After upgrading the user-facing command, refresh the service environment too:
+
+```bash
+pipx reinstall pironman5
+sudo pironman5 system upgrade-service
+pironman5 system doctor
+```
+
+To remove system integration while keeping runtime config, use:
+
+```bash
+sudo pironman5 system uninstall
+```
+
+To also remove `/opt/pironman5` and logs, use:
+
+```bash
+sudo pironman5 system uninstall --purge
+```
+
+The legacy installer remains available for compatibility:
+
+```bash
+git clone https://github.com/geoffbelknap/pironman5.git
+cd pironman5
 sudo python3 install.py
 ```
 
-## Usage
+Dashboard and graph history are optional.
 
--
+```bash
+sudo python3 install.py --enable-dashboard
+```
+
+The default history backend is SQLite. The old InfluxDB path is legacy-only:
+
+```bash
+sudo python3 install.py --enable-dashboard --enable-influxdb-legacy
+```
+
+## Auto launch dashboard on browser
+
+```bash
+pironman5 launch-browser --auto-start=on
+```
+
+You also want to change touchscreen mode to Multitouch instead of Mouse Emulation.
+
+1. **Raspberry Pi Icon** >> **Preferences** >> **Control Centre**.
+2. Select **Screen** tab.
+3. Long press/right click on **DSI-2**, 
+4. Select **Touchscreen** >> **Mode** >> **Multitouch**.
 
 ## Update
 
@@ -55,51 +124,61 @@ Operate Systems that passed the test on the Raspberry Pi 5:
 
 Operate System | Release Date | Compatible
 :---   | :---: | :---: 
-Raspberry Pi OS Desktop - Trixie (64 bit) | 2025-10-01 | &#x2705;
-Raspberry Pi OS Desktop - Trixie (32 bit) | 2025-10-01 |  &#x2705;
-Raspberry Pi OS Full - Trixie (64 bit) | 2025-10-01 |  &#x2705;
-Raspberry Pi OS Full - Trixie (32 bit) | 2025-10-01 |  &#x2705;
-Raspberry Pi OS lite - Trixie (64 bit) | 2025-10-01 |  &#x2705;
-Raspberry Pi OS lite - Trixie (64 bit) | 2025-10-01 |  &#x2705;
-Ubuntu Desktop 25.04 LTS (64 bit) | 2025-04-17 |  &#x2705;
-Ubuntu Server 25.04 LTS (64 bit) | 2025-04-17 |  &#x2705;
-Ubuntu Desktop 25.10 (64 bit) | 2025-10-09 |   &#x2705;
-Ubuntu Server 25.10 (64 bit) | 2025-10-09 |   &#x2705;
-Kali Linux | 2025-09-18 | &#x2705;
-Home Assistant OS 16.3 | 2025-11-04 | &#x2705;
-Homebridge bookworm (64 bit) | 2025-07-16 | &#x2705;
-Homebridge bookworm (64 bit) | 2025-07-16 | &#x2705;
-Umbrel OS 1.5 | 2025-11-5 | &#x2705;
+Raspberry Pi OS Desktop - bookworm (64 bit) | 2024-11-19 | &#x2705;
+Raspberry Pi OS Desktop - bookworm (32 bit) | 2024-11-19 |  &#x2705;
+Raspberry Pi OS Full - bookworm (64 bit) | 2024-11-19 |  &#x2705;
+Raspberry Pi OS Full - bookworm (32 bit) | 2024-11-19 |  &#x2705;
+Raspberry Pi OS lite - bookworm (64 bit) | 2024-11-19 |  &#x2705;
+Raspberry Pi OS lite - bookworm (64 bit) | 2024-11-19 |  &#x2705;
+Ubuntu Desktop 24.04.1 LTS (64 bit) | 2024-08-29 |  &#x2705;
+Ubuntu Server 24.04.1 LTS (64 bit) | 2024-10-10 |  &#x2705;
+Ubuntu Desktop 24.10 (64 bit) | 2024-10-10 |   &#x2705;
+Ubuntu Server 24.10 (64 bit) | 2024-08-29 |   &#x2705;
+Kali Linux | 2024-08-27 | &#x2705;
+Home Assistant OS 14.0 | 2024-12-03 | &#x2705;
+Homebridge bookworm (64 bit) | 2024-05-03 | &#x2705;
+Homebridge bookworm (64 bit) | 2024-05-03 | &#x2705;
+Batocera Linux | 2024-07-31 | &#x2705;
+
+### Ubuntu 24.04 server eth0 and wifi not work
+
+https://www.reddit.com/r/Ubuntu/comments/1d0s8v5/ubuntu_2404_server_on_my_raspberry_pi_5_and_eth0/
+
 
 ### Debug
 
-Clone the dependency you want to debug or edit
+Clone the dependency you want to debug or edit. Treat SunFounder dependencies
+as unreviewed until pinned to an audited fork or exact commit.
 
 ```bash
 git clone https://github.com/sunfounder/pironman5.git
 git clone https://github.com/sunfounder/pm_dashboard.git
 git clone https://github.com/sunfounder/pm_auto.git
-git clone https://github.com/sunfounder/sf_rpi_status.git
 ```
 
-Make adjustments, and manually install the package
+Make adjustments, then manually install from local folders. Avoid floating Git
+installs in hardened deployments.
 
 ```bash
-cd ~/pironman5 && sudo /opt/pironman5/venv/bin/pip3 uninstall pironman5 -y && sudo /opt/pironman5/venv/bin/pip3 install . --no-build-isolation
-cd ~/pm_dashboard && sudo /opt/pironman5/venv/bin/pip3 uninstall pm_dashboard -y && sudo /opt/pironman5/venv/bin/pip3 install . --no-build-isolation
-cd ~/pm_auto && sudo /opt/pironman5/venv/bin/pip3 uninstall pm_auto -y && sudo /opt/pironman5/venv/bin/pip3 install . --no-build-isolation
-cd ~/sf_rpi_status && sudo /opt/pironman5/venv/bin/pip3 uninstall sf_rpi_status -y && sudo /opt/pironman5/venv/bin/pip3 install . --no-build-isolation
+# install from folder
+sudo /opt/pironman5/venv/bin/pip3 uninstall pironman5 -y
+sudo /opt/pironman5/venv/bin/pip3 install ~/pironman5 --no-build-isolation
+
+sudo /opt/pironman5/venv/bin/pip3 uninstall pm_auto -y
+sudo /opt/pironman5/venv/bin/pip3 install ~/pm_auto --no-build-isolation
 ```
+
 
 Start/stop the service for debug
 
-```
+```bash
 sudo systemctl stop pironman5.service
 sudo systemctl start pironman5.service
 sudo systemctl restart pironman5.service
-sudo pironman5 start
+sudo -u pironman5 /opt/pironman5/venv/bin/python3
 
-sudo /opt/pironman5/venv/bin/python3
+journalctl -xefu pironman5.service
+sudo systemctl restart pironman5.service && journalctl -xefu pironman5.service
 ```
 
 ## About SunFounder

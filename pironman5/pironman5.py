@@ -4,20 +4,19 @@ import os
 from importlib.resources import files as resource_files
 import signal
 
-from pm_auto.pm_auto import PMAuto
 from pm_auto import __version__ as pm_auto_version
-from .logger import create_get_child_logger
+from .logger import Logger
 from .utils import merge_dict, log_error
+from .security import redact_secrets, write_json_private
+from .history import SQLiteHistory
 from .version import __version__ as pironman5_version
-from .variants import NAME, ID, PRODUCT_VERSION, PERIPHERALS, SYSTEM_DEFAULT_CONFIG
+from .variants import NAME, ID, PRODUCT_VERSION, PERIPHERALS, SYSTEM_DEFAULT_CONFIG, EVENT_MAP
+from ._constants import CONFIG_PATH, APP_NAME, DEFAULT_DEBUG_LEVEL
+from .host import restart_service
+from .runtime import PironmanRuntime
 
-APP_NAME = 'pironman5'
-DEFAULT_DEBUG_LEVEL = 'INFO' # 'DEBUG' | 'INFO' | 'WARNING' | 'ERROR' | 'CRITICAL'
-
-get_child_logger = create_get_child_logger(APP_NAME)
-log = get_child_logger('main')
+log = Logger(APP_NAME)
 __package_name__ = __name__.split('.')[0]
-CONFIG_PATH = str(resource_files(__package_name__).joinpath('config.json'))
 
 PMDashboard = None
 try:
@@ -27,10 +26,10 @@ except ImportError:
     pass
 
 class Pironman5:
-  
-    # @log_error
+
     def __init__(self, config_path=CONFIG_PATH):
-        self.log = get_child_logger('main')
+        self.peripherals = PERIPHERALS
+        self.log = log
 
         # Load config
         # -----------------------------------------
@@ -45,45 +44,7 @@ class Pironman5:
                 config = json.load(f)
             config = self.upgrade_config(config)
             self.config = merge_dict(self.config, config)
-        with open(self.config_path, 'w') as f:
-            json.dump(self.config, f, indent=4)
-
-        # log header
-        # -----------------------------------------
-        log.info(f"")
-        log.info(f"{'#'*60}")
-        log.debug(f"Config path: {CONFIG_PATH}")
-
-        # init PMAuto and PMDashboard
-        # -----------------------------------------
-        device_info = {
-            'name': NAME,
-            'id': ID,
-            'peripherals': PERIPHERALS,
-            'version': pironman5_version,
-            'app_name': APP_NAME,
-        }
-        self.log.debug(f"Pironman5 version: {pironman5_version}")
-        self.log.debug(f"Variant: {NAME} {PRODUCT_VERSION}")
-        self.log.debug(f"Config: {self.config}")
-        self.log.debug(f"Device info: {device_info}")
-        self.log.debug(f"PM_Auto version: {pm_auto_version}")
-        if PMDashboard is not None:
-            self.log.debug(f"PM_Dashboard version: {pm_dashboard_version}")
-        self.pm_auto = PMAuto(self.config['system'],
-                              peripherals=PERIPHERALS,
-                              get_logger=get_child_logger)
-        if PMDashboard is None:
-            self.pm_dashboard = None
-            self.log.warning('PM Dashboard not found skipping')
-        else:
-            self.pm_dashboard = PMDashboard(device_info=device_info,
-                                            database=ID,
-                                            spc_enabled=True if 'spc' in PERIPHERALS else False,
-                                            config=self.config,
-                                            get_logger=get_child_logger)
-            self.pm_auto.set_on_state_changed(self.pm_dashboard.update_status)
-            self.pm_dashboard.set_on_config_changed(self.update_config)
+        write_json_private(self.config_path, self.config)
 
         # Set debug level
         # -----------------------------------------
@@ -93,12 +54,87 @@ class Pironman5:
             _debug_level = DEFAULT_DEBUG_LEVEL
         self.set_debug_level(_debug_level)
 
+        # LOG HEADER
+        log.info(f"")
+        log.info(f"{'#'*60}")
+        log.debug(f"Config path: {CONFIG_PATH}")
+        log.info(f"Pironman5 Start")
+
+        if 'enable_history' in self.config['system']:
+            _p = set(self.peripherals)
+            if self.config['system']['enable_history']:
+                _p.add('history')
+                _p.add('clear_history')
+            else:
+                if 'history' in _p:
+                    _p.remove('history')
+                if 'clear_history' in _p:
+                    _p.remove('clear_history')
+            self.peripherals = list(_p)
+
+        self.history = None
+        if self.config['system'].get('enable_history', False):
+            history_path = self.config['system'].get(
+                'history_db_path',
+                '/opt/pironman5/history.sqlite3',
+            )
+            self.history = SQLiteHistory(history_path)
+            self.history.initialize()
+            self.history.apply_retention(self.config['system'].get('database_retention_days', 30))
+
+        # init runtime and optional dashboard
+        # -----------------------------------------
+        device_info = {
+            'name': NAME,
+            'id': ID,
+            'peripherals': self.peripherals,
+            'version': pironman5_version,
+            'app_name': APP_NAME,
+            'config_path': self.config_path,
+        }
+        self.log.info(f"Pironman5 version: {pironman5_version}")
+        self.log.info(f"Variant: {NAME} {PRODUCT_VERSION}")
+
+        _config_json = json.dumps(redact_secrets(self.config), indent=4)
+        self.log.info(f"Config:")
+        for line in _config_json.splitlines():
+            self.log.info(line)
+        _device_info_json = json.dumps(device_info, indent=4)
+        self.log.info(f"Device info:")
+        for line in _device_info_json.splitlines():
+            self.log.info(line)
+
+        self.log.info(f"PM_Auto version: {pm_auto_version}")
+        if PMDashboard is not None:
+            self.log.info(f"PM_Dashboard version: {pm_dashboard_version}")
+
+        self.runtime = PironmanRuntime(self.config['system'],
+                                       peripherals=self.peripherals,
+                                       device_info=device_info,
+                                       event_map=EVENT_MAP,
+                                       log=log)
+        if PMDashboard is None:
+            self.pm_dashboard = None
+            self.log.info('PM Dashboard not installed; skipping optional dashboard startup')
+        else:
+            self.pm_dashboard = PMDashboard(device_info=device_info,
+                                            database=ID,
+                                            config=self.config,
+                                            log=log)
+            self.pm_dashboard.set_read_data(self.runtime.read)
+            self.pm_dashboard.set_read_config(self.read_config)
+            if 'send_email' in self.peripherals:
+                self.pm_dashboard.set_test_smtp(self.runtime.test_smtp)
+            self.pm_dashboard.set_on_config_changed(self.update_config)
+            self.pm_dashboard.set_on_restart_service(restart_service)
+
+    @log_error
+    def read_config(self):
+        return self.config
+
     @log_error
     def set_debug_level(self, level):
         self.log.setLevel(level)
-        self.pm_auto.set_debug_level(level)
-        if self.pm_dashboard:
-            self.pm_dashboard.set_debug_level(level)
 
     @log_error
     def upgrade_config(self, config):
@@ -109,29 +145,41 @@ class Pironman5:
 
     @log_error
     def update_config(self, config):
-        self.pm_auto.update_config(config['system'])
-        self.config = merge_dict(self.config, config)
-        with open(self.config_path, 'w') as f:
-            json.dump(self.config, f, indent=4)
+        patch = {}
+        if 'debug_level' in config['system']:
+            level = config['system']['debug_level'].upper()
+            self.set_debug_level(level)
+            patch['debug_level'] = level
+        pm_auto_patch = self.runtime.update_config(config['system'])
+        patch.update(pm_auto_patch)
+        if self.pm_dashboard:
+            dashboard_patch = self.pm_dashboard.update_config(config['system'])
+            patch.update(dashboard_patch)
+
+        if len(patch) > 0:
+            self.log.debug(f"Update config: {patch}")
+            self.config['system'].update(patch)
+            self.log.debug(f"New config: {json.dumps(redact_secrets(self.config), indent=4)}")
+            write_json_private(self.config_path, self.config)
+
+        return self.config
 
     @log_error
     def start(self):
         signal.signal(signal.SIGINT, self.signal_handler)
         signal.signal(signal.SIGTERM, self.signal_handler)
         signal.signal(signal.SIGABRT, self.signal_handler)
-        self.pm_auto.start()
-        self.log.info('PMAuto started')
+        self.runtime.start()
         if self.pm_dashboard:
             self.pm_dashboard.start()
-            self.log.info('PmDashboard started')
         while True:
             time.sleep(1)
 
     @log_error
     def stop(self):
         self.log.info('Stopping Pironman5')
-        self.log.info('Stopping PMAuto')
-        self.pm_auto.stop()
+        self.log.info('Stopping runtime')
+        self.runtime.stop()
         if self.pm_dashboard:
             self.log.info('Stopping PmDashboard')
             self.pm_dashboard.stop()

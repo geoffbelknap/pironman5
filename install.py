@@ -1,37 +1,25 @@
 #!/usr/bin/env python3
 
+import argparse
+
 from tools.sf_installer import SF_Installer
 from pironman5.version import __version__
-import os
-from pironman5.variants import NAME, DT_OVERLAYS, PERIPHERALS, VARIANTS
-
-installer = SF_Installer(
-    name='pironman5',
-    friendly_name=NAME,
-    # - Setup install command description if needed, default to "Installer for {friendly_name}""
-    # description='Installer for Pironman 5',
-    # - Setup Work Dir if needed, default to /opt/{name}
-    # work_dir='/opt/pironman5',
-    # - Setup log dir if needed, default to /var/log/{name}
-    # log_dir='/var/log/pironman5',
+from pironman5.variants import (
+    NAME,
+    PERIPHERALS,
+    VARIENT,
+    PRODUCT_DEFINITIONS,
+    detect_hardware_variant,
+    get_product_definition,
+    normalize_variant_key,
 )
+from pironman5.variants.modules import assemble
 
-installer.parser.add_argument("--disable-dashboard", action='store_true', help="Disable dashboard")
-installer.parser.add_argument("-V", "--variant", help="force varient to specific")
-args = installer.parser.parse_args()
-if args.variant:
-    short_name = args.variant
-    if short_name in VARIANTS:
-        variant = VARIANTS[short_name]
-        DT_OVERLAYS = variant.DT_OVERLAYS
-        PERIPHERALS = variant.PERIPHERALS
-        NAME = variant.NAME
-        print(f'Force variant: {NAME}')
-        installer.set_friendly_name(NAME)
-        os.makedirs('/opt/pironman5', exist_ok=True)
-        os.system(f'echo {short_name} > /opt/pironman5/variant')
-    else:
-        print(f'Unknown variant: {short_name}')
+PM_AUTO_REF = 'b00dd490ce498e963c352876801b5cb4e59c4bd2'  # geoffbelknap/pironman5-1.4.7-hardened
+DASHBOARD_REF = '7a347dd84115949e916811cfe536172cb44cadf0'  # geoffbelknap/pironman5-1.4.0-hardened
+PIPOWER5_REF = '46250a12e2e6b4b9e1f3d7e3787d02a2aaf1b373'  # 1.2.3
+SPC_REF = '3581063092fe669e7a5538f4a4dc67e9b766863c'
+VARIANT_HELP = f"Install for a specific Pironman variant; default: auto. Valid: auto, {', '.join(sorted(PRODUCT_DEFINITIONS))}"
 
 settings = {
     # - Setup venv options if needed, default to []
@@ -39,15 +27,17 @@ settings = {
         '--system-site-packages',
     ],
 
+    'groups': [],
+
     # - Build required apt dependencies, default to []
     # 'build_dependencies': [
     #     'curl', # for influxdb key download
     # ],
 
-    # - Before install script, default to {}
-    # 'run_commands_before_install': {
-    #     'Install LGPIO': 'bash scripts/install_lgpio.sh',
-    # },
+    # - Before install scripts, default to []
+    'run_scripts_before_install': [
+        "umbrel_patch.sh",
+    ],
 
     # - Install from apt
     'apt_dependencies': [
@@ -55,15 +45,21 @@ settings = {
     ],
 
     # - Install from pip
-    # 'pip_dependencies': [
-    #     'gpiozero',
-    # ],
+    'pip_dependencies': [
+        'psutil',
+    ],
 
     # - Install python source code from git
     'python_source': {
         'pironman5': './',
-        'pm_auto': f'git+https://github.com/sunfounder/pm_auto.git@1.2.12',
+        'pm_auto': f'git+https://github.com/geoffbelknap/pm_auto.git@{PM_AUTO_REF}',
     },
+
+    # create symbolic links from venv/bin/ to /usr/local/bin/
+    'symlinks':
+    [
+        'pironman5',
+    ],
 
     # - Setup config txt
     # 'config_txt':  {
@@ -82,22 +78,31 @@ settings = {
     # - Set service filenames
     'service_files': ['pironman5.service'],
     # - Set bin files
-    'bin_files': ['pironman5'],
+    'bin_files': [],
 
     # - Copy device tree overlay to /boot/overlays
-    'dtoverlays': DT_OVERLAYS,
+    'dtoverlays': [],
 }
 
 ws2812_settings = {
-    # - Install from pip
+    'run_scripts_before_install': [
+        "install_lgpio.sh",
+        "fix_kali_gpio_spi.sh",
+    ],
+    'groups': ['spi', 'gpio'],
     'pip_dependencies': [
         'adafruit-circuitpython-neopixel-spi',
+        'adafruit_platformdetect',
         'Adafruit-Blinka==8.59.0',
+        'rpi.lgpio',
+        'adafruit-circuitpython-typing',
+        'Adafruit-PureIO>=1.1.7',
+        'pyftdi>=0.40.0',
     ],
 }
 
 oled_settings = {
-    # - Install from apt
+    'groups': ['i2c'],
     'apt_dependencies': [
         'libjpeg-dev', # for Pillow on 32 bit OS
         'libfreetype6-dev', # for Pillow on 32 bit OS
@@ -105,66 +110,272 @@ oled_settings = {
         'kmod',
         'i2c-tools',
     ],
-    # - Install from pip
     'pip_dependencies': [
         'Pillow',
         'smbus2',
     ],
-    # add modules
-    # sudo nano /etc/modules
     'modules': [
         "i2c-dev",
     ],
 }
 
 gpio_settings = {
-    # - Before install script, default to {}
-    'run_commands_before_install': {
-        'Install LGPIO': 'bash scripts/install_lgpio.sh',
-    },
-
+    # - Before install scripts, default to []
+    'run_scripts_before_install': [
+        "install_lgpio.sh",
+        "fix_kali_gpio_spi.sh",
+    ],
+    'groups': ['gpio'],
     # - Install from apt
-    'apt_dependencies': [
-        'python3-gpiozero', # for pm_auto fan control
+    'uninstall_pip_dependencies': [
+        'RPi.GPIO',
     ],
     # - Install from pip
     'pip_dependencies': [
-        'gpiozero',
-        'gpiod',
         'rpi.lgpio',
+    ],
+    'run_scripts_after_install': [
+        "change_rpi.gpio_to_rpi.lgpio.sh",
+    ],
+}
+
+pi5_power_button_settings = {
+    'apt_dependencies': [
+        'build-essential',
+        'gcc',
+        'g++',
+        'python3-dev',
+    ],
+    'groups': ['input'],
+    'pip_dependencies': [
+        'evdev',
+    ],
+}
+
+rgb_matrix_settings = {
+    'groups': ['i2c'],
+    'pip_dependencies': [
+        'smbus2',
+        'numpy',
     ],
 }
 
 dashboard_settings = {
-    'build_dependencies': [
-        'curl', # for influxdb key download
-    ],
-    'run_commands_before_install': {
-        'Setup InfluxDB': 'bash scripts/setup_influxdb.sh',
-    },
-    'apt_dependencies': [
-        'influxdb', # for pm_dashboard
-        'lsof', # for pm_dashboard
-    ],
     'python_source': {
-        'pm_dashboard': f'git+https://github.com/sunfounder/pm_dashboard.git@1.2.10',
-        'sf_rpi_status': f'git+https://github.com/sunfounder/sf_rpi_status.git@1.1.0',
+        'pm_dashboard': f'git+https://github.com/geoffbelknap/pm_dashboard.git@{DASHBOARD_REF}',
     },
 }
 
-# Check if is umbrel os, skip dtoverlay
-if os.path.exists('/umbrelOS'):
-    print('Detected umbrel os, skip dtoverlay')
-    settings['dtoverlays'] = []
+influxdb_legacy_settings = {
+    'groups': ['influxdb'],
+    # - Build required apt dependencies, default to []
+    'build_dependencies': [
+        'curl', # for influxdb key download
+    ],
+    # - Before install scripts, default to []
+    'run_scripts_before_install': [
+        "install_influxdb.sh",
+    ],
+}
 
-installer.update_settings(settings)
-if not args.disable_dashboard:
-    installer.update_settings(dashboard_settings)
-if 'oled' in PERIPHERALS:
-    installer.update_settings(oled_settings)
-if 'gpio_fan_state' in PERIPHERALS or \
-    'vibration_switch' in PERIPHERALS:
-    installer.update_settings(gpio_settings)
-if 'ws2812' in PERIPHERALS:
-    installer.update_settings(ws2812_settings)
-installer.main()
+pipower5_settings = {
+    # Install python packages from source
+    'groups': ['i2c', 'pipower5'],
+    'python_source': {
+        'pipower5': f'git+https://github.com/sunfounder/pipower5.git@{PIPOWER5_REF}',
+        'spc': f'git+https://github.com/sunfounder/spc.git@{SPC_REF}',
+    },
+    # Add symbolic links
+    'symlinks': [
+        'pipower5',
+    ],
+    # Before install scripts, default to []
+    'run_scripts_before_install': [
+        "setup_pipower5.sh",
+    ],
+    # - Copy device tree overlay to /boot/overlays
+    'dtoverlays': [
+        'sunfounder-pipower5.dtbo',
+    ],
+}
+
+rtl8125_settings = {
+    # - Install from apt
+    'run_scripts_before_install': [
+        "setup_rtl8125.sh",
+    ],
+}
+
+def build_installer(variant_key=None):
+    product = get_product_definition(variant_key) if variant_key else None
+    return SF_Installer(
+        name='pironman5',
+        friendly_name=product["name"] if product else NAME,
+        # - Setup install command description if needed, default to "Installer for {friendly_name}""
+        # description='Installer for Pironman 5',
+        # - Setup Work Dir if needed, default to /opt/{name}
+        # work_dir='/opt/pironman5',
+        # - Setup log dir if needed, default to /var/log/{name}
+        # log_dir='/var/log/pironman5',
+    )
+
+
+def parse_install_args(argv=None, parser=None):
+    if parser is None:
+        parser = build_installer().parser
+    parser.add_argument(
+        "--variant",
+        type=normalize_variant_key,
+        choices=["auto", *sorted(PRODUCT_DEFINITIONS)],
+        default="auto",
+        metavar="VARIANT",
+        help=VARIANT_HELP,
+    )
+    parser.add_argument("--print-variant", action="store_true", help="Print detected/selected variant and exit")
+    parser.add_argument("--enable-dashboard", action="store_true", help="Enable dashboard components")
+    parser.add_argument("--enable-influxdb-legacy", action="store_true", help="Enable legacy InfluxDB dashboard history backend")
+    parser.add_argument("--enable-ups", action="store_true", help="Enable PiPower5 UPS components")
+    parser.add_argument("--enable-experimental-dependency", action="append", default=[], help="Enable a named experimental dependency")
+    parser.add_argument("--disable-dashboard", action="store_true", help=argparse.SUPPRESS)
+    return parser.parse_args(argv)
+
+
+def get_selected_variant_key(args):
+    if getattr(args, "variant", "auto") != "auto":
+        return normalize_variant_key(args.variant)
+    return detect_hardware_variant()["variant"]
+
+
+def describe_variant_selection(args):
+    if getattr(args, "variant", "auto") != "auto":
+        variant_key = normalize_variant_key(args.variant)
+        product = get_product_definition(variant_key)
+        return variant_key, f"Selected variant: {product['name']} ({variant_key})"
+    detected = detect_hardware_variant()
+    variant_key = detected["variant"]
+    product = get_product_definition(variant_key)
+    if detected["source"] == "hat-eeprom":
+        detail = f"HAT EEPROM {detected['part_number']}"
+    else:
+        detail = f"fallback {detected['part_number']}"
+    return variant_key, f"Auto-detected variant: {product['name']} ({variant_key}) from {detail}"
+
+
+def get_variant_peripherals(variant_key):
+    product = get_product_definition(variant_key)
+    if product is None:
+        return PERIPHERALS
+    return assemble(product["modules"])["peripherals"]
+
+
+def resolve_enabled_setting_names(args, peripherals=None):
+    if peripherals is None:
+        peripherals = get_variant_peripherals(get_selected_variant_key(args))
+
+    names = ["base"]
+
+    if "oled" in peripherals:
+        names.append("oled")
+    if "gpio_fan_state" in peripherals or "vibration_switch" in peripherals:
+        names.append("gpio")
+    if "ws2812" in peripherals:
+        names.append("ws2812")
+    if "pi5_power_button" in peripherals:
+        names.append("pi5_power_button")
+    if "rgb_matrix" in peripherals:
+        names.append("rgb_matrix")
+    if "rtl8125" in peripherals and "rtl8125" in args.enable_experimental_dependency:
+        names.append("rtl8125")
+
+    if args.enable_dashboard:
+        names.append("dashboard")
+    if args.enable_dashboard and args.enable_influxdb_legacy:
+        names.append("influxdb_legacy")
+    if args.enable_ups and "pipower5" in peripherals:
+        names.append("pipower5")
+
+    return names
+
+
+def apply_settings_by_name(installer_obj, names):
+    mapping = {
+        "base": settings,
+        "oled": oled_settings,
+        "gpio": gpio_settings,
+        "ws2812": ws2812_settings,
+        "pi5_power_button": pi5_power_button_settings,
+        "rgb_matrix": rgb_matrix_settings,
+        "dashboard": dashboard_settings,
+        "influxdb_legacy": influxdb_legacy_settings,
+        "pipower5": pipower5_settings,
+        "rtl8125": rtl8125_settings,
+    }
+    for name in names:
+        installer_obj.update_settings(mapping[name])
+
+
+def apply_variant_config_txt(installer_obj, variant=VARIENT):
+    product = get_product_definition(variant)
+    config_txt = None
+    if product is not None:
+        config_txt = product.get("config_txt")
+    if config_txt is None:
+        config_txt = getattr(variant, "CONFIG_TXT", None)
+    if config_txt:
+        installer_obj.update_settings({"config_txt": config_txt})
+
+
+def apply_variant_install_settings(installer_obj, variant_key):
+    product = get_product_definition(variant_key)
+    if product is None:
+        return
+    installer_obj.update_settings({
+        "dtoverlays": product.get("dt_overlays", []),
+        "work_files": {
+            ".variant": f"{variant_key}\n",
+        },
+    })
+    apply_variant_config_txt(installer_obj, variant_key)
+
+
+def build_installer_for_variant(variant_key):
+    variant_key = normalize_variant_key(variant_key)
+    installer_obj = build_installer(variant_key)
+    names = resolve_enabled_setting_names(
+        argparse.Namespace(
+            variant=variant_key,
+            enable_dashboard=False,
+            enable_influxdb_legacy=False,
+            enable_ups=False,
+            enable_experimental_dependency=[],
+        )
+    )
+    apply_settings_by_name(installer_obj, names)
+    apply_variant_install_settings(installer_obj, variant_key)
+    return installer_obj
+
+
+def build_installer_for_settings(names):
+    installer_obj = build_installer()
+    apply_settings_by_name(installer_obj, names)
+    apply_variant_config_txt(installer_obj)
+    return installer_obj
+
+
+def main(argv=None):
+    installer_obj = build_installer()
+    args = parse_install_args(argv, parser=installer_obj.parser)
+    variant_key, variant_description = describe_variant_selection(args)
+    print(variant_description)
+    if args.print_variant:
+        return
+    installer_obj.friendly_name = get_product_definition(variant_key)["name"]
+    names = resolve_enabled_setting_names(args)
+    apply_settings_by_name(installer_obj, names)
+    apply_variant_install_settings(installer_obj, variant_key)
+    installer_obj.args = args
+    installer_obj.main()
+
+
+if __name__ == "__main__":
+    main()
