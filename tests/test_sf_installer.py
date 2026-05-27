@@ -1,5 +1,6 @@
 import unittest
 import unittest.mock
+from pathlib import Path
 from types import SimpleNamespace
 
 from tools.sf_installer import SF_Installer
@@ -141,9 +142,51 @@ class InstallerCommandConstructionTest(unittest.TestCase):
         installer.copy_dtoverlay()
 
         self.assertIn(
-            "install -m 0644 -o root -g root overlays/sunfounder-pironman5.dtbo /boot/firmware/overlays/sunfounder-pironman5.dtbo",
+            "install -m 0644 -o root -g root pironman5/assets/overlays/sunfounder-pironman5.dtbo /boot/firmware/overlays/sunfounder-pironman5.dtbo",
             commands,
         )
+
+    def test_setup_auto_start_uses_packaged_service_asset(self):
+        installer = SF_Installer("pironman5")
+        installer.args = Args(plain_text=True, skip_auto_start=False)
+        installer.service_files = ["pironman5.service"]
+        commands = []
+        installer.do = lambda _msg, cmd, **_kwargs: commands.append(cmd)
+
+        installer.setup_auto_start()
+
+        self.assertIn("cp pironman5/assets/bin/pironman5.service /etc/systemd/system/", commands)
+
+    def test_duplicate_root_asset_directories_are_not_tracked(self):
+        duplicate_paths = [
+            Path("bin/99-com.rules"),
+            Path("bin/pironman5"),
+            Path("bin/pironman5.service"),
+            Path("overlays/sunfounder-pipower5.dtbo"),
+            Path("overlays/sunfounder-pironman5.dtbo"),
+            Path("overlays/sunfounder-pironman5mini.dtbo"),
+            Path("overlays/sunfounder-pironman5nas.dtbo"),
+            Path("overlays/sunfounder-pironman5promax.dtbo"),
+            Path("sunfounder-pironman5.dtbo"),
+            Path("sunfounder-pironman5mini.dtbo"),
+        ]
+
+        for duplicate_path in duplicate_paths:
+            with self.subTest(path=duplicate_path):
+                self.assertFalse(duplicate_path.exists())
+
+    def test_stale_manual_helper_files_are_not_tracked(self):
+        stale_paths = [
+            Path("scripts/setup_influxdb.sh"),
+            Path("scripts/test_dpkg_lock.sh"),
+            Path("scripts/upload-1.2.ps1"),
+            Path("tests/read_variants.py"),
+            Path("tests/usgae.md"),
+        ]
+
+        for stale_path in stale_paths:
+            with self.subTest(path=stale_path):
+                self.assertFalse(stale_path.exists())
 
 
 class InstallSettingsPolicyTest(unittest.TestCase):
@@ -317,7 +360,7 @@ class InstallSettingsPolicyTest(unittest.TestCase):
 
 class ServiceHardeningTest(unittest.TestCase):
     def test_service_runs_as_pironman5_user(self):
-        with open("bin/pironman5.service", "r", encoding="utf-8") as f:
+        with open("pironman5/assets/bin/pironman5.service", "r", encoding="utf-8") as f:
             service = f.read()
 
         self.assertIn("User=pironman5", service)
@@ -326,7 +369,7 @@ class ServiceHardeningTest(unittest.TestCase):
         self.assertNotIn("Group=root", service)
 
     def test_service_loads_default_environment_file(self):
-        with open("bin/pironman5.service", "r", encoding="utf-8") as f:
+        with open("pironman5/assets/bin/pironman5.service", "r", encoding="utf-8") as f:
             service = f.read()
 
         self.assertIn("EnvironmentFile=-/etc/default/pironman5", service)
