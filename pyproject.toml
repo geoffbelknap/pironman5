@@ -17,7 +17,33 @@ classifiers = [
 ]
 dynamic = ["version"]
 
-dependencies = []
+dependencies = [
+  "psutil",
+  "Pillow",
+  "smbus2",
+  "evdev",
+  "rpi.lgpio",
+  "adafruit-circuitpython-neopixel-spi",
+  "adafruit_platformdetect",
+  "Adafruit-Blinka==8.59.0",
+  "adafruit-circuitpython-typing",
+  "Adafruit-PureIO>=1.1.7",
+  "pyftdi>=0.40.0",
+  "pm_auto @ git+https://github.com/geoffbelknap/pm_auto.git@b00dd490ce498e963c352876801b5cb4e59c4bd2",
+  "sf_rpi_status @ git+https://github.com/geoffbelknap/sf_rpi_status.git@cc9841628913a01315c009e72df5cec2bc4f45af",
+]
+
+[project.optional-dependencies]
+dashboard = [
+  "pm_dashboard @ git+https://github.com/geoffbelknap/pm_dashboard.git@7a347dd84115949e916811cfe536172cb44cadf0",
+]
+ups = [
+  "pipower5 @ git+https://github.com/sunfounder/pipower5.git@46250a12e2e6b4b9e1f3d7e3787d02a2aaf1b373",
+  "spc @ git+https://github.com/sunfounder/spc.git@3581063092fe669e7a5538f4a4dc67e9b766863c",
+]
+rgb-matrix = [
+  "numpy",
+]
 
 [project.scripts]
 pironman5 = "pironman5:_cli.main"
