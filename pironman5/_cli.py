@@ -89,9 +89,13 @@ Keywords=pironman5;browser;autostart;""")
 
 def update_config_file(config, config_path):
     import json
-    current = None
-    with open(config_path, 'r') as f:
-        current = json.load(f)
+    current = {'system': {}}
+    if os.path.exists(config_path):
+        with open(config_path, 'r') as f:
+            try:
+                current = json.load(f)
+            except json.JSONDecodeError:
+                current = {'system': {}}
     for key in config:
         if key in current:
             current[key].update(config[key])
@@ -242,15 +246,15 @@ def main():
 
     # load config file
     # ----------------------------------------
-    if not os.path.exists(config_path):
-        write_json_private(config_path, {'system': {}})
-    else:
+    current_config = {'system': {}}
+    if os.path.exists(config_path):
         with open(config_path, 'r') as f:
             try:
                 content = f.read()
                 if content == '':
                     current_config = {'system': {}}
-                current_config = json.loads(content)
+                else:
+                    current_config = json.loads(content)
             except json.JSONDecodeError:
                 print(f"Invalid config file: {config_path}")
                 quit()
@@ -259,13 +263,13 @@ def main():
     # ----------------------------------------
     if args.config:
         print(json.dumps(current_config, indent=4))
-        quit()
+        return
 
     # get or set debug level
     # ----------------------------------------
     if args.debug_level != '':
         if args.debug_level == None:
-            print(f"Debug level: {current_config['system']['debug_level']}")
+            print(f"Debug level: {current_config['system'].get('debug_level', debug_level)}")
         else:
             if args.debug_level.lower() not in ['debug', 'info', 'warning', 'error', 'critical']:
                 print(f"Invalid debug level, it should be one of: debug, info, warning, error, critical")
