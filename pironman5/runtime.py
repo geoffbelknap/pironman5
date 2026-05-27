@@ -71,6 +71,120 @@ class EventBus:
         self.subscribe(pub_event_name, bridge)
 
 
+FAN_LEVELS = [
+    {"name": "OFF", "low": -200, "high": 55, "percent": 0},
+    {"name": "LOW", "low": 45, "high": 65, "percent": 40},
+    {"name": "MEDIUM", "low": 55, "high": 75, "percent": 80},
+    {"name": "HIGH", "low": 65, "high": 100, "percent": 100},
+]
+LOCAL_PERIPHERALS = {"system", "gpio_fan", "gpio_fan_state", "gpio_fan_led"}
+
+
+class GPIOOutputPin:
+    def __init__(self, pin):
+        from RPi import GPIO
+
+        self.pin = pin
+        self.gpio = GPIO
+        self.gpio.setmode(self.gpio.BCM)
+        self.gpio.setup(self.pin, self.gpio.OUT)
+        self.set(False)
+
+    def set(self, value):
+        self.gpio.output(self.pin, bool(value))
+
+    def close(self):
+        self.set(False)
+        self.gpio.cleanup(self.pin)
+
+
+class GPIOFanModule:
+    def __init__(self, config, event, log=None, pin_factory=None):
+        self.config = dict(config or {})
+        self.event = event
+        self.log = log or logging.getLogger(__name__)
+        self.pin_factory = pin_factory or GPIOOutputPin
+        self.level = 0
+        self.fan_pin = None
+        self.led_pin = None
+        self._configure_pins()
+
+    def update_config(self, config):
+        patch = {}
+        if "gpio_fan_pin" in config:
+            self.config["gpio_fan_pin"] = int(config["gpio_fan_pin"])
+            patch["gpio_fan_pin"] = self.config["gpio_fan_pin"]
+            self._replace_fan_pin()
+        if "gpio_fan_mode" in config:
+            mode = int(config["gpio_fan_mode"])
+            if 0 <= mode < len(FAN_LEVELS):
+                self.config["gpio_fan_mode"] = mode
+                patch["gpio_fan_mode"] = mode
+        if "gpio_fan_led_pin" in config:
+            self.config["gpio_fan_led_pin"] = int(config["gpio_fan_led_pin"])
+            patch["gpio_fan_led_pin"] = self.config["gpio_fan_led_pin"]
+            self._replace_led_pin()
+        if "gpio_fan_led" in config:
+            led = str(config["gpio_fan_led"]).lower()
+            if led in ("follow", "on", "off"):
+                self.config["gpio_fan_led"] = led
+                patch["gpio_fan_led"] = led
+                self._set_led(None)
+        return patch
+
+    def task_1s(self):
+        temperature = host.get_cpu_temperature()
+        temperature = float(temperature) if temperature is not None else 0.0
+        if temperature < FAN_LEVELS[self.level]["low"]:
+            self.level -= 1
+        elif temperature > FAN_LEVELS[self.level]["high"]:
+            self.level += 1
+        self.level = max(0, min(self.level, len(FAN_LEVELS) - 1))
+        state = self.level >= self.config.get("gpio_fan_mode", 1)
+        if self.fan_pin is not None:
+            self.fan_pin.set(state)
+        self._set_led(state)
+        self.event.publish("data_changed", {"gpio_fan_state": state})
+
+    async def start(self):
+        self.tasks = TaskScheduler()
+        await self.tasks.run_periodically(self.task_1s, 1)
+
+    async def stop(self):
+        if hasattr(self, "tasks"):
+            await self.tasks.stop()
+        for pin in (self.fan_pin, self.led_pin):
+            if pin is not None:
+                pin.close()
+
+    def _configure_pins(self):
+        self._replace_fan_pin()
+        if "gpio_fan_led_pin" in self.config:
+            self._replace_led_pin()
+        self._set_led(None)
+
+    def _replace_fan_pin(self):
+        if self.fan_pin is not None:
+            self.fan_pin.close()
+        self.fan_pin = self.pin_factory(int(self.config.get("gpio_fan_pin", 6)))
+
+    def _replace_led_pin(self):
+        if self.led_pin is not None:
+            self.led_pin.close()
+        self.led_pin = self.pin_factory(int(self.config.get("gpio_fan_led_pin", 5)))
+
+    def _set_led(self, fan_state):
+        if self.led_pin is None:
+            return
+        mode = self.config.get("gpio_fan_led", "follow")
+        if mode == "follow" and fan_state is not None:
+            self.led_pin.set(fan_state)
+        elif mode == "on":
+            self.led_pin.set(True)
+        elif mode == "off":
+            self.led_pin.set(False)
+
+
 class SystemStatusModule:
     def __init__(self, event, log=None):
         self.event = event
@@ -166,7 +280,7 @@ class LegacyHardwareRuntime:
     def __init__(self, config, peripherals, device_info, event, log=None):
         self.log = log or logging.getLogger(__name__)
         self.event = event or EventBus(log=self.log)
-        self.peripherals = [peripheral for peripheral in peripherals if peripheral != "system"]
+        self.peripherals = [peripheral for peripheral in peripherals if peripheral not in LOCAL_PERIPHERALS]
         self.addons = None
         if self.peripherals:
             if Addons is None:
@@ -208,6 +322,11 @@ class PironmanRuntime:
         self.loop = None
         self.thread = None
         self.system = SystemStatusModule(event=self.event, log=self.log)
+        self.gpio_fan = (
+            GPIOFanModule(config=config, event=self.event, log=self.log)
+            if any(peripheral in peripherals for peripheral in ("gpio_fan", "gpio_fan_state", "gpio_fan_led"))
+            else None
+        )
         self.hardware = LegacyHardwareRuntime(
             config=config,
             peripherals=peripherals,
@@ -228,7 +347,11 @@ class PironmanRuntime:
         return self.data
 
     def update_config(self, config):
-        return self.hardware.update_config(config)
+        patch = {}
+        if self.gpio_fan is not None:
+            patch.update(self.gpio_fan.update_config(config))
+        patch.update(self.hardware.update_config(config))
+        return patch
 
     def test_smtp(self):
         return self.hardware.test_smtp()
@@ -253,8 +376,12 @@ class PironmanRuntime:
 
     async def _start(self):
         await self.system.start()
+        if self.gpio_fan is not None:
+            await self.gpio_fan.start()
         await self.hardware.start()
 
     async def _stop(self):
         await self.hardware.stop()
+        if self.gpio_fan is not None:
+            await self.gpio_fan.stop()
         await self.system.stop()
