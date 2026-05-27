@@ -1,9 +1,15 @@
+from os import listdir, path
+
+
 OPTIONAL_HARDWARE_MODULES = {
     "pipower5": {
         "modules": {"pipower5", "oled_ups_pages"},
         "hardware": "pipower5",
     },
 }
+
+REALTEK_VENDOR_ID = "0x10ec"
+RTL8125_DEVICE_IDS = {"0x8125"}
 
 
 def normalize_enabled_optional_hardware(enabled_optional_hardware=None):
@@ -25,3 +31,26 @@ def filter_enabled_modules(module_names, detected_hardware=None, enabled_optiona
         disabled_modules.update(policy["modules"])
 
     return [module_name for module_name in module_names if module_name not in disabled_modules]
+
+
+def _read_sysfs_id(file_path):
+    try:
+        with open(file_path, "r", encoding="utf-8") as f:
+            return f.read().strip().lower()
+    except OSError:
+        return None
+
+
+def probe_rtl8125(sysfs_root="/sys/bus/pci/devices"):
+    try:
+        device_names = listdir(sysfs_root)
+    except OSError:
+        return False
+
+    for device_name in device_names:
+        device_path = path.join(sysfs_root, device_name)
+        vendor = _read_sysfs_id(path.join(device_path, "vendor"))
+        device = _read_sysfs_id(path.join(device_path, "device"))
+        if vendor == REALTEK_VENDOR_ID and device in RTL8125_DEVICE_IDS:
+            return True
+    return False

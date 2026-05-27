@@ -1,7 +1,9 @@
 import importlib
 import os
 import sys
+import tempfile
 import unittest
+from pathlib import Path
 from unittest import mock
 
 
@@ -117,6 +119,36 @@ class VariantAssemblyTest(unittest.TestCase):
             detected = variants.detect_optional_hardware()
 
         self.assertFalse(detected["pipower5"])
+
+    def test_rtl8125_probe_detects_realtek_pci_device(self):
+        from pironman5.variants.hardware_policy import probe_rtl8125
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            device = Path(tmpdir) / "0000:01:00.0"
+            device.mkdir()
+            (device / "vendor").write_text("0x10ec\n", encoding="utf-8")
+            (device / "device").write_text("0x8125\n", encoding="utf-8")
+
+            self.assertTrue(probe_rtl8125(tmpdir))
+
+    def test_rtl8125_probe_ignores_other_realtek_pci_devices(self):
+        from pironman5.variants.hardware_policy import probe_rtl8125
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            device = Path(tmpdir) / "0000:01:00.0"
+            device.mkdir()
+            (device / "vendor").write_text("0x10ec\n", encoding="utf-8")
+            (device / "device").write_text("0x8168\n", encoding="utf-8")
+
+            self.assertFalse(probe_rtl8125(tmpdir))
+
+    def test_optional_hardware_reports_rtl8125_probe(self):
+        from pironman5 import variants
+
+        with mock.patch.object(variants, "probe_rtl8125", return_value=True):
+            detected = variants.detect_optional_hardware()
+
+        self.assertTrue(detected["rtl8125"])
 
     def test_capability_policy_filters_pipower5_from_profile_without_detection(self):
         from pironman5.variants.hardware_policy import filter_enabled_modules
