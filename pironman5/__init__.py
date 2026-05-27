@@ -328,7 +328,7 @@ def main():
                     quit()
         # oled disk
         if args.oled_disk != '':
-            from sf_rpi_status import get_disks
+            from .host import get_disks
             disks = ['total']
             disks.extend(get_disks())
             if args.oled_disk == None:
@@ -341,7 +341,7 @@ def main():
                 print(f"Set OLED disk: {args.oled_disk}")
         # oled network interface
         if args.oled_network_interface != '':
-            from sf_rpi_status import get_ips
+            from .host import get_ips
             interfaces = ['all']
             interfaces.extend(get_ips().keys())
             if args.oled_network_interface == None:

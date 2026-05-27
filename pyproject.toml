@@ -30,7 +30,6 @@ dependencies = [
   "Adafruit-PureIO>=1.1.7",
   "pyftdi>=0.40.0",
   "pm_auto @ git+https://github.com/geoffbelknap/pm_auto.git@b00dd490ce498e963c352876801b5cb4e59c4bd2",
-  "sf_rpi_status @ git+https://github.com/geoffbelknap/sf_rpi_status.git@cc9841628913a01315c009e72df5cec2bc4f45af",
 ]
 
 [project.optional-dependencies]

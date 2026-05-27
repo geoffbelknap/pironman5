@@ -154,7 +154,6 @@ as unreviewed until pinned to an audited fork or exact commit.
 git clone https://github.com/sunfounder/pironman5.git
 git clone https://github.com/sunfounder/pm_dashboard.git
 git clone https://github.com/sunfounder/pm_auto.git
-git clone https://github.com/sunfounder/sf_rpi_status.git
 ```
 
 Make adjustments, then manually install from local folders. Avoid floating Git

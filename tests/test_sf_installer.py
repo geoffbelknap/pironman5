@@ -245,7 +245,7 @@ class InstallSettingsPolicyTest(unittest.TestCase):
         installer = install.build_installer_for_settings(["base"])
 
         self.assertIn("github.com/geoffbelknap/pm_auto", installer.python_source["pm_auto"])
-        self.assertIn("github.com/geoffbelknap/sf_rpi_status", installer.python_source["sf_rpi_status"])
+        self.assertNotIn("sf_rpi_status", installer.python_source)
 
     def test_dashboard_dependency_uses_reviewed_fork(self):
         import install

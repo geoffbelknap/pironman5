@@ -31,10 +31,10 @@ class PackagingMetadataTest(unittest.TestCase):
             "Adafruit-PureIO>=1.1.7",
             "pyftdi>=0.40.0",
             "pm_auto @ git+https://github.com/geoffbelknap/pm_auto.git@b00dd490ce498e963c352876801b5cb4e59c4bd2",
-            "sf_rpi_status @ git+https://github.com/geoffbelknap/sf_rpi_status.git@cc9841628913a01315c009e72df5cec2bc4f45af",
         }
 
         self.assertTrue(expected.issubset(dependencies))
+        self.assertFalse(any("sf_rpi_status" in dependency for dependency in dependencies))
 
     def test_optional_dependency_extras_are_declared(self):
         optional = self.data["project"]["optional-dependencies"]
@@ -56,6 +56,11 @@ class PackagingMetadataTest(unittest.TestCase):
         serialized = str(self.data["project"])
 
         self.assertNotIn("influxdb", serialized.lower())
+
+    def test_dashboard_is_optional_and_not_installed_by_default(self):
+        dependencies = self.data["project"]["dependencies"]
+
+        self.assertFalse(any("pm_dashboard" in dependency for dependency in dependencies))
 
 
 if __name__ == "__main__":

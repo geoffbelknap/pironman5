@@ -13,8 +13,7 @@ from .history import SQLiteHistory
 from .version import __version__ as pironman5_version
 from .variants import NAME, ID, PRODUCT_VERSION, PERIPHERALS, SYSTEM_DEFAULT_CONFIG, EVENT_MAP
 from ._constants import CONFIG_PATH, APP_NAME, DEFAULT_DEBUG_LEVEL
-
-from sf_rpi_status import restart_service
+from .host import restart_service
 
 log = Logger(APP_NAME)
 __package_name__ = __name__.split('.')[0]
@@ -116,7 +115,7 @@ class Pironman5:
                               log=log)
         if PMDashboard is None:
             self.pm_dashboard = None
-            self.log.warning('PM Dashboard not found skipping')
+            self.log.info('PM Dashboard not installed; skipping optional dashboard startup')
         else:
             self.pm_dashboard = PMDashboard(device_info=device_info,
                                             database=ID,
