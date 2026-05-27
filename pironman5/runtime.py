@@ -1,7 +1,9 @@
 import asyncio
 import logging
+import re
 import threading
 import time
+from enum import IntEnum
 
 from . import host
 
@@ -77,7 +79,181 @@ FAN_LEVELS = [
     {"name": "MEDIUM", "low": 55, "high": 75, "percent": 80},
     {"name": "HIGH", "low": 65, "high": 100, "percent": 100},
 ]
-LOCAL_PERIPHERALS = {"system", "gpio_fan", "gpio_fan_state", "gpio_fan_led"}
+LOCAL_PERIPHERALS = {"system", "gpio_fan", "gpio_fan_state", "gpio_fan_led", "pi5_power_button"}
+
+
+class ButtonStatus(IntEnum):
+    RELEASED = 0
+    PRESSED = 1
+    CLICK = 2
+    DOUBLE_CLICK = 3
+    LONG_PRESS_2S = 4
+    LONG_PRESS_2S_RELEASED = 5
+    LONG_PRESS_5S = 6
+    LONG_PRESS_5S_RELEASED = 7
+
+
+def parse_input_devices(devices_text):
+    device_blocks = re.split(r"\n(?=I: Bus=)", devices_text.strip())
+    devices = {}
+    for block in device_blocks:
+        device_info = {}
+        for line in [line.strip() for line in block.split("\n") if line.strip()]:
+            match = re.match(r"^([A-Z]): (.*)$", line)
+            if not match:
+                continue
+            key, value = match.groups()
+            if key == "N":
+                name_match = re.search(r'Name="([^"]+)"', value)
+                if name_match:
+                    device_info["name"] = name_match.group(1)
+            elif key == "H":
+                handlers_match = re.search(r"Handlers=(.*)", value)
+                if handlers_match:
+                    handlers = handlers_match.group(1).split()
+                    device_info["handlers"] = handlers
+                    for handler in handlers:
+                        if handler.startswith("event"):
+                            device_info["path"] = f"/dev/input/{handler}"
+                            break
+        if "name" in device_info:
+            devices[device_info["name"]] = device_info
+    return devices
+
+
+def find_input_device_path(name, devices_file="/proc/bus/input/devices"):
+    try:
+        with open(devices_file, "r", encoding="utf-8") as f:
+            devices = parse_input_devices(f.read())
+    except OSError:
+        return None
+    return devices.get(name, {}).get("path")
+
+
+class Pi5PowerButton:
+    DOUBLE_CLICK_INTERVAL = 0.25
+    READ_INTERVAL = 0.1
+
+    def __init__(self, device_path=None, grab=True):
+        from evdev import InputDevice, ecodes
+
+        self.ecodes = ecodes
+        self.event_code = ecodes.KEY_POWER
+        device_path = device_path or find_input_device_path("pwr_button")
+        if not device_path:
+            raise RuntimeError("Power button device not found")
+        self.dev = InputDevice(device_path)
+        if grab:
+            self.dev.grab()
+        self.status = ButtonStatus.RELEASED
+        self.last_key_down_time = 0
+        self.last_key_up_time = 0
+        self.is_pressed = False
+        self.double_click_ready = False
+        self.running = False
+        self._watch_thread = None
+        self._process_thread = None
+        self._button_callback = None
+
+    def set_button_callback(self, callback):
+        self._button_callback = callback
+
+    def start(self):
+        self.running = True
+        self._process_thread = threading.Thread(target=self.process_loop, daemon=True)
+        self._process_thread.start()
+
+    def stop(self):
+        self.running = False
+        try:
+            self.dev.ungrab()
+        except Exception:
+            pass
+        try:
+            self.dev.close()
+        except Exception:
+            pass
+
+    def process_loop(self):
+        self.start_watcher()
+        while self.running:
+            state = self.read()
+            if self._button_callback is not None and state != ButtonStatus.RELEASED:
+                self._button_callback(state)
+            time.sleep(self.READ_INTERVAL)
+
+    def start_watcher(self):
+        if self._watch_thread is None or not self._watch_thread.is_alive():
+            self._watch_thread = threading.Thread(target=self.watch_loop, daemon=True)
+            self._watch_thread.start()
+
+    def watch_loop(self):
+        for event in self.dev.read_loop():
+            if not self.running:
+                break
+            if event.type == self.ecodes.EV_KEY and event.code == self.event_code:
+                event_time = event.timestamp()
+                if event.value == 0:
+                    self.is_pressed = False
+                    self.last_key_up_time = time.time()
+                    if self.double_click_ready:
+                        self.status = ButtonStatus.DOUBLE_CLICK
+                        self.double_click_ready = False
+                        continue
+                    interval = event_time - self.last_key_down_time
+                    if interval > 5:
+                        self.status = ButtonStatus.LONG_PRESS_5S_RELEASED
+                    elif interval > 2:
+                        self.status = ButtonStatus.LONG_PRESS_2S_RELEASED
+                    else:
+                        self.status = ButtonStatus.CLICK
+                elif event.value == 1:
+                    self.is_pressed = True
+                    if event_time - self.last_key_down_time < self.DOUBLE_CLICK_INTERVAL:
+                        self.double_click_ready = True
+                    self.status = ButtonStatus.PRESSED
+                    self.last_key_down_time = event_time
+
+    def read(self):
+        status = self.status
+        if self.is_pressed:
+            if time.time() - self.last_key_down_time > 5:
+                status = ButtonStatus.LONG_PRESS_5S
+            elif time.time() - self.last_key_down_time > 2:
+                status = ButtonStatus.LONG_PRESS_2S
+        elif self.status == ButtonStatus.CLICK:
+            if time.time() - self.last_key_up_time > self.DOUBLE_CLICK_INTERVAL:
+                status = ButtonStatus.CLICK
+                self.status = ButtonStatus.RELEASED
+            else:
+                status = ButtonStatus.RELEASED
+        else:
+            self.status = ButtonStatus.RELEASED
+        return status
+
+
+class Pi5PowerButtonModule:
+    def __init__(self, event, log=None, button_factory=None):
+        self.event = event
+        self.log = log or logging.getLogger(__name__)
+        self.button = (button_factory or Pi5PowerButton)()
+        self.button.set_button_callback(self.button_callback)
+
+    def button_callback(self, state):
+        if state == ButtonStatus.CLICK:
+            self.event.publish("pi5_power_button_click", state)
+        elif state == ButtonStatus.DOUBLE_CLICK:
+            self.event.publish("pi5_power_button_double_click", state)
+        elif state == ButtonStatus.LONG_PRESS_2S:
+            self.event.publish("pi5_power_button_long_press", "button_long_press")
+        elif state == ButtonStatus.LONG_PRESS_2S_RELEASED:
+            self.event.publish("pi5_power_button_long_press_released", "button_long_press_released")
+
+    async def start(self):
+        self.button.start()
+
+    async def stop(self):
+        self.button.stop()
 
 
 class GPIOOutputPin:
@@ -327,6 +503,11 @@ class PironmanRuntime:
             if any(peripheral in peripherals for peripheral in ("gpio_fan", "gpio_fan_state", "gpio_fan_led"))
             else None
         )
+        self.pi5_power_button = (
+            Pi5PowerButtonModule(event=self.event, log=self.log)
+            if "pi5_power_button" in peripherals
+            else None
+        )
         self.hardware = LegacyHardwareRuntime(
             config=config,
             peripherals=peripherals,
@@ -378,10 +559,14 @@ class PironmanRuntime:
         await self.system.start()
         if self.gpio_fan is not None:
             await self.gpio_fan.start()
+        if self.pi5_power_button is not None:
+            await self.pi5_power_button.start()
         await self.hardware.start()
 
     async def _stop(self):
         await self.hardware.stop()
+        if self.pi5_power_button is not None:
+            await self.pi5_power_button.stop()
         if self.gpio_fan is not None:
             await self.gpio_fan.stop()
         await self.system.stop()

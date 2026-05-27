@@ -9,7 +9,7 @@ class RuntimeTest(unittest.TestCase):
         with mock.patch("pironman5.runtime.Addons") as addons:
             LegacyHardwareRuntime(
                 config={},
-                peripherals=["cpu", "system", "gpio_fan_state", "gpio_fan_led", "pwm_fan_speed"],
+                peripherals=["cpu", "system", "gpio_fan_state", "gpio_fan_led", "pi5_power_button", "pwm_fan_speed"],
                 device_info={},
                 event=None,
                 log=None,
@@ -104,6 +104,52 @@ class RuntimeTest(unittest.TestCase):
         patch = module.update_config({"gpio_fan_pin": 13, "gpio_fan_led": "on"})
 
         self.assertEqual({"gpio_fan_pin": 13, "gpio_fan_led": "on"}, patch)
+
+    def test_pi5_power_button_module_publishes_button_events(self):
+        from pironman5.runtime import ButtonStatus, EventBus, Pi5PowerButtonModule
+
+        fake_button = mock.Mock()
+        event = EventBus()
+        published = []
+        for name in (
+            "pi5_power_button_click",
+            "pi5_power_button_double_click",
+            "pi5_power_button_long_press",
+            "pi5_power_button_long_press_released",
+        ):
+            event.subscribe(name, lambda *args, _name=name: published.append((_name, args)))
+
+        module = Pi5PowerButtonModule(event=event, button_factory=lambda: fake_button)
+        callback = fake_button.set_button_callback.call_args.args[0]
+
+        callback(ButtonStatus.CLICK)
+        callback(ButtonStatus.DOUBLE_CLICK)
+        callback(ButtonStatus.LONG_PRESS_2S)
+        callback(ButtonStatus.LONG_PRESS_2S_RELEASED)
+
+        self.assertEqual(
+            [
+                ("pi5_power_button_click", (ButtonStatus.CLICK,)),
+                ("pi5_power_button_double_click", (ButtonStatus.DOUBLE_CLICK,)),
+                ("pi5_power_button_long_press", ("button_long_press",)),
+                ("pi5_power_button_long_press_released", ("button_long_press_released",)),
+            ],
+            published,
+        )
+
+    def test_runtime_starts_pi5_power_button_when_present(self):
+        from pironman5.runtime import PironmanRuntime
+
+        with mock.patch("pironman5.runtime.Pi5PowerButtonModule") as module:
+            runtime = PironmanRuntime(
+                config={},
+                peripherals=["pi5_power_button"],
+                device_info={},
+                event_map={},
+                log=None,
+            )
+
+        module.assert_called_once_with(event=runtime.event, log=runtime.log)
 
 
 if __name__ == "__main__":
