@@ -2,6 +2,7 @@ import asyncio
 import glob
 import logging
 import re
+import select
 import threading
 import time
 from enum import IntEnum
@@ -204,35 +205,43 @@ class Pi5PowerButton:
             self._watch_thread.start()
 
     def watch_loop(self):
-        try:
-            for event in self.dev.read_loop():
-                if not self.running:
-                    break
-                if event.type == self.ecodes.EV_KEY and event.code == self.event_code:
-                    event_time = event.timestamp()
-                    if event.value == 0:
-                        self.is_pressed = False
-                        self.last_key_up_time = time.time()
-                        if self.double_click_ready:
-                            self.status = ButtonStatus.DOUBLE_CLICK
-                            self.double_click_ready = False
-                            continue
-                        interval = event_time - self.last_key_down_time
-                        if interval > 5:
-                            self.status = ButtonStatus.LONG_PRESS_5S_RELEASED
-                        elif interval > 2:
-                            self.status = ButtonStatus.LONG_PRESS_2S_RELEASED
-                        else:
-                            self.status = ButtonStatus.CLICK
-                    elif event.value == 1:
-                        self.is_pressed = True
-                        if event_time - self.last_key_down_time < self.DOUBLE_CLICK_INTERVAL:
-                            self.double_click_ready = True
-                        self.status = ButtonStatus.PRESSED
-                        self.last_key_down_time = event_time
-        except OSError:
-            if self.running:
-                raise
+        while self.running:
+            try:
+                if not self._device_ready(self.READ_INTERVAL):
+                    continue
+                event = self.dev.read_one()
+                while event is not None:
+                    self._handle_event(event)
+                    event = self.dev.read_one()
+            except (OSError, ValueError):
+                if self.running:
+                    raise
+                break
+
+    def _handle_event(self, event):
+        if event.type != self.ecodes.EV_KEY or event.code != self.event_code:
+            return
+        event_time = event.timestamp()
+        if event.value == 0:
+            self.is_pressed = False
+            self.last_key_up_time = time.time()
+            if self.double_click_ready:
+                self.status = ButtonStatus.DOUBLE_CLICK
+                self.double_click_ready = False
+                return
+            interval = event_time - self.last_key_down_time
+            if interval > 5:
+                self.status = ButtonStatus.LONG_PRESS_5S_RELEASED
+            elif interval > 2:
+                self.status = ButtonStatus.LONG_PRESS_2S_RELEASED
+            else:
+                self.status = ButtonStatus.CLICK
+        elif event.value == 1:
+            self.is_pressed = True
+            if event_time - self.last_key_down_time < self.DOUBLE_CLICK_INTERVAL:
+                self.double_click_ready = True
+            self.status = ButtonStatus.PRESSED
+            self.last_key_down_time = event_time
 
     def read(self):
         status = self.status
@@ -254,6 +263,9 @@ class Pi5PowerButton:
     def _join_thread(self, thread):
         if thread is not None and thread is not threading.current_thread() and thread.is_alive():
             thread.join(timeout=1)
+
+    def _device_ready(self, timeout):
+        return bool(select.select([self.dev.fd], [], [], timeout)[0])
 
 
 class Pi5PowerButtonModule:

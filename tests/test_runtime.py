@@ -173,6 +173,9 @@ class RuntimeTest(unittest.TestCase):
                     if False:
                         yield None
 
+            def read_one(self):
+                return None
+
             def ungrab(self):
                 pass
 
@@ -192,6 +195,7 @@ class RuntimeTest(unittest.TestCase):
         button._watch_thread = None
         button._process_thread = None
         button._button_callback = None
+        button._device_ready = lambda _timeout: False
 
         button.start()
         deadline = time.time() + 1
