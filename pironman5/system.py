@@ -1,8 +1,10 @@
 import argparse
+import json
 import os
 import subprocess
 import sys
 from dataclasses import dataclass
+from importlib import metadata
 from importlib.resources import files as resource_files
 from pathlib import Path
 
@@ -13,6 +15,7 @@ SERVICE_FILE = Path("/etc/systemd/system/pironman5.service")
 UDEV_RULES_FILE = Path("/etc/udev/rules.d/99-com.rules")
 WRAPPER_FILE = Path("/usr/local/bin/pironman5")
 WORK_DIR = Path("/opt/pironman5")
+SERVICE_VENV = Path("/opt/pironman5-venv")
 LOG_DIR = Path("/var/log/pironman5")
 SERVICE_NAME = "pironman5.service"
 SERVICE_USER = "pironman5"
@@ -80,12 +83,29 @@ def _variant_product(variant):
 
 
 def _wrapper_source():
-    return f"""#!{sys.executable}
+    return f"""#!{SERVICE_VENV / "bin" / "python"}
 from pironman5._cli import main
 
 if __name__ == "__main__":
     main()
 """
+
+
+def _install_spec():
+    try:
+        direct_url = metadata.distribution("pironman5").read_text("direct_url.json")
+    except metadata.PackageNotFoundError:
+        direct_url = None
+    if direct_url:
+        data = json.loads(direct_url)
+        url = data.get("url")
+        vcs_info = data.get("vcs_info", {})
+        revision = vcs_info.get("requested_revision") or vcs_info.get("commit_id")
+        if data.get("vcs_info", {}).get("vcs") == "git" and url and revision:
+            return f"git+{url}@{revision}"
+        if url and data.get("dir_info", {}).get("editable") is not None:
+            return url
+    return str(Path(__file__).resolve().parents[1])
 
 
 def setup_commands(variant):
@@ -96,6 +116,11 @@ def setup_commands(variant):
         Command("Create service user", ("sh", "-c", f"getent passwd {SERVICE_USER} >/dev/null || useradd -r -g {SERVICE_USER} -s /sbin/nologin -d {WORK_DIR} --no-create-home {SERVICE_USER}")),
         Command("Create service home", ("install", "-d", "-m", "0750", "-o", SERVICE_USER, "-g", SERVICE_USER, str(WORK_DIR))),
         Command("Create log directory", ("install", "-d", "-m", "0750", "-o", SERVICE_USER, "-g", SERVICE_USER, str(LOG_DIR))),
+        Command("Create service application venv directory", ("install", "-d", "-m", "0755", "-o", "root", "-g", "root", str(SERVICE_VENV))),
+        Command("Create service application venv", ("python3", "-m", "venv", str(SERVICE_VENV))),
+        Command("Upgrade service application installer", (str(SERVICE_VENV / "bin" / "pip"), "install", "--upgrade", "pip")),
+        Command("Install service application package", (str(SERVICE_VENV / "bin" / "pip"), "install", "--upgrade", _install_spec())),
+        Command("Make service application venv non-writable by group/other", ("chmod", "-R", "go-w", str(SERVICE_VENV))),
         Command("Write selected variant", ("install", "-m", "0640", "-o", SERVICE_USER, "-g", SERVICE_USER, "/dev/stdin", str(WORK_DIR / ".variant"))),
         Command("Install CLI wrapper", ("install", "-m", "0755", "-o", "root", "-g", "root", "/dev/stdin", str(WRAPPER_FILE))),
         Command("Install udev rules", ("install", "-m", "0644", "-o", "root", "-g", "root", str(_asset_path("bin", "99-com.rules")), str(UDEV_RULES_FILE))),
@@ -122,6 +147,7 @@ def uninstall_commands(variant):
         Command("Disable service", ("systemctl", "disable", SERVICE_NAME)),
         Command("Remove service file", ("rm", "-f", str(SERVICE_FILE))),
         Command("Remove CLI wrapper", ("rm", "-f", str(WRAPPER_FILE))),
+        Command("Remove service application venv", ("rm", "-rf", str(SERVICE_VENV))),
         Command("Remove module load config", ("rm", "-f", str(MODULES_FILE))),
         Command("Remove udev rules", ("rm", "-f", str(UDEV_RULES_FILE))),
     ]
@@ -158,6 +184,7 @@ def _doctor_lines(variant):
         SERVICE_FILE,
         MODULES_FILE,
         UDEV_RULES_FILE,
+        SERVICE_VENV / "bin" / "python",
         WORK_DIR / ".variant",
     ]
     checks.extend(overlay_dir / overlay for overlay in product.get("dt_overlays", []))

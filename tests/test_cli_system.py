@@ -35,7 +35,9 @@ class SystemCliTest(unittest.TestCase):
         self.assertIn("/boot/firmware/overlays/sunfounder-pironman5.dtbo", output)
         self.assertIn("/etc/modules-load.d/pironman5.conf", output)
         self.assertIn("/usr/local/bin/pironman5", output)
+        self.assertIn("/opt/pironman5-venv", output)
         self.assertIn("systemctl enable pironman5.service", output)
+        self.assertNotIn("/home/geoff/.local/pipx", output)
 
     def test_system_doctor_reports_missing_setup_files(self):
         from pironman5 import system
