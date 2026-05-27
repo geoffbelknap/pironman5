@@ -29,8 +29,7 @@ chown :spi /dev/spidev*
 echo "Set spi group ownership to spi"
 
 # cp udev rule to /etc/udev/rules.d/
-cp ./bin/99-com.rules /etc/udev/rules.d/
+cp ./pironman5/assets/bin/99-com.rules /etc/udev/rules.d/
 # reload udev rules
 udevadm control --reload-rules
 echo "udev rules reloaded."
-

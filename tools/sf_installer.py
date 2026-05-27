@@ -288,6 +288,10 @@ class SF_Installer():
     def shell_join(args):
         return " ".join(shlex.quote(str(arg)) for arg in args)
 
+    @staticmethod
+    def asset_path(*parts):
+        return os.path.join("pironman5", "assets", *parts)
+
     def spinner(self):
         char = "⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏"
         i = 0
@@ -599,10 +603,10 @@ class SF_Installer():
             return
         self.print_title("Setup auto start...")
         for bin in self.bin_files:
-            self.do('Copy binary file', self.shell_join(['cp', f'bin/{bin}', '/usr/local/bin/']))
+            self.do('Copy binary file', self.shell_join(['cp', self.asset_path('bin', bin), '/usr/local/bin/']))
             self.do('Change binary file mode', self.shell_join(['chmod', '+x', f'/usr/local/bin/{bin}']))
         for service in self.service_files:
-            self.do('Copy service file', self.shell_join(['cp', f'bin/{service}', '/etc/systemd/system/']))
+            self.do('Copy service file', self.shell_join(['cp', self.asset_path('bin', service), '/etc/systemd/system/']))
             self.do('Enable service', self.shell_join(['systemctl', 'enable', service]))
             self.do('Reload systemd', 'systemctl daemon-reload')
 
@@ -648,10 +652,11 @@ class SF_Installer():
         
         for overlay in self.dtoverlays:
             if overlay.startswith('http'):
-                self.errors.append("Remote dtoverlay downloads are disabled; ship dtoverlays in overlays/")
+                self.errors.append("Remote dtoverlay downloads are disabled; ship dtoverlays in pironman5/assets/overlays/")
                 continue
             else:
-                if not os.path.exists(f'overlays/{overlay}'):
+                overlay_source = self.asset_path('overlays', overlay)
+                if not os.path.exists(overlay_source):
                     self.errors.append(f"Device tree overlay file {overlay} not found")
                     continue
                 self.do(
@@ -661,7 +666,7 @@ class SF_Installer():
                         '-m', '0644',
                         '-o', 'root',
                         '-g', 'root',
-                        f'overlays/{overlay}',
+                        overlay_source,
                         f'{overlays_path}/{overlay}',
                     ]),
                 )
