@@ -25,14 +25,16 @@ Quick Links:
 
 ## Installation
 
-This fork is moving toward a split install model:
+`pipx` is the primary install path for this fork. It installs the user-facing
+CLI without root, and `pironman5 system setup` performs the small set of
+privileged OS integration steps explicitly.
 
-1. install the Python application without root
+1. install the Python application without root with `pipx`
 2. review the privileged system changes
 3. run the system setup command with `sudo`
 
-The recommended application installer is `pipx`, because it installs Python
-CLI applications into isolated environments.
+System setup creates a root-owned service environment at `/opt/pironman5-venv`
+for systemd. This avoids running the service out of a user's home directory.
 
 ```bash
 sudo apt-get update
@@ -53,8 +55,25 @@ sudo pironman5 system setup
 pironman5 system doctor
 ```
 
-The legacy installer still works while the privileged setup command is being
-split out:
+To force a refresh of the root-owned service environment:
+
+```bash
+sudo pironman5 system setup --refresh-venv
+```
+
+To remove system integration while keeping runtime config, use:
+
+```bash
+sudo pironman5 system uninstall
+```
+
+To also remove `/opt/pironman5` and logs, use:
+
+```bash
+sudo pironman5 system uninstall --purge
+```
+
+The legacy installer remains available for compatibility:
 
 ```bash
 git clone https://github.com/geoffbelknap/pironman5.git
