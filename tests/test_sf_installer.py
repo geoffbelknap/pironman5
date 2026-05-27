@@ -181,6 +181,8 @@ class InstallerCommandConstructionTest(unittest.TestCase):
             Path("scripts/test_dpkg_lock.sh"),
             Path("scripts/upload-1.2.ps1"),
             Path("scripts/wait_for_dpkg.sh"),
+            Path("scripts/install_lgpio.sh"),
+            Path("scripts/fix_kali_gpio_spi.sh"),
             Path("tests/read_variants.py"),
             Path("tests/usgae.md"),
         ]
@@ -206,6 +208,66 @@ class InstallerCommandConstructionTest(unittest.TestCase):
 
         with self.assertRaisesRegex(RuntimeError, "Timeout waiting for dpkg"):
             installer.wait_for_dpkg(wait_interval=0, max_wait=0)
+
+    def test_run_preflight_actions_dispatches_installer_methods(self):
+        installer = SF_Installer("pironman5")
+        installer.args = Args(plain_text=True)
+        installer.preflight_actions = ["install_lgpio", "fix_kali_gpio_spi_groups"]
+        calls = []
+        installer.install_lgpio = lambda: calls.append("install_lgpio")
+        installer.fix_kali_gpio_spi_groups = lambda: calls.append("fix_kali_gpio_spi_groups")
+
+        installer.run_preflight_actions()
+
+        self.assertEqual(["install_lgpio", "fix_kali_gpio_spi_groups"], calls)
+
+    def test_run_preflight_actions_rejects_unknown_actions(self):
+        installer = SF_Installer("pironman5")
+        installer.args = Args(plain_text=True)
+        installer.preflight_actions = ["unknown_action"]
+
+        with self.assertRaisesRegex(ValueError, "Unknown preflight action"):
+            installer.run_preflight_actions()
+
+    def test_install_lgpio_uses_apt_packages_without_source_fallback(self):
+        installer = SF_Installer("pironman5")
+        commands = []
+        installer.do = lambda _msg, cmd, **_kwargs: commands.append(cmd)
+
+        installer.install_lgpio()
+
+        self.assertEqual(
+            ["env DEBIAN_FRONTEND=noninteractive apt-get install -y liblgpio-dev python3-lgpio"],
+            commands,
+        )
+
+    def test_fix_kali_gpio_spi_groups_is_noop_off_kali(self):
+        installer = SF_Installer("pironman5")
+        installer.args = Args(plain_text=True)
+        commands = []
+        installer.do = lambda _msg, cmd, **_kwargs: commands.append(cmd)
+
+        with unittest.mock.patch.object(installer, "is_kali_linux", return_value=False):
+            installer.fix_kali_gpio_spi_groups()
+
+        self.assertEqual([], commands)
+
+    def test_fix_kali_gpio_spi_groups_normalizes_groups_on_kali(self):
+        installer = SF_Installer("pironman5")
+        installer.args = Args(plain_text=True)
+        commands = []
+        installer.do = lambda _msg, cmd, **_kwargs: commands.append(cmd)
+
+        with unittest.mock.patch.object(installer, "is_kali_linux", return_value=True):
+            installer.fix_kali_gpio_spi_groups()
+
+        self.assertEqual(
+            [
+                "getent group gpio > /dev/null || groupadd -r gpio",
+                "getent group spi > /dev/null || groupadd -r spi",
+            ],
+            commands,
+        )
 
 
 class InstallSettingsPolicyTest(unittest.TestCase):
@@ -375,6 +437,24 @@ class InstallSettingsPolicyTest(unittest.TestCase):
         import install
 
         self.assertIn("auto, base, max, mini, nas, pro_max, ups", install.VARIANT_HELP)
+
+    def test_gpio_settings_use_installer_preflight_actions(self):
+        import install
+
+        installer = install.build_installer_for_settings(["gpio"])
+
+        self.assertIn("install_lgpio", installer.preflight_actions)
+        self.assertIn("fix_kali_gpio_spi_groups", installer.preflight_actions)
+        self.assertNotIn("install_lgpio.sh", installer.before_install_scripts)
+        self.assertNotIn("fix_kali_gpio_spi.sh", installer.before_install_scripts)
+
+    def test_shared_preflight_actions_are_not_duplicated(self):
+        import install
+
+        installer = install.build_installer_for_settings(["gpio", "ws2812"])
+
+        self.assertEqual(1, installer.preflight_actions.count("install_lgpio"))
+        self.assertEqual(1, installer.preflight_actions.count("fix_kali_gpio_spi_groups"))
 
 
 class ServiceHardeningTest(unittest.TestCase):

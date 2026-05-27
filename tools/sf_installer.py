@@ -161,6 +161,7 @@ class SF_Installer():
 
         self.groups = set(self.DEFAULT_GROUPS)
         self.build_dependencies = set()
+        self.preflight_actions = []
         self.before_install_scripts = set()
         self.custom_apt_dependencies = set()
         self.custom_uninstall_pip_dependencies = set()
@@ -226,6 +227,10 @@ class SF_Installer():
             self.groups.update(settings['groups'])
         if 'build_dependencies' in settings:
             self.build_dependencies.update(settings['build_dependencies'])
+        if 'preflight_actions' in settings:
+            for action in settings['preflight_actions']:
+                if action not in self.preflight_actions:
+                    self.preflight_actions.append(action)
         if 'run_scripts_before_install' in settings:
             self.before_install_scripts.update(settings['run_scripts_before_install'])
         if 'apt_dependencies' in settings:
@@ -516,6 +521,50 @@ class SF_Installer():
                 flush=True,
             )
             time.sleep(wait_interval)
+
+    def run_preflight_actions(self):
+        if len(self.preflight_actions) == 0:
+            return
+        self.print_title("Run installer preflight actions...")
+        allowed_actions = {
+            "install_lgpio": self.install_lgpio,
+            "fix_kali_gpio_spi_groups": self.fix_kali_gpio_spi_groups,
+        }
+        for action in self.preflight_actions:
+            if action not in allowed_actions:
+                raise ValueError(f"Unknown preflight action: {action}")
+            allowed_actions[action]()
+
+    def install_lgpio(self):
+        self.do(
+            "Install LGPIO packages",
+            self.shell_join([
+                'env',
+                'DEBIAN_FRONTEND=noninteractive',
+                'apt-get',
+                'install',
+                '-y',
+                'liblgpio-dev',
+                'python3-lgpio',
+            ]),
+        )
+
+    def is_kali_linux(self):
+        try:
+            with open("/etc/os-release", "r") as f:
+                return "Kali" in f.read()
+        except OSError:
+            return False
+
+    def fix_kali_gpio_spi_groups(self):
+        if not self.is_kali_linux():
+            print(f"{self.SKIPPED} Not Kali Linux, skip GPIO/SPI group fix")
+            return
+        for group in ["gpio", "spi"]:
+            self.do(
+                f'Ensure "{group}" system group exists',
+                self.shell_join(['getent', 'group', group]) + " > /dev/null || " + self.shell_join(['groupadd', '-r', group]),
+            )
 
     def install_build_dep(self):
         self.print_title("Install build dependencies...")
@@ -809,6 +858,7 @@ class SF_Installer():
         self.print_title(f"Installing {self.friendly_name} {self.version}")
         self.wait_for_dpkg()
         self.install_build_dep()
+        self.run_preflight_actions()
         self.run_scripts_before_install()
         self.install_apt_dep()
         self.setup_user()
