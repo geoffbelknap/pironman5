@@ -6,13 +6,53 @@ import os
 from importlib.resources import files as resource_files
 
 from ._launch_browser import run as launch_browser
-from .variants import NAME, PERIPHERALS
+from .variants import NAME, PERIPHERALS, detect_hardware_variant, detect_optional_hardware, get_product_definition
 from .version import __version__
 from .utils import is_included, constrain
 from .security import write_json_private
 
 AVAILABLE_PAGES = []
 AVAILABLE_EMAIL_MODES = []
+OPTIONAL_HARDWARE_LABELS = {
+    "pipower5": "PiPower5 UPS",
+    "rtl8125": "RTL8125 NIC",
+}
+
+
+def _variant_source_label(detected):
+    if detected["source"] == "hat-eeprom":
+        return f"HAT EEPROM {detected['part_number']}"
+    if detected["source"] == "environment":
+        return f"environment {detected['part_number']}"
+    return f"fallback {detected['part_number']}"
+
+
+def detect_payload():
+    detected = detect_hardware_variant()
+    product = get_product_definition(detected["variant"])
+    return {
+        "variant": detected["variant"],
+        "variant_name": product["name"] if product else detected["variant"],
+        "source": detected["source"],
+        "part_number": detected["part_number"],
+        "variant_id": detected["variant_id"],
+        "version": detected["version"],
+        "optional_hardware": detect_optional_hardware(),
+    }
+
+
+def print_detect(json_output=False):
+    payload = detect_payload()
+    if json_output:
+        print(json.dumps(payload, indent=2, sort_keys=True))
+        return
+
+    print(f"Variant: {payload['variant_name']} ({payload['variant']})")
+    print(f"Source: {_variant_source_label(payload)}")
+    print("Optional hardware:")
+    for key, label in OPTIONAL_HARDWARE_LABELS.items():
+        state = "detected" if payload["optional_hardware"].get(key) else "not detected"
+        print(f"  {label}: {state}")
 
 def update_config_file(config, config_path):
     import json
@@ -33,6 +73,12 @@ def main():
         from .system import main as system_main
         system_main(sys.argv[2:])
         return
+    if len(sys.argv) > 1 and sys.argv[1] == "detect":
+        detect_parser = argparse.ArgumentParser(prog="pironman5 detect")
+        detect_parser.add_argument("--json", action="store_true", help="Print detection results as JSON")
+        detect_args = detect_parser.parse_args(sys.argv[2:])
+        print_detect(json_output=detect_args.json)
+        return
 
     TRUE_LIST = ['true', 'True', 'TRUE', '1', 'on', 'On', 'ON']
     FALSE_LIST = ['false', 'False', 'FALSE', '0', 'off', 'Off', 'OFF']
@@ -46,6 +92,7 @@ def main():
     current_config = None
     debug_level = 'INFO'
     new_sys_config = {}
+    help_requested = any(arg in ("-h", "--help") for arg in sys.argv[1:])
 
     parser = argparse.ArgumentParser(prog='pironman5',
                                     description=f'{NAME} command line interface')
@@ -81,9 +128,12 @@ def main():
         parser.add_argument("-fp", "--gpio-fan-led-pin", nargs='?', default='', help="GPIO fan LED pin")
     # oled
     if is_included(PERIPHERALS, "oled"):
-        from pm_auto.addons.oled import get_available_pages
         global AVAILABLE_PAGES
-        AVAILABLE_PAGES = get_available_pages(PERIPHERALS)
+        if help_requested:
+            AVAILABLE_PAGES = []
+        else:
+            from pm_auto.addons.oled import get_available_pages
+            AVAILABLE_PAGES = get_available_pages(PERIPHERALS)
         parser.add_argument("-oe", "--oled-enable", nargs='?', default='', help="OLED enable True/true/on/On/1 or False/false/off/Off/0")
         parser.add_argument("-or", "--oled-rotation", nargs='?', default=-1, type=int, choices=[0, 180], help="Set to rotate OLED display, 0, 180")
         parser.add_argument("-op", "--oled-pages", nargs='?', default='', help=f"OLED pages, split by ',': {','.join(AVAILABLE_PAGES)}")
@@ -95,7 +145,10 @@ def main():
         parser.add_argument("-vu", "--vibration-switch-pull-up", nargs='?', default='', help="Vibration switch pull up True/False")
     # rgb_matrix
     if is_included(PERIPHERALS, "rgb_matrix"):
-        from pm_auto.addons.rgb_matrix import EFFECT_LIST
+        if help_requested:
+            EFFECT_LIST = []
+        else:
+            from pm_auto.addons.rgb_matrix import EFFECT_LIST
         parser.add_argument("-rme", "--rgb-matrix-enable", nargs='?', default='', help="RGB enable True/False")
         parser.add_argument("-rms", "--rgb-matrix-style",  nargs='?', default='', help=f"RGB style: {EFFECT_LIST}")
         parser.add_argument("-rmc", "--rgb-matrix-color", nargs='?', default='', help='RGB color in hex format without # (e.g. 00aabb)')
@@ -109,6 +162,8 @@ def main():
             "pipower5",
             add_help=False  # 禁用子命令的-h处理，确保透传
         )
+    detect_parser = subparsers.add_parser("detect", help="Detect variant and optional hardware")
+    detect_parser.add_argument("--json", action="store_true", help="Print detection results as JSON")
     start_parser = subparsers.add_parser("start", help="Start Pironman5")
     stop_parser = subparsers.add_parser("stop", help="Stop Pironman5")
     launch_browser_parser = subparsers.add_parser("launch-browser", help="Launch browser")
