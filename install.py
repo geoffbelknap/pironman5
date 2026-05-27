@@ -10,6 +10,7 @@ from pironman5.variants import (
     VARIENT,
     PRODUCT_DEFINITIONS,
     detect_hardware_variant,
+    detect_optional_hardware,
     get_product_definition,
     normalize_variant_key,
 )
@@ -248,6 +249,7 @@ def get_variant_peripherals(variant_key):
 def resolve_enabled_setting_names(args, peripherals=None):
     if peripherals is None:
         peripherals = get_variant_peripherals(get_selected_variant_key(args))
+    optional_hardware = detect_optional_hardware()
 
     names = ["base"]
 
@@ -266,7 +268,7 @@ def resolve_enabled_setting_names(args, peripherals=None):
 
     if args.enable_dashboard:
         names.append("dashboard")
-    if args.enable_ups and "pipower5" in peripherals:
+    if args.enable_ups or optional_hardware["pipower5"]:
         names.append("pipower5")
 
     return names

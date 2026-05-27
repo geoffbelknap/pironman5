@@ -85,6 +85,30 @@ class VariantAssemblyTest(unittest.TestCase):
         self.assertEqual("fallback", detected["source"])
         self.assertEqual("0306V10", detected["part_number"])
 
+    def test_optional_hardware_detects_pipower5_hat(self):
+        from pironman5 import variants
+
+        with mock.patch.object(
+            variants,
+            "detect_hardware_variant",
+            return_value={"variant": "ups", "variant_id": "2602", "source": "hat-eeprom"},
+        ):
+            detected = variants.detect_optional_hardware()
+
+        self.assertTrue(detected["pipower5"])
+
+    def test_optional_hardware_ignores_fallback_variant(self):
+        from pironman5 import variants
+
+        with mock.patch.object(
+            variants,
+            "detect_hardware_variant",
+            return_value={"variant": "ups", "variant_id": "2602", "source": "fallback"},
+        ):
+            detected = variants.detect_optional_hardware()
+
+        self.assertFalse(detected["pipower5"])
+
 
 if __name__ == "__main__":
     unittest.main()
