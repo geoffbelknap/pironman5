@@ -58,7 +58,15 @@ pironman5 system doctor
 To force a refresh of the root-owned service environment:
 
 ```bash
-sudo pironman5 system setup --refresh-venv
+sudo pironman5 system upgrade-service
+```
+
+After upgrading the user-facing command, refresh the service environment too:
+
+```bash
+pipx reinstall pironman5
+sudo pironman5 system upgrade-service
+pironman5 system doctor
 ```
 
 To remove system integration while keeping runtime config, use:

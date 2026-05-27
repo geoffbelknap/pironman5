@@ -70,7 +70,27 @@ class SystemCliTest(unittest.TestCase):
         self.assertIn("service active:", output)
         self.assertIn("service enabled:", output)
         self.assertIn("wrapper target:", output)
+        self.assertIn("pipx/user version:", output)
+        self.assertIn("service version:", output)
+        self.assertIn("pipx/user source:", output)
+        self.assertIn("service source:", output)
+        self.assertIn("install drift:", output)
         self.assertIn("legacy modules.conf i2c-dev entries:", output)
+
+    def test_system_upgrade_service_refreshes_service_environment(self):
+        from pironman5 import _cli
+
+        stdout = io.StringIO()
+        argv = ["pironman5", "system", "upgrade-service", "--dry-run"]
+        with mock.patch.object(sys, "argv", argv):
+            with contextlib.redirect_stdout(stdout):
+                _cli.main()
+
+        output = stdout.getvalue()
+        self.assertIn("rm -rf /opt/pironman5-venv", output)
+        self.assertIn("python3 -m venv /opt/pironman5-venv", output)
+        self.assertIn("/opt/pironman5-venv/bin/pip install --upgrade", output)
+        self.assertIn("systemctl restart pironman5.service", output)
 
     def test_system_uninstall_dry_run_prints_removed_files(self):
         from pironman5 import _cli
@@ -108,6 +128,8 @@ class SystemCliTest(unittest.TestCase):
 
         self.assertIn("primary install path", readme)
         self.assertIn("/opt/pironman5-venv", readme)
+        self.assertIn("system upgrade-service", readme)
+        self.assertIn("pipx reinstall pironman5", readme)
         self.assertNotIn("moving toward a split install model", readme)
 
 

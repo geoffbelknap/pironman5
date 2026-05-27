@@ -134,6 +134,15 @@ def _create_or_refresh_venv_commands(refresh_venv):
     ]
 
 
+def upgrade_service_commands():
+    commands = _create_or_refresh_venv_commands(refresh_venv=True)
+    commands.extend([
+        Command("Install CLI wrapper", ("install", "-m", "0755", "-o", "root", "-g", "root", "/dev/stdin", str(WRAPPER_FILE))),
+        Command("Restart service", ("systemctl", "restart", SERVICE_NAME)),
+    ])
+    return commands
+
+
 def setup_commands(variant, refresh_venv=False):
     variant_key, _source, product = _variant_product(variant)
     overlay_dir = _overlay_dir()
@@ -268,13 +277,93 @@ def _legacy_i2c_dev_count():
 
 
 def _doctor_status_lines():
+    user_info = _current_install_info()
+    service_info = _service_install_info()
     return [
         f"- service active: {_command_output(('systemctl', 'is-active', SERVICE_NAME))}",
         f"- service enabled: {_command_output(('systemctl', 'is-enabled', SERVICE_NAME))}",
         f"- current variant: {_variant_marker()}",
         f"- wrapper target: {_wrapper_target()}",
+        f"- pipx/user version: {user_info['version']}",
+        f"- service version: {service_info['version']}",
+        f"- pipx/user source: {user_info['source']}",
+        f"- service source: {service_info['source']}",
+        f"- install drift: {_install_drift(user_info, service_info)}",
         f"- legacy modules.conf i2c-dev entries: {_legacy_i2c_dev_count()}",
     ]
+
+
+def _current_install_info():
+    return _distribution_info()
+
+
+def _service_install_info():
+    python = SERVICE_VENV / "bin" / "python"
+    if not python.exists():
+        return {"version": "missing", "source": "missing", "commit": None}
+    script = (
+        "from pironman5.system import _distribution_info; "
+        "import json; "
+        "print(json.dumps(_distribution_info()))"
+    )
+    try:
+        result = subprocess.run(
+            (str(python), "-c", script),
+            check=False,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.DEVNULL,
+            text=True,
+        )
+    except OSError:
+        return {"version": "unknown", "source": "unknown", "commit": None}
+    try:
+        return json.loads(result.stdout)
+    except json.JSONDecodeError:
+        return {"version": "unknown", "source": "unknown", "commit": None}
+
+
+def _distribution_info():
+    try:
+        dist = metadata.distribution("pironman5")
+    except metadata.PackageNotFoundError:
+        return {"version": "missing", "source": "missing", "commit": None}
+    source, commit = _direct_url_info(dist.read_text("direct_url.json"))
+    return {
+        "version": dist.version,
+        "source": source,
+        "commit": commit,
+    }
+
+
+def _direct_url_info(direct_url):
+    if not direct_url:
+        return "unknown", None
+    try:
+        data = json.loads(direct_url)
+    except json.JSONDecodeError:
+        return "unknown", None
+    url = data.get("url", "unknown")
+    vcs_info = data.get("vcs_info", {})
+    commit = vcs_info.get("commit_id")
+    revision = vcs_info.get("requested_revision")
+    if data.get("vcs_info", {}).get("vcs") == "git":
+        if revision:
+            return f"{url}@{revision}", commit
+        if commit:
+            return f"{url}@{commit}", commit
+    return url, commit
+
+
+def _install_drift(user_info, service_info):
+    if service_info["version"] in ("missing", "unknown"):
+        return service_info["version"]
+    if user_info["version"] != service_info["version"]:
+        return "version mismatch"
+    if user_info.get("commit") and service_info.get("commit") and user_info["commit"] != service_info["commit"]:
+        return "commit mismatch"
+    if user_info["source"] != service_info["source"]:
+        return "source mismatch"
+    return "none"
 
 
 def build_parser():
@@ -294,6 +383,8 @@ def build_parser():
     uninstall.add_argument("--variant", choices=variant_choices, default="auto", type=normalize_variant_key)
     uninstall.add_argument("--purge", action="store_true", help="Also remove runtime state and logs")
     uninstall.add_argument("--dry-run", action="store_true", help="Print commands without changing the system")
+    upgrade = subparsers.add_parser("upgrade-service", help="Refresh the root-owned service virtualenv and restart the service")
+    upgrade.add_argument("--dry-run", action="store_true", help="Print commands without changing the system")
 
     return parser
 
@@ -318,3 +409,9 @@ def main(argv=None):
         print("\n".join(_doctor_lines(args.variant)))
     elif args.command == "uninstall":
         _run_commands(uninstall_commands(args.variant, purge=args.purge), args.dry_run)
+    elif args.command == "upgrade-service":
+        _run_commands(
+            upgrade_service_commands(),
+            args.dry_run,
+            {"Install CLI wrapper": _wrapper_source()},
+        )
