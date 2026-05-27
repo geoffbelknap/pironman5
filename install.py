@@ -29,11 +29,6 @@ settings = {
 
     'groups': [],
 
-    # - Build required apt dependencies, default to []
-    # 'build_dependencies': [
-    #     'curl', # for influxdb key download
-    # ],
-
     'preflight_actions': [
         "apply_umbrel_patch",
     ],
@@ -161,18 +156,6 @@ dashboard_settings = {
     },
 }
 
-influxdb_legacy_settings = {
-    'groups': ['influxdb'],
-    # - Build required apt dependencies, default to []
-    'build_dependencies': [
-        'curl', # for influxdb key download
-    ],
-    # - Before install scripts, default to []
-    'run_scripts_before_install': [
-        "install_influxdb.sh",
-    ],
-}
-
 pipower5_settings = {
     # Install python packages from source
     'groups': ['i2c', 'pipower5'],
@@ -228,7 +211,6 @@ def parse_install_args(argv=None, parser=None):
     )
     parser.add_argument("--print-variant", action="store_true", help="Print detected/selected variant and exit")
     parser.add_argument("--enable-dashboard", action="store_true", help="Enable dashboard components")
-    parser.add_argument("--enable-influxdb-legacy", action="store_true", help="Enable legacy InfluxDB dashboard history backend")
     parser.add_argument("--enable-ups", action="store_true", help="Enable PiPower5 UPS components")
     parser.add_argument("--enable-experimental-dependency", action="append", default=[], help="Enable a named experimental dependency")
     parser.add_argument("--disable-dashboard", action="store_true", help=argparse.SUPPRESS)
@@ -284,8 +266,6 @@ def resolve_enabled_setting_names(args, peripherals=None):
 
     if args.enable_dashboard:
         names.append("dashboard")
-    if args.enable_dashboard and args.enable_influxdb_legacy:
-        names.append("influxdb_legacy")
     if args.enable_ups and "pipower5" in peripherals:
         names.append("pipower5")
 
@@ -301,7 +281,6 @@ def apply_settings_by_name(installer_obj, names):
         "pi5_power_button": pi5_power_button_settings,
         "rgb_matrix": rgb_matrix_settings,
         "dashboard": dashboard_settings,
-        "influxdb_legacy": influxdb_legacy_settings,
         "pipower5": pipower5_settings,
         "rtl8125": rtl8125_settings,
     }
@@ -340,7 +319,6 @@ def build_installer_for_variant(variant_key):
         argparse.Namespace(
             variant=variant_key,
             enable_dashboard=False,
-            enable_influxdb_legacy=False,
             enable_ups=False,
             enable_experimental_dependency=[],
         )

@@ -137,15 +137,6 @@ def main():
         import os
         print("Remove Dashboard")
         os.system(f'{PIP_PATH} uninstall pm_dashboard -y')
-        while True:
-            yesno = input("Do you want to uninstall influxdb? (y/n) ")
-            if yesno.lower() == 'y':
-                os.system(f'apt-get purge influxdb -y')
-                break
-            elif yesno.lower() == 'n':
-                break
-            else:
-                print("Invalid input, please enter y or n")
         print("Dashboard removed, restart pironman5 to apply changes: sudo systemctl restart pironman5.service")
         quit()
 
