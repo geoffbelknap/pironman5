@@ -232,6 +232,59 @@ class SystemCliTest(unittest.TestCase):
 
         self.assertIn("Debug level: INFO", stdout.getvalue())
 
+    def test_database_retention_query_uses_default_when_config_key_missing(self):
+        from pironman5 import _cli
+
+        stdout = io.StringIO()
+        with tempfile.TemporaryDirectory() as tmpdir:
+            config_path = Path(tmpdir) / "config.json"
+            config_path.write_text(json.dumps({"system": {}}), encoding="utf-8")
+            argv = ["pironman5", "--config-path", str(config_path), "--database-retention-days"]
+
+            with mock.patch.object(sys, "argv", argv):
+                with mock.patch.object(_cli, "PERIPHERALS", []):
+                    with contextlib.redirect_stdout(stdout):
+                        _cli.main()
+
+        self.assertIn("Database retention days: 30", stdout.getvalue())
+
+    def test_temperature_unit_query_uses_default_when_config_key_missing(self):
+        from pironman5 import _cli
+
+        stdout = io.StringIO()
+        with tempfile.TemporaryDirectory() as tmpdir:
+            config_path = Path(tmpdir) / "config.json"
+            config_path.write_text(json.dumps({"system": {}}), encoding="utf-8")
+            argv = ["pironman5", "--config-path", str(config_path), "--temperature-unit"]
+
+            with mock.patch.object(sys, "argv", argv):
+                with mock.patch.object(_cli, "PERIPHERALS", ["temperature_unit"]):
+                    with contextlib.redirect_stdout(stdout):
+                        _cli.main()
+
+        self.assertIn("Temperature unit: C", stdout.getvalue())
+
+    def test_rgb_query_uses_default_when_config_key_missing(self):
+        from pironman5 import _cli
+
+        stdout = io.StringIO()
+        with tempfile.TemporaryDirectory() as tmpdir:
+            config_path = Path(tmpdir) / "config.json"
+            config_path.write_text(json.dumps({"system": {}}), encoding="utf-8")
+            argv = ["pironman5", "--config-path", str(config_path), "--rgb-brightness"]
+
+            with mock.patch.object(sys, "argv", argv):
+                with mock.patch.object(_cli, "PERIPHERALS", ["ws2812"]):
+                    with contextlib.redirect_stdout(stdout):
+                        _cli.main()
+
+        self.assertIn("RGB brightness: 100", stdout.getvalue())
+
+    def test_cli_does_not_directly_index_system_config_for_queries(self):
+        source = Path("pironman5/_cli.py").read_text(encoding="utf-8")
+
+        self.assertNotIn("current_config['system'][", source)
+
     def test_setting_change_rewrites_config_file(self):
         from pironman5 import _cli
 

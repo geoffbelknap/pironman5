@@ -6,7 +6,7 @@ import os
 from importlib.resources import files as resource_files
 
 from ._launch_browser import run as launch_browser
-from .variants import NAME, PERIPHERALS, detect_hardware_variant, detect_optional_hardware, get_product_definition
+from .variants import NAME, PERIPHERALS, SYSTEM_DEFAULT_CONFIG, detect_hardware_variant, detect_optional_hardware, get_product_definition
 from .version import __version__
 from .utils import is_included, constrain
 from .security import write_json_private
@@ -118,6 +118,8 @@ def load_config_file(config_path):
 
 
 def get_system_config_value(config, key, default=None):
+    if default is None:
+        default = SYSTEM_DEFAULT_CONFIG.get(key)
     return config.get('system', {}).get(key, default)
 
 
@@ -294,7 +296,7 @@ def main():
     # ----------------------------------------
     if args.database_retention_days != '':
         if args.database_retention_days == None:
-            print(f"Database retention days: {current_config['system']['database_retention_days']}")
+            print(f"Database retention days: {get_system_config_value(current_config, 'database_retention_days')}")
         else:
             try:
                 database_retention_days = int(args.database_retention_days)
@@ -315,7 +317,7 @@ def main():
     # swtich history
     if args.enable_history != '':
         if args.enable_history == None:
-            print(f"Enable history: {current_config['system']['enable_history']}")
+            print(f"Enable history: {get_system_config_value(current_config, 'enable_history')}")
         else:
             if args.enable_history in TRUE_LIST:
                 new_sys_config['enable_history'] = True
@@ -333,7 +335,7 @@ def main():
         # ws2812 rgb_color
         if args.rgb_color != '':
             if args.rgb_color == None:
-                hex = current_config['system']['rgb_color']
+                hex = get_system_config_value(current_config, 'rgb_color')
                 if hex[0] == '#':
                     hex = hex[1:]
                 r = int(hex[0:2], 16)
@@ -357,7 +359,7 @@ def main():
         # ws2812 rgb_brightness
         if args.rgb_brightness != '':
             if args.rgb_brightness == None:
-                print(f"RGB brightness: {current_config['system']['rgb_brightness']}")
+                print(f"RGB brightness: {get_system_config_value(current_config, 'rgb_brightness')}")
             else:
                 try:
                     args.rgb_brightness = int(args.rgb_brightness)
@@ -372,7 +374,7 @@ def main():
         # ws2812 rgb_style
         if args.rgb_style != '':
             if args.rgb_style == None:
-                print(f"RGB style: {current_config['system']['rgb_style']}")
+                print(f"RGB style: {get_system_config_value(current_config, 'rgb_style')}")
             else:
                 if args.rgb_style not in RGB_STYLES:
                     print(f"Invalid value for RGB style, it should be one of {RGB_STYLES}")
@@ -382,7 +384,7 @@ def main():
         # ws2812 rgb_speed
         if args.rgb_speed != '':
             if args.rgb_speed == None:
-                print(f"RGB speed: {current_config['system']['rgb_speed']}")
+                print(f"RGB speed: {get_system_config_value(current_config, 'rgb_speed')}")
             else:
                 try:
                     args.rgb_speed = int(args.rgb_speed)
@@ -397,7 +399,7 @@ def main():
         # ws2812 rgb_enable
         if args.rgb_enable != '':
             if args.rgb_enable == None:
-                print(f"RGB enable: {current_config['system']['rgb_enable']}")
+                print(f"RGB enable: {get_system_config_value(current_config, 'rgb_enable')}")
             else:
                 if args.rgb_enable in TRUE_LIST:
                     new_sys_config['rgb_enable'] = True
@@ -411,7 +413,7 @@ def main():
         # ws2812 rgb_led_count
         if args.rgb_led_count != '':
             if args.rgb_led_count == None:
-                print(f"RGB LED count: {current_config['system']['rgb_led_count']}")
+                print(f"RGB LED count: {get_system_config_value(current_config, 'rgb_led_count')}")
             else:
                 try:
                     args.rgb_led_count = int(args.rgb_led_count)
@@ -429,7 +431,7 @@ def main():
     if is_included(PERIPHERALS, "temperature_unit"):
         if args.temperature_unit != '':
             if args.temperature_unit == None:
-                print(f"Temperature unit: {current_config['system']['temperature_unit']}")
+                print(f"Temperature unit: {get_system_config_value(current_config, 'temperature_unit')}")
             else:
                 if args.temperature_unit not in ['C', 'F']:
                     print(f"Invalid value for Temperature unit, it should be C or F")
@@ -443,7 +445,7 @@ def main():
         # gpio_fan_mode
         if args.gpio_fan_mode != '':
             if args.gpio_fan_mode == None:
-                print(f"GPIO fan mode: {current_config['system']['gpio_fan_mode']}")
+                print(f"GPIO fan mode: {get_system_config_value(current_config, 'gpio_fan_mode')}")
             else:
                 try:
                     args.gpio_fan_mode = int(args.gpio_fan_mode)
@@ -458,7 +460,7 @@ def main():
         # gpio_fan_pin
         if args.gpio_fan_pin != '':
             if args.gpio_fan_pin == None:
-                print(f"GPIO fan pin: {current_config['system']['gpio_fan_pin']}")
+                print(f"GPIO fan pin: {get_system_config_value(current_config, 'gpio_fan_pin')}")
             else:
                 try:
                     args.gpio_fan_pin = int(args.gpio_fan_pin)
@@ -473,7 +475,7 @@ def main():
     if is_included(PERIPHERALS, "gpio_fan_led"):
         if args.gpio_fan_led != '':
             if args.gpio_fan_led == None:
-                print(f"GPIO fan LED state: {current_config['system']['gpio_fan_led']}")
+                print(f"GPIO fan LED state: {get_system_config_value(current_config, 'gpio_fan_led')}")
             else:
                 state = args.gpio_fan_led.lower()
                 if state not in ['on', 'off', 'follow']:
@@ -483,7 +485,7 @@ def main():
                 print(f"Set GPIO fan LED state: {args.gpio_fan_led}")
         if args.gpio_fan_led_pin != '':
             if args.gpio_fan_led_pin == None:
-                print(f"GPIO fan LED pin: {current_config['system']['gpio_fan_led_pin']}")
+                print(f"GPIO fan LED pin: {get_system_config_value(current_config, 'gpio_fan_led_pin')}")
             else:
                 try:
                     args.gpio_fan_led_pin = int(args.gpio_fan_led_pin)
@@ -499,7 +501,7 @@ def main():
         # oled enable
         if args.oled_enable != '':
             if args.oled_enable == None:
-                print(f"OLED enable: {'enabled' if current_config['system']['oled_enable'] else 'disabled'}")
+                print(f"OLED enable: {'enabled' if get_system_config_value(current_config, 'oled_enable') else 'disabled'}")
             else:
                 if args.oled_enable in TRUE_LIST:                
                     new_sys_config['oled_enable'] = True
@@ -514,7 +516,7 @@ def main():
         # oled rotation
         if args.oled_rotation != -1:
             if args.oled_rotation == None:
-                print(f"OLED rotation: {current_config['system']['oled_rotation']}")
+                print(f"OLED rotation: {get_system_config_value(current_config, 'oled_rotation')}")
             else:
                 try:
                     args.oled_rotation = int(args.oled_rotation)
@@ -529,7 +531,7 @@ def main():
         # oled_sleep_timeout
         if args.oled_sleep_timeout != '':
             if args.oled_sleep_timeout == None:
-                print(f"OLED sleep timeout: {current_config['system']['oled_sleep_timeout']}")
+                print(f"OLED sleep timeout: {get_system_config_value(current_config, 'oled_sleep_timeout')}")
             else:
                 from pm_auto.addons.oled import OLEDAddon
                 min = OLEDAddon.MIN_SLEEP_TIMEOUT
@@ -554,7 +556,7 @@ def main():
         # oled_pages
         if args.oled_pages != '':
             if args.oled_pages == None:
-                pages = [f' - {page}' for page in current_config['system']['oled_pages']]
+                pages = [f' - {page}' for page in get_system_config_value(current_config, 'oled_pages', [])]
                 pages = '\n'.join(pages)
                 print("OLED pages:")
                 print(pages)
@@ -577,7 +579,7 @@ def main():
         # vibration_switch_pin
         if args.vibration_switch_pin != '':
             if args.vibration_switch_pin == None:
-                print(f"Vibration switch pin: {current_config['system']['vibration_switch_pin']}")
+                print(f"Vibration switch pin: {get_system_config_value(current_config, 'vibration_switch_pin')}")
             else:
                 try:
                     pin = int(args.vibration_switch_pin)
@@ -592,7 +594,7 @@ def main():
         # vibration_switch_pull_up
         if args.vibration_switch_pull_up != '':
             if args.vibration_switch_pull_up == None:
-                print(f"Vibration switch pull up: {current_config['system']['vibration_switch_pull_up']}")
+                print(f"Vibration switch pull up: {get_system_config_value(current_config, 'vibration_switch_pull_up')}")
             else:
                 if args.vibration_switch_pull_up in TRUE_LIST:
                     new_sys_config['vibration_switch_pull_up'] = True
@@ -610,7 +612,7 @@ def main():
         # rgb_matrix_enable
         if args.rgb_matrix_enable != '':
             if args.rgb_matrix_enable == None:
-                print(f"RGB Matrix enable: {current_config['system']['rgb_matrix_enable']}")
+                print(f"RGB Matrix enable: {get_system_config_value(current_config, 'rgb_matrix_enable')}")
             else:
                 if args.rgb_matrix_enable in TRUE_LIST:
                     new_sys_config['rgb_matrix_enable'] = True
@@ -624,7 +626,7 @@ def main():
         # rgb_matrix_style
         if args.rgb_matrix_style != '':
             if args.rgb_matrix_style == None:
-                print(f"RGB Matrix style: {current_config['system']['rgb_matrix_style']}")
+                print(f"RGB Matrix style: {get_system_config_value(current_config, 'rgb_matrix_style')}")
             else:
                 if args.rgb_matrix_style not in EFFECT_LIST:
                     print(f"Invalid value for RGB Matrix style: {args.rgb_matrix_style}, it should be one of {EFFECT_LIST}")
@@ -634,7 +636,7 @@ def main():
         # rgb_matrix_speed
         if args.rgb_matrix_speed != '':
             if args.rgb_matrix_speed == None:
-                print(f"RGB Matrix speed: {current_config['system']['rgb_matrix_speed']}")
+                print(f"RGB Matrix speed: {get_system_config_value(current_config, 'rgb_matrix_speed')}")
             else:
                 try:
                     args.rgb_matrix_speed = int(args.rgb_matrix_speed)
@@ -649,7 +651,7 @@ def main():
         # rgb_matrix_brightness
         if args.rgb_matrix_brightness != '':
             if args.rgb_matrix_brightness == None:
-                print(f"RGB Matrix brightness: {current_config['system']['rgb_matrix_brightness']}")
+                print(f"RGB Matrix brightness: {get_system_config_value(current_config, 'rgb_matrix_brightness')}")
             else:
                 try:
                     args.rgb_matrix_brightness = int(args.rgb_matrix_brightness)
@@ -665,7 +667,7 @@ def main():
         if args.rgb_matrix_color != '':
             from pironman5.utils import hex_to_rgb
             if args.rgb_matrix_color == None:
-                hex = current_config['system']['rgb_matrix_color']
+                hex = get_system_config_value(current_config, 'rgb_matrix_color')
                 r, g, b = hex_to_rgb(hex)
                 print(f"RGB Matrix color: #{hex} ({r}, {g}, {b})")
             else:
@@ -680,7 +682,7 @@ def main():
         if args.rgb_matrix_color2 != '':
             from pironman5.utils import hex_to_rgb
             if args.rgb_matrix_color2 == None:
-                print(f"RGB Matrix color2: {current_config['system']['rgb_matrix_color2']}")
+                print(f"RGB Matrix color2: {get_system_config_value(current_config, 'rgb_matrix_color2')}")
             else:
                 try:
                     r, g, b = hex_to_rgb(args.rgb_matrix_color2)
