@@ -6,3 +6,4 @@ dist/
 dev
 docs/
 =[0-9]*
+.lgd-nfy*
