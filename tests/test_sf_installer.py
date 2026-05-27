@@ -180,6 +180,7 @@ class InstallerCommandConstructionTest(unittest.TestCase):
             Path("scripts/setup_influxdb.sh"),
             Path("scripts/test_dpkg_lock.sh"),
             Path("scripts/upload-1.2.ps1"),
+            Path("scripts/wait_for_dpkg.sh"),
             Path("tests/read_variants.py"),
             Path("tests/usgae.md"),
         ]
@@ -187,6 +188,24 @@ class InstallerCommandConstructionTest(unittest.TestCase):
         for stale_path in stale_paths:
             with self.subTest(path=stale_path):
                 self.assertFalse(stale_path.exists())
+
+    def test_wait_for_dpkg_does_not_shell_out_to_helper_script(self):
+        installer = SF_Installer("pironman5")
+        installer.get_dpkg_lock_holders = lambda: []
+
+        with unittest.mock.patch("os.system") as system:
+            installer.wait_for_dpkg(wait_interval=0, max_wait=0)
+
+        system.assert_not_called()
+
+    def test_wait_for_dpkg_times_out_when_lock_remains_held(self):
+        installer = SF_Installer("pironman5")
+        installer.get_dpkg_lock_holders = lambda: [
+            {"lock_file": "/var/lib/dpkg/lock", "pid": "123", "process": "apt-get"}
+        ]
+
+        with self.assertRaisesRegex(RuntimeError, "Timeout waiting for dpkg"):
+            installer.wait_for_dpkg(wait_interval=0, max_wait=0)
 
 
 class InstallSettingsPolicyTest(unittest.TestCase):

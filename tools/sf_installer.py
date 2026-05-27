@@ -124,6 +124,12 @@ class SF_Installer():
         'video',
     ]
 
+    DPKG_LOCK_FILES = [
+        "/var/lib/dpkg/lock",
+        "/var/lib/dpkg/lock-frontend",
+        "/var/lib/apt/lists/lock",
+    ]
+
     def __init__(self,
                 name=None,
                 friendly_name=None,
@@ -464,8 +470,52 @@ class SF_Installer():
         for group_name in groups:
             self.add_user_to_group(self.user, group_name)
 
-    def wait_for_dpkg(self):
-        os.system('bash scripts/wait_for_dpkg.sh')
+    def get_dpkg_lock_holders(self):
+        holders = []
+        current_pid = str(os.getpid())
+
+        for lock_file in self.DPKG_LOCK_FILES:
+            if not os.path.exists(lock_file):
+                continue
+            status, result, _error = self.run_command(self.shell_join(['fuser', lock_file]))
+            if status != 0 or not result.strip():
+                continue
+            for pid in result.split():
+                if pid == current_pid:
+                    continue
+                process = "unknown"
+                ps_status, ps_result, _ps_error = self.run_command(
+                    self.shell_join(['ps', '-o', 'comm=', '-p', pid])
+                )
+                if ps_status == 0 and ps_result.strip():
+                    process = os.path.basename(ps_result.strip().splitlines()[0])
+                holders.append({
+                    "lock_file": lock_file,
+                    "pid": pid,
+                    "process": process,
+                })
+
+        return holders
+
+    def wait_for_dpkg(self, wait_interval=1, max_wait=3600):
+        start_time = time.time()
+        while True:
+            holders = self.get_dpkg_lock_holders()
+            if not holders:
+                return
+            elapsed = time.time() - start_time
+            if elapsed >= max_wait:
+                details = ", ".join(
+                    f"{holder['lock_file']} held by {holder['process']}({holder['pid']})"
+                    for holder in holders
+                )
+                raise RuntimeError(f"Timeout waiting for dpkg to become available: {details}")
+            holder = holders[0]
+            print(
+                f"dpkg currently locked by \"{holder['process']}\"({holder['pid']}), waiting...",
+                flush=True,
+            )
+            time.sleep(wait_interval)
 
     def install_build_dep(self):
         self.print_title("Install build dependencies...")
