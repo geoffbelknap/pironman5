@@ -527,6 +527,7 @@ class SF_Installer():
             return
         self.print_title("Run installer preflight actions...")
         allowed_actions = {
+            "apply_umbrel_patch": self.apply_umbrel_patch,
             "install_lgpio": self.install_lgpio,
             "fix_kali_gpio_spi_groups": self.fix_kali_gpio_spi_groups,
         }
@@ -555,6 +556,41 @@ class SF_Installer():
                 return "Kali" in f.read()
         except OSError:
             return False
+
+    def is_umbrel_os(self):
+        return os.path.isdir("/home/umbrel/umbrel")
+
+    def is_boot_read_only(self):
+        status, result, _error = self.run_command(self.shell_join(['findmnt', '-n', '-o', 'OPTIONS', '/boot']))
+        if status != 0:
+            return False
+        return "ro" in [option.strip() for option in result.strip().split(",")]
+
+    def apply_umbrel_patch(self):
+        if not self.is_umbrel_os():
+            print(f"{self.SKIPPED} Not Umbrel OS, skip Umbrel patch")
+            return
+        if self.is_boot_read_only():
+            self.do("Remount /boot read-write", self.shell_join(['mount', '-o', 'remount,rw', '/boot']))
+        for group in ["gpio", "spi"]:
+            self.do(
+                f'Ensure "{group}" system group exists',
+                self.shell_join(['getent', 'group', group]) + " > /dev/null || " + self.shell_join(['groupadd', '-r', group]),
+            )
+        self.do("Set gpio device group ownership", "chown :gpio /dev/gpiochip*")
+        self.do("Set spi device group ownership", "chown :spi /dev/spidev*")
+        self.do(
+            "Install udev rules",
+            self.shell_join([
+                'install',
+                '-m', '0644',
+                '-o', 'root',
+                '-g', 'root',
+                self.asset_path('bin', '99-com.rules'),
+                '/etc/udev/rules.d/99-com.rules',
+            ]),
+        )
+        self.do("Reload udev rules", self.shell_join(['udevadm', 'control', '--reload-rules']))
 
     def fix_kali_gpio_spi_groups(self):
         if not self.is_kali_linux():

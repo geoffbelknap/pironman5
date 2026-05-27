@@ -184,6 +184,7 @@ class InstallerCommandConstructionTest(unittest.TestCase):
             Path("scripts/install_lgpio.sh"),
             Path("scripts/fix_kali_gpio_spi.sh"),
             Path("scripts/change_rpi.gpio_to_rpi.lgpio.sh"),
+            Path("scripts/umbrel_patch.sh"),
             Path("tests/read_variants.py"),
             Path("tests/usgae.md"),
         ]
@@ -266,6 +267,40 @@ class InstallerCommandConstructionTest(unittest.TestCase):
             [
                 "getent group gpio > /dev/null || groupadd -r gpio",
                 "getent group spi > /dev/null || groupadd -r spi",
+            ],
+            commands,
+        )
+
+    def test_apply_umbrel_patch_is_noop_off_umbrel(self):
+        installer = SF_Installer("pironman5")
+        installer.args = Args(plain_text=True)
+        commands = []
+        installer.do = lambda _msg, cmd, **_kwargs: commands.append(cmd)
+
+        with unittest.mock.patch.object(installer, "is_umbrel_os", return_value=False):
+            installer.apply_umbrel_patch()
+
+        self.assertEqual([], commands)
+
+    def test_apply_umbrel_patch_applies_umbrel_system_changes(self):
+        installer = SF_Installer("pironman5")
+        installer.args = Args(plain_text=True)
+        commands = []
+        installer.do = lambda _msg, cmd, **_kwargs: commands.append(cmd)
+
+        with unittest.mock.patch.object(installer, "is_umbrel_os", return_value=True), \
+             unittest.mock.patch.object(installer, "is_boot_read_only", return_value=True):
+            installer.apply_umbrel_patch()
+
+        self.assertEqual(
+            [
+                "mount -o remount,rw /boot",
+                "getent group gpio > /dev/null || groupadd -r gpio",
+                "getent group spi > /dev/null || groupadd -r spi",
+                "chown :gpio /dev/gpiochip*",
+                "chown :spi /dev/spidev*",
+                "install -m 0644 -o root -g root pironman5/assets/bin/99-com.rules /etc/udev/rules.d/99-com.rules",
+                "udevadm control --reload-rules",
             ],
             commands,
         )
@@ -451,6 +486,14 @@ class InstallSettingsPolicyTest(unittest.TestCase):
         self.assertNotIn("install_lgpio.sh", installer.before_install_scripts)
         self.assertNotIn("fix_kali_gpio_spi.sh", installer.before_install_scripts)
         self.assertNotIn("change_rpi.gpio_to_rpi.lgpio.sh", installer.after_install_scripts)
+
+    def test_base_settings_use_installer_umbrel_preflight_action(self):
+        import install
+
+        installer = install.build_installer_for_settings(["base"])
+
+        self.assertIn("apply_umbrel_patch", installer.preflight_actions)
+        self.assertNotIn("umbrel_patch.sh", installer.before_install_scripts)
 
     def test_shared_preflight_actions_are_not_duplicated(self):
         import install

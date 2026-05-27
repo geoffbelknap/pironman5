@@ -34,9 +34,8 @@ settings = {
     #     'curl', # for influxdb key download
     # ],
 
-    # - Before install scripts, default to []
-    'run_scripts_before_install': [
-        "umbrel_patch.sh",
+    'preflight_actions': [
+        "apply_umbrel_patch",
     ],
 
     # - Install from apt
