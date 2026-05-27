@@ -1,4 +1,5 @@
 import unittest
+import time
 from unittest import mock
 
 
@@ -158,6 +159,49 @@ class RuntimeTest(unittest.TestCase):
             )
 
         module.assert_called_once_with(event=runtime.event, log=runtime.log)
+
+    def test_pi5_power_button_stop_joins_worker_threads(self):
+        from pironman5.runtime import ButtonStatus, Pi5PowerButton
+
+        class FakeDevice:
+            def __init__(self):
+                self.closed = False
+
+            def read_loop(self):
+                while not self.closed:
+                    time.sleep(0.01)
+                    if False:
+                        yield None
+
+            def ungrab(self):
+                pass
+
+            def close(self):
+                self.closed = True
+
+        button = Pi5PowerButton.__new__(Pi5PowerButton)
+        button.ecodes = mock.Mock(EV_KEY=1)
+        button.event_code = 116
+        button.dev = FakeDevice()
+        button.status = ButtonStatus.RELEASED
+        button.last_key_down_time = 0
+        button.last_key_up_time = 0
+        button.is_pressed = False
+        button.double_click_ready = False
+        button.running = False
+        button._watch_thread = None
+        button._process_thread = None
+        button._button_callback = None
+
+        button.start()
+        deadline = time.time() + 1
+        while button._watch_thread is None and time.time() < deadline:
+            time.sleep(0.01)
+
+        button.stop()
+
+        self.assertFalse(button._process_thread.is_alive())
+        self.assertFalse(button._watch_thread.is_alive())
 
     def test_ws2812_config_update_keeps_compatible_patch_semantics(self):
         from pironman5.runtime import EventBus, WS2812Module

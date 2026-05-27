@@ -187,6 +187,8 @@ class Pi5PowerButton:
             self.dev.close()
         except Exception:
             pass
+        self._join_thread(self._watch_thread)
+        self._join_thread(self._process_thread)
 
     def process_loop(self):
         self.start_watcher()
@@ -202,31 +204,35 @@ class Pi5PowerButton:
             self._watch_thread.start()
 
     def watch_loop(self):
-        for event in self.dev.read_loop():
-            if not self.running:
-                break
-            if event.type == self.ecodes.EV_KEY and event.code == self.event_code:
-                event_time = event.timestamp()
-                if event.value == 0:
-                    self.is_pressed = False
-                    self.last_key_up_time = time.time()
-                    if self.double_click_ready:
-                        self.status = ButtonStatus.DOUBLE_CLICK
-                        self.double_click_ready = False
-                        continue
-                    interval = event_time - self.last_key_down_time
-                    if interval > 5:
-                        self.status = ButtonStatus.LONG_PRESS_5S_RELEASED
-                    elif interval > 2:
-                        self.status = ButtonStatus.LONG_PRESS_2S_RELEASED
-                    else:
-                        self.status = ButtonStatus.CLICK
-                elif event.value == 1:
-                    self.is_pressed = True
-                    if event_time - self.last_key_down_time < self.DOUBLE_CLICK_INTERVAL:
-                        self.double_click_ready = True
-                    self.status = ButtonStatus.PRESSED
-                    self.last_key_down_time = event_time
+        try:
+            for event in self.dev.read_loop():
+                if not self.running:
+                    break
+                if event.type == self.ecodes.EV_KEY and event.code == self.event_code:
+                    event_time = event.timestamp()
+                    if event.value == 0:
+                        self.is_pressed = False
+                        self.last_key_up_time = time.time()
+                        if self.double_click_ready:
+                            self.status = ButtonStatus.DOUBLE_CLICK
+                            self.double_click_ready = False
+                            continue
+                        interval = event_time - self.last_key_down_time
+                        if interval > 5:
+                            self.status = ButtonStatus.LONG_PRESS_5S_RELEASED
+                        elif interval > 2:
+                            self.status = ButtonStatus.LONG_PRESS_2S_RELEASED
+                        else:
+                            self.status = ButtonStatus.CLICK
+                    elif event.value == 1:
+                        self.is_pressed = True
+                        if event_time - self.last_key_down_time < self.DOUBLE_CLICK_INTERVAL:
+                            self.double_click_ready = True
+                        self.status = ButtonStatus.PRESSED
+                        self.last_key_down_time = event_time
+        except OSError:
+            if self.running:
+                raise
 
     def read(self):
         status = self.status
@@ -244,6 +250,10 @@ class Pi5PowerButton:
         else:
             self.status = ButtonStatus.RELEASED
         return status
+
+    def _join_thread(self, thread):
+        if thread is not None and thread is not threading.current_thread() and thread.is_alive():
+            thread.join(timeout=1)
 
 
 class Pi5PowerButtonModule:
