@@ -73,7 +73,7 @@ def main():
         parser.add_argument("-u", "--temperature-unit", choices=["C", "F"], nargs='?', default='', help="Temperature unit")
     # gpio_fan_mode
     if is_included(PERIPHERALS, "gpio_fan_mode"):
-        from pm_auto.addons.fan import GPIO_FAN_MODES
+        from .runtime import GPIO_FAN_MODES
         parser.add_argument("-gm", "--gpio-fan-mode", nargs='?', default='', help=f"GPIO fan mode, {', '.join([f'{i}: {mode}' for i, mode in enumerate(GPIO_FAN_MODES)])}")
         parser.add_argument("-gp", "--gpio-fan-pin", nargs='?', default='', help="GPIO fan pin")
     if is_included(PERIPHERALS, "gpio_fan_led"):

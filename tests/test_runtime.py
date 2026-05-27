@@ -24,7 +24,7 @@ class RuntimeTest(unittest.TestCase):
             )
 
         kwargs = addons.call_args.kwargs
-        self.assertEqual(["cpu", "pwm_fan_speed"], kwargs["peripherals"])
+        self.assertEqual(["cpu"], kwargs["peripherals"])
 
     def test_runtime_connects_event_map_once_on_shared_event_bus(self):
         from pironman5.runtime import PironmanRuntime
@@ -229,6 +229,63 @@ class RuntimeTest(unittest.TestCase):
             )
 
         module.assert_called_once_with(config={}, event=runtime.event, log=runtime.log)
+
+    def test_pwm_fan_device_reads_state_and_speed_from_sysfs(self):
+        from pironman5.runtime import PWMFanDevice
+
+        files = {
+            "/thermal/cooling_device0/cur_state": "2\n",
+            "/cooling_fan/hwmon/hwmon3/fan1_input": "2500\n",
+        }
+
+        device = PWMFanDevice(
+            thermal_glob=lambda _pattern: ["/thermal/cooling_device0/cur_state"],
+            speed_glob=lambda _pattern: ["/cooling_fan/hwmon/hwmon3/fan1_input"],
+            reader=lambda path: files[path],
+        )
+
+        self.assertTrue(device.ready)
+        self.assertEqual(2, device.get_state())
+        self.assertEqual(2500, device.get_speed())
+
+    def test_pwm_fan_module_publishes_speed_and_state(self):
+        from pironman5.runtime import EventBus, PWMFanModule
+
+        class FakePWMFan:
+            ready = True
+            kernel_controlled = True
+
+            def get_speed(self):
+                return 2100
+
+            def get_state(self):
+                return 1
+
+            def close(self):
+                pass
+
+        event = EventBus()
+        data = {}
+        event.subscribe("data_changed", data.update)
+        module = PWMFanModule(event=event, fan_factory=lambda: FakePWMFan())
+
+        module.task_1s()
+
+        self.assertEqual({"pwm_fan_speed": 2100, "pwm_fan_state": 1}, data)
+
+    def test_runtime_starts_pwm_fan_when_present(self):
+        from pironman5.runtime import PironmanRuntime
+
+        with mock.patch("pironman5.runtime.PWMFanModule") as module:
+            runtime = PironmanRuntime(
+                config={},
+                peripherals=["pwm_fan_speed"],
+                device_info={},
+                event_map={},
+                log=None,
+            )
+
+        module.assert_called_once_with(event=runtime.event, log=runtime.log)
 
 
 if __name__ == "__main__":

@@ -36,6 +36,12 @@ class RuntimeDependencyBoundaryTest(unittest.TestCase):
         self.assertIn("from .runtime import RGB_STYLES", source)
         self.assertNotIn("from pm_auto.addons.ws2812 import RGB_STYLES", source)
 
+    def test_gpio_fan_cli_uses_local_runtime_constants(self):
+        source = pathlib.Path("pironman5/_cli.py").read_text(encoding="utf-8")
+
+        self.assertIn("from .runtime import GPIO_FAN_MODES", source)
+        self.assertNotIn("from pm_auto.addons.fan import GPIO_FAN_MODES", source)
+
 
 if __name__ == "__main__":
     unittest.main()

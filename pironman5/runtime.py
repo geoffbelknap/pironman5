@@ -1,4 +1,5 @@
 import asyncio
+import glob
 import logging
 import re
 import threading
@@ -81,7 +82,17 @@ FAN_LEVELS = [
     {"name": "MEDIUM", "low": 55, "high": 75, "percent": 80},
     {"name": "HIGH", "low": 65, "high": 100, "percent": 100},
 ]
-LOCAL_PERIPHERALS = {"system", "gpio_fan", "gpio_fan_state", "gpio_fan_led", "pi5_power_button", "ws2812"}
+GPIO_FAN_MODES = ["Always On", "Performance", "Cool", "Balanced", "Quiet"]
+LOCAL_PERIPHERALS = {
+    "system",
+    "gpio_fan",
+    "gpio_fan_state",
+    "gpio_fan_led",
+    "pi5_power_button",
+    "ws2812",
+    "pwm_fan_speed",
+    "pwm_fan",
+}
 RGB_STYLES = ["solid", "breathing", "flow", "flow_reverse", "rainbow", "rainbow_reverse", "hue_cycle"]
 
 
@@ -638,6 +649,108 @@ class WS2812Module:
             self.strip = None
 
 
+class PWMFanDevice:
+    TEMP_CONTROL_INTERVENE_OS = set()
+
+    def __init__(
+        self,
+        thermal_glob=None,
+        speed_glob=None,
+        reader=None,
+        writer=None,
+        log=None,
+    ):
+        self.log = log or logging.getLogger(__name__)
+        self.thermal_glob = thermal_glob or glob.glob
+        self.speed_glob = speed_glob or glob.glob
+        self.reader = reader or self._read_file
+        self.writer = writer or self._write_file
+        self.state_path = self._first_path("/sys/class/thermal/cooling_device*/cur_state")
+        self.speed_path = self._first_path("/sys/devices/platform/cooling_fan/hwmon/*/fan1_input")
+        self.ready = bool(self.state_path and self.speed_path)
+        self.kernel_controlled = True
+
+    def get_state(self):
+        if not self.ready:
+            return 0
+        try:
+            return int(self.reader(self.state_path).strip())
+        except Exception as exc:
+            self.log.error(f"read pwm fan state error: {exc}")
+            return 0
+
+    def set_state(self, level):
+        if not self.ready:
+            return
+        level = max(0, min(3, int(level)))
+        self.writer(self.state_path, f"{level}\n")
+
+    def get_speed(self):
+        if not self.ready:
+            return 0
+        try:
+            return int(self.reader(self.speed_path).strip())
+        except Exception as exc:
+            self.log.error(f"read fan1 speed error: {exc}")
+            return 0
+
+    def close(self):
+        if self.ready and not self.kernel_controlled:
+            self.set_state(0)
+
+    def _first_path(self, pattern):
+        paths = self.thermal_glob(pattern) if "thermal" in pattern else self.speed_glob(pattern)
+        return paths[0] if paths else None
+
+    def _read_file(self, file_path):
+        with open(file_path, "r", encoding="utf-8") as f:
+            return f.read()
+
+    def _write_file(self, file_path, value):
+        with open(file_path, "w", encoding="utf-8") as f:
+            f.write(value)
+
+
+class PWMFanModule:
+    def __init__(self, event, log=None, fan_factory=None):
+        self.event = event
+        self.log = log or logging.getLogger(__name__)
+        self.fan = (fan_factory or (lambda: PWMFanDevice(log=self.log)))()
+        self.level = 0
+        self.tasks = TaskScheduler()
+        if not self.fan.ready:
+            self.log.warning("PWM Fan is not supported")
+
+    def task_1s(self):
+        data = {}
+        if self.fan.ready and self.fan.kernel_controlled:
+            data["pwm_fan_speed"] = self.fan.get_speed()
+            data["pwm_fan_state"] = self.fan.get_state()
+        elif self.fan.ready:
+            self._set_fallback_level()
+            self.fan.set_state(self.level)
+            data["pwm_fan_speed"] = self.fan.get_speed()
+            data["pwm_fan_state"] = self.level
+        if data:
+            self.event.publish("data_changed", data)
+
+    async def start(self):
+        await self.tasks.run_periodically(self.task_1s, 1)
+
+    async def stop(self):
+        await self.tasks.stop()
+        self.fan.close()
+
+    def _set_fallback_level(self):
+        temperature = host.get_cpu_temperature()
+        temperature = float(temperature) if temperature is not None else 0.0
+        if temperature < FAN_LEVELS[self.level]["low"]:
+            self.level -= 1
+        elif temperature > FAN_LEVELS[self.level]["high"]:
+            self.level += 1
+        self.level = max(0, min(self.level, len(FAN_LEVELS) - 1))
+
+
 class SystemStatusModule:
     def __init__(self, event, log=None):
         self.event = event
@@ -780,6 +893,11 @@ class PironmanRuntime:
             if any(peripheral in peripherals for peripheral in ("gpio_fan", "gpio_fan_state", "gpio_fan_led"))
             else None
         )
+        self.pwm_fan = (
+            PWMFanModule(event=self.event, log=self.log)
+            if any(peripheral in peripherals for peripheral in ("pwm_fan_speed", "pwm_fan"))
+            else None
+        )
         self.pi5_power_button = (
             Pi5PowerButtonModule(event=self.event, log=self.log)
             if "pi5_power_button" in peripherals
@@ -843,6 +961,8 @@ class PironmanRuntime:
         await self.system.start()
         if self.gpio_fan is not None:
             await self.gpio_fan.start()
+        if self.pwm_fan is not None:
+            await self.pwm_fan.start()
         if self.pi5_power_button is not None:
             await self.pi5_power_button.start()
         if self.ws2812 is not None:
@@ -855,6 +975,8 @@ class PironmanRuntime:
             await self.ws2812.stop()
         if self.pi5_power_button is not None:
             await self.pi5_power_button.stop()
+        if self.pwm_fan is not None:
+            await self.pwm_fan.stop()
         if self.gpio_fan is not None:
             await self.gpio_fan.stop()
         await self.system.stop()
