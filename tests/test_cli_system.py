@@ -92,6 +92,17 @@ class SystemCliTest(unittest.TestCase):
         self.assertIn("/opt/pironman5-venv/bin/pip install --upgrade", output)
         self.assertIn("systemctl restart pironman5.service", output)
 
+    def test_service_install_info_does_not_import_from_current_checkout(self):
+        from pironman5 import system
+
+        with mock.patch.object(system.Path, "exists", return_value=True):
+            with mock.patch.object(system.subprocess, "run") as run:
+                run.return_value.stdout = '{"version": "1", "source": "installed", "commit": null}'
+
+                self.assertEqual(system._service_install_info()["source"], "installed")
+
+        self.assertEqual(run.call_args.kwargs["cwd"], "/")
+
     def test_system_uninstall_dry_run_prints_removed_files(self):
         from pironman5 import _cli
 

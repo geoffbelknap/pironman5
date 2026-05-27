@@ -310,6 +310,7 @@ def _service_install_info():
         result = subprocess.run(
             (str(python), "-c", script),
             check=False,
+            cwd="/",
             stdout=subprocess.PIPE,
             stderr=subprocess.DEVNULL,
             text=True,
