@@ -148,6 +148,14 @@ def detect_hardware_variant():
     }
 
 
+def detect_optional_hardware():
+    detected = detect_hardware_variant()
+    is_hat_eeprom = detected["source"] == "hat-eeprom"
+    return {
+        "pipower5": is_hat_eeprom and detected["variant_id"] == "2602",
+    }
+
+
 def _detect_variant_key():
     env_variant = getenv("PIRONMAN5_VARIANT")
     if env_variant:

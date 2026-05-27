@@ -336,16 +336,39 @@ class InstallSettingsPolicyTest(unittest.TestCase):
         with unittest.mock.patch("sys.stderr", new=io.StringIO()), self.assertRaises(SystemExit):
             install.parse_install_args(["--enable-dashboard", "--enable-influxdb-legacy"])
 
-    def test_ups_requires_explicit_flag_even_when_peripheral_exists(self):
+    def test_pipower5_requires_detected_hat_or_explicit_flag(self):
         import install
 
         args = install.parse_install_args([])
-        names = install.resolve_enabled_setting_names(args, peripherals=["pipower5"])
+        with unittest.mock.patch(
+            "install.detect_optional_hardware",
+            return_value={"pipower5": False},
+        ):
+            names = install.resolve_enabled_setting_names(args, peripherals=["pipower5"])
 
         self.assertNotIn("pipower5", names)
 
+    def test_pipower5_auto_enables_when_hat_is_detected(self):
+        import install
+
+        args = install.parse_install_args([])
+        with unittest.mock.patch(
+            "install.detect_optional_hardware",
+            return_value={"pipower5": True},
+        ):
+            names = install.resolve_enabled_setting_names(args, peripherals=["pipower5"])
+
+        self.assertIn("pipower5", names)
+
+    def test_pipower5_flag_overrides_hardware_detection(self):
+        import install
+
         args = install.parse_install_args(["--enable-ups"])
-        names = install.resolve_enabled_setting_names(args, peripherals=["pipower5"])
+        with unittest.mock.patch(
+            "install.detect_optional_hardware",
+            return_value={"pipower5": False},
+        ):
+            names = install.resolve_enabled_setting_names(args, peripherals=[])
 
         self.assertIn("pipower5", names)
 
