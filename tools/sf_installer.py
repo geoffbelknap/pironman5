@@ -124,6 +124,12 @@ class SF_Installer():
         'video',
     ]
 
+    DPKG_LOCK_FILES = [
+        "/var/lib/dpkg/lock",
+        "/var/lib/dpkg/lock-frontend",
+        "/var/lib/apt/lists/lock",
+    ]
+
     def __init__(self,
                 name=None,
                 friendly_name=None,
@@ -155,6 +161,7 @@ class SF_Installer():
 
         self.groups = set(self.DEFAULT_GROUPS)
         self.build_dependencies = set()
+        self.preflight_actions = []
         self.before_install_scripts = set()
         self.custom_apt_dependencies = set()
         self.custom_uninstall_pip_dependencies = set()
@@ -220,6 +227,10 @@ class SF_Installer():
             self.groups.update(settings['groups'])
         if 'build_dependencies' in settings:
             self.build_dependencies.update(settings['build_dependencies'])
+        if 'preflight_actions' in settings:
+            for action in settings['preflight_actions']:
+                if action not in self.preflight_actions:
+                    self.preflight_actions.append(action)
         if 'run_scripts_before_install' in settings:
             self.before_install_scripts.update(settings['run_scripts_before_install'])
         if 'apt_dependencies' in settings:
@@ -464,8 +475,132 @@ class SF_Installer():
         for group_name in groups:
             self.add_user_to_group(self.user, group_name)
 
-    def wait_for_dpkg(self):
-        os.system('bash scripts/wait_for_dpkg.sh')
+    def get_dpkg_lock_holders(self):
+        holders = []
+        current_pid = str(os.getpid())
+
+        for lock_file in self.DPKG_LOCK_FILES:
+            if not os.path.exists(lock_file):
+                continue
+            status, result, _error = self.run_command(self.shell_join(['fuser', lock_file]))
+            if status != 0 or not result.strip():
+                continue
+            for pid in result.split():
+                if pid == current_pid:
+                    continue
+                process = "unknown"
+                ps_status, ps_result, _ps_error = self.run_command(
+                    self.shell_join(['ps', '-o', 'comm=', '-p', pid])
+                )
+                if ps_status == 0 and ps_result.strip():
+                    process = os.path.basename(ps_result.strip().splitlines()[0])
+                holders.append({
+                    "lock_file": lock_file,
+                    "pid": pid,
+                    "process": process,
+                })
+
+        return holders
+
+    def wait_for_dpkg(self, wait_interval=1, max_wait=3600):
+        start_time = time.time()
+        while True:
+            holders = self.get_dpkg_lock_holders()
+            if not holders:
+                return
+            elapsed = time.time() - start_time
+            if elapsed >= max_wait:
+                details = ", ".join(
+                    f"{holder['lock_file']} held by {holder['process']}({holder['pid']})"
+                    for holder in holders
+                )
+                raise RuntimeError(f"Timeout waiting for dpkg to become available: {details}")
+            holder = holders[0]
+            print(
+                f"dpkg currently locked by \"{holder['process']}\"({holder['pid']}), waiting...",
+                flush=True,
+            )
+            time.sleep(wait_interval)
+
+    def run_preflight_actions(self):
+        if len(self.preflight_actions) == 0:
+            return
+        self.print_title("Run installer preflight actions...")
+        allowed_actions = {
+            "apply_umbrel_patch": self.apply_umbrel_patch,
+            "install_lgpio": self.install_lgpio,
+            "fix_kali_gpio_spi_groups": self.fix_kali_gpio_spi_groups,
+        }
+        for action in self.preflight_actions:
+            if action not in allowed_actions:
+                raise ValueError(f"Unknown preflight action: {action}")
+            allowed_actions[action]()
+
+    def install_lgpio(self):
+        self.do(
+            "Install LGPIO packages",
+            self.shell_join([
+                'env',
+                'DEBIAN_FRONTEND=noninteractive',
+                'apt-get',
+                'install',
+                '-y',
+                'liblgpio-dev',
+                'python3-lgpio',
+            ]),
+        )
+
+    def is_kali_linux(self):
+        try:
+            with open("/etc/os-release", "r") as f:
+                return "Kali" in f.read()
+        except OSError:
+            return False
+
+    def is_umbrel_os(self):
+        return os.path.isdir("/home/umbrel/umbrel")
+
+    def is_boot_read_only(self):
+        status, result, _error = self.run_command(self.shell_join(['findmnt', '-n', '-o', 'OPTIONS', '/boot']))
+        if status != 0:
+            return False
+        return "ro" in [option.strip() for option in result.strip().split(",")]
+
+    def apply_umbrel_patch(self):
+        if not self.is_umbrel_os():
+            print(f"{self.SKIPPED} Not Umbrel OS, skip Umbrel patch")
+            return
+        if self.is_boot_read_only():
+            self.do("Remount /boot read-write", self.shell_join(['mount', '-o', 'remount,rw', '/boot']))
+        for group in ["gpio", "spi"]:
+            self.do(
+                f'Ensure "{group}" system group exists',
+                self.shell_join(['getent', 'group', group]) + " > /dev/null || " + self.shell_join(['groupadd', '-r', group]),
+            )
+        self.do("Set gpio device group ownership", "chown :gpio /dev/gpiochip*")
+        self.do("Set spi device group ownership", "chown :spi /dev/spidev*")
+        self.do(
+            "Install udev rules",
+            self.shell_join([
+                'install',
+                '-m', '0644',
+                '-o', 'root',
+                '-g', 'root',
+                self.asset_path('bin', '99-com.rules'),
+                '/etc/udev/rules.d/99-com.rules',
+            ]),
+        )
+        self.do("Reload udev rules", self.shell_join(['udevadm', 'control', '--reload-rules']))
+
+    def fix_kali_gpio_spi_groups(self):
+        if not self.is_kali_linux():
+            print(f"{self.SKIPPED} Not Kali Linux, skip GPIO/SPI group fix")
+            return
+        for group in ["gpio", "spi"]:
+            self.do(
+                f'Ensure "{group}" system group exists',
+                self.shell_join(['getent', 'group', group]) + " > /dev/null || " + self.shell_join(['groupadd', '-r', group]),
+            )
 
     def install_build_dep(self):
         self.print_title("Install build dependencies...")
@@ -759,6 +894,7 @@ class SF_Installer():
         self.print_title(f"Installing {self.friendly_name} {self.version}")
         self.wait_for_dpkg()
         self.install_build_dep()
+        self.run_preflight_actions()
         self.run_scripts_before_install()
         self.install_apt_dep()
         self.setup_user()

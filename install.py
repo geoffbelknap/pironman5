@@ -34,9 +34,8 @@ settings = {
     #     'curl', # for influxdb key download
     # ],
 
-    # - Before install scripts, default to []
-    'run_scripts_before_install': [
-        "umbrel_patch.sh",
+    'preflight_actions': [
+        "apply_umbrel_patch",
     ],
 
     # - Install from apt
@@ -85,9 +84,9 @@ settings = {
 }
 
 ws2812_settings = {
-    'run_scripts_before_install': [
-        "install_lgpio.sh",
-        "fix_kali_gpio_spi.sh",
+    'preflight_actions': [
+        "install_lgpio",
+        "fix_kali_gpio_spi_groups",
     ],
     'groups': ['spi', 'gpio'],
     'pip_dependencies': [
@@ -120,10 +119,9 @@ oled_settings = {
 }
 
 gpio_settings = {
-    # - Before install scripts, default to []
-    'run_scripts_before_install': [
-        "install_lgpio.sh",
-        "fix_kali_gpio_spi.sh",
+    'preflight_actions': [
+        "install_lgpio",
+        "fix_kali_gpio_spi_groups",
     ],
     'groups': ['gpio'],
     # - Install from apt
@@ -133,9 +131,6 @@ gpio_settings = {
     # - Install from pip
     'pip_dependencies': [
         'rpi.lgpio',
-    ],
-    'run_scripts_after_install': [
-        "change_rpi.gpio_to_rpi.lgpio.sh",
     ],
 }
 
