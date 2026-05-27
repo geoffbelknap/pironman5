@@ -183,6 +183,7 @@ class InstallerCommandConstructionTest(unittest.TestCase):
             Path("scripts/wait_for_dpkg.sh"),
             Path("scripts/install_lgpio.sh"),
             Path("scripts/fix_kali_gpio_spi.sh"),
+            Path("scripts/change_rpi.gpio_to_rpi.lgpio.sh"),
             Path("tests/read_variants.py"),
             Path("tests/usgae.md"),
         ]
@@ -445,8 +446,11 @@ class InstallSettingsPolicyTest(unittest.TestCase):
 
         self.assertIn("install_lgpio", installer.preflight_actions)
         self.assertIn("fix_kali_gpio_spi_groups", installer.preflight_actions)
+        self.assertIn("RPi.GPIO", installer.custom_uninstall_pip_dependencies)
+        self.assertIn("rpi.lgpio", installer.custom_pip_dependencies)
         self.assertNotIn("install_lgpio.sh", installer.before_install_scripts)
         self.assertNotIn("fix_kali_gpio_spi.sh", installer.before_install_scripts)
+        self.assertNotIn("change_rpi.gpio_to_rpi.lgpio.sh", installer.after_install_scripts)
 
     def test_shared_preflight_actions_are_not_duplicated(self):
         import install
