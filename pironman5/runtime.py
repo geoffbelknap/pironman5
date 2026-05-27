@@ -309,6 +309,33 @@ class GPIOOutputPin:
         self.set(False)
         self.gpio.cleanup(self.pin)
 
+    @classmethod
+    def cleanup_all(cls):
+        import warnings
+        from RPi import GPIO
+
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            GPIO.cleanup()
+        cls._stop_lgpio_notify_thread()
+
+    @classmethod
+    def _stop_lgpio_notify_thread(cls):
+        try:
+            import lgpio
+
+            notify_thread = getattr(lgpio, "_notify_thread", None)
+            if notify_thread is None:
+                return
+            notify_thread.stop()
+            notify_handle = getattr(notify_thread, "_notify", None)
+            if notify_handle is not None:
+                lgpio._notify_close(notify_handle)
+            if notify_thread is not threading.current_thread() and notify_thread.is_alive():
+                notify_thread.join(timeout=1)
+        except Exception:
+            pass
+
 
 class GPIOFanModule:
     def __init__(self, config, event, log=None, pin_factory=None):
@@ -368,6 +395,8 @@ class GPIOFanModule:
         for pin in (self.fan_pin, self.led_pin):
             if pin is not None:
                 pin.close()
+        if self.pin_factory is GPIOOutputPin:
+            GPIOOutputPin.cleanup_all()
 
     def _configure_pins(self):
         self._replace_fan_pin()

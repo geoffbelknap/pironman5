@@ -114,6 +114,38 @@ class RuntimeTest(unittest.TestCase):
 
         self.assertEqual({"gpio_fan_pin": 13, "gpio_fan_led": "on"}, patch)
 
+    def test_gpio_fan_stop_closes_lgpio_chip(self):
+        from pironman5.runtime import EventBus, GPIOFanModule, GPIOOutputPin
+
+        with mock.patch.object(GPIOOutputPin, "__init__", return_value=None), \
+                mock.patch.object(GPIOOutputPin, "set"), \
+                mock.patch.object(GPIOOutputPin, "close"), \
+                mock.patch.object(GPIOOutputPin, "cleanup_all") as cleanup_all:
+            module = GPIOFanModule(
+                config={"gpio_fan_pin": 6, "gpio_fan_led_pin": 5},
+                event=EventBus(),
+            )
+
+            import asyncio
+            asyncio.run(module.stop())
+
+        cleanup_all.assert_called_once()
+
+    def test_gpio_cleanup_stops_lgpio_notify_thread(self):
+        from pironman5.runtime import GPIOOutputPin
+
+        notify_thread = mock.Mock()
+        notify_thread._notify = 5
+        notify_thread.is_alive.return_value = True
+        with mock.patch.dict("sys.modules", {"lgpio": mock.Mock(_notify_thread=notify_thread)}):
+            import lgpio
+
+            GPIOOutputPin._stop_lgpio_notify_thread()
+
+        notify_thread.stop.assert_called_once()
+        lgpio._notify_close.assert_called_once_with(5)
+        notify_thread.join.assert_called_once_with(timeout=1)
+
     def test_pi5_power_button_module_publishes_button_events(self):
         from pironman5.runtime import ButtonStatus, EventBus, Pi5PowerButtonModule
 
