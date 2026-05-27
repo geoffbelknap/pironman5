@@ -19,6 +19,26 @@ class RuntimeDependencyBoundaryTest(unittest.TestCase):
         self.assertIn("self.log.info('PM Dashboard not installed; skipping optional dashboard startup')", source)
         self.assertNotIn("self.log.warning('PM Dashboard not found skipping')", source)
 
+    def test_local_sf_rpi_status_compatibility_shim_is_packaged(self):
+        import sf_rpi_status
+
+        required = [
+            "get_cpu_temperature",
+            "get_cpu_percent",
+            "get_disks_info",
+            "get_network_speed",
+            "shutdown",
+        ]
+
+        for name in required:
+            with self.subTest(name=name):
+                self.assertTrue(callable(getattr(sf_rpi_status, name)))
+
+    def test_pyproject_packages_local_compatibility_shim(self):
+        pyproject = pathlib.Path("pyproject.toml").read_text(encoding="utf-8")
+
+        self.assertIn('"sf_rpi_status"', pyproject)
+
 
 if __name__ == "__main__":
     unittest.main()
