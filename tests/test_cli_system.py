@@ -6,6 +6,70 @@ from unittest import mock
 
 
 class SystemCliTest(unittest.TestCase):
+    def test_detect_prints_variant_and_optional_hardware(self):
+        from pironman5 import _cli
+
+        stdout = io.StringIO()
+        detected_variant = {
+            "variant": "max",
+            "source": "hat-eeprom",
+            "part_number": "0306V11",
+            "variant_id": "0306",
+            "version": "11",
+        }
+        with mock.patch.object(sys, "argv", ["pironman5", "detect"]):
+            with mock.patch.object(_cli, "detect_hardware_variant", return_value=detected_variant):
+                with mock.patch.object(_cli, "detect_optional_hardware", return_value={"pipower5": False, "rtl8125": True}):
+                    with contextlib.redirect_stdout(stdout):
+                        _cli.main()
+
+        output = stdout.getvalue()
+        self.assertIn("Variant: Pironman 5 Max (max)", output)
+        self.assertIn("Source: HAT EEPROM 0306V11", output)
+        self.assertIn("PiPower5 UPS: not detected", output)
+        self.assertIn("RTL8125 NIC: detected", output)
+
+    def test_detect_json_prints_machine_readable_hardware(self):
+        import json
+        from pironman5 import _cli
+
+        stdout = io.StringIO()
+        detected_variant = {
+            "variant": "max",
+            "source": "hat-eeprom",
+            "part_number": "0306V11",
+            "variant_id": "0306",
+            "version": "11",
+        }
+        with mock.patch.object(sys, "argv", ["pironman5", "detect", "--json"]):
+            with mock.patch.object(_cli, "detect_hardware_variant", return_value=detected_variant):
+                with mock.patch.object(_cli, "detect_optional_hardware", return_value={"pipower5": False, "rtl8125": True}):
+                    with contextlib.redirect_stdout(stdout):
+                        _cli.main()
+
+        output = json.loads(stdout.getvalue())
+        self.assertEqual("max", output["variant"])
+        self.assertEqual("Pironman 5 Max", output["variant_name"])
+        self.assertEqual("hat-eeprom", output["source"])
+        self.assertEqual("0306V11", output["part_number"])
+        self.assertEqual({"pipower5": False, "rtl8125": True}, output["optional_hardware"])
+
+    def test_top_level_command_namespace_is_intentional(self):
+        from pironman5 import _cli
+
+        stdout = io.StringIO()
+        with mock.patch.object(sys, "argv", ["pironman5", "--help"]):
+            with self.assertRaises(SystemExit):
+                with contextlib.redirect_stdout(stdout):
+                    _cli.main()
+
+        output = stdout.getvalue()
+        self.assertIn("detect", output)
+        self.assertIn("start", output)
+        self.assertIn("stop", output)
+        self.assertIn("launch-browser", output)
+        self.assertNotIn("{hardware", output)
+
     def test_system_plan_does_not_require_runtime_hardware_dependencies(self):
         from pironman5 import _cli
 
