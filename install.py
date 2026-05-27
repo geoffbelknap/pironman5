@@ -314,6 +314,19 @@ def apply_variant_install_settings(installer_obj, variant_key):
     apply_variant_config_txt(installer_obj, variant_key)
 
 
+def apply_optional_hardware_install_settings(installer_obj, args):
+    enabled = []
+    if getattr(args, "enable_ups", False):
+        enabled.append("pipower5")
+    if not enabled:
+        return
+    installer_obj.update_settings({
+        "work_files": {
+            ".enabled_optional_hardware": "\n".join(enabled) + "\n",
+        },
+    })
+
+
 def build_installer_for_variant(variant_key):
     variant_key = normalize_variant_key(variant_key)
     installer_obj = build_installer(variant_key)
@@ -348,6 +361,7 @@ def main(argv=None):
     names = resolve_enabled_setting_names(args)
     apply_settings_by_name(installer_obj, names)
     apply_variant_install_settings(installer_obj, variant_key)
+    apply_optional_hardware_install_settings(installer_obj, args)
     installer_obj.args = args
     installer_obj.main()
 

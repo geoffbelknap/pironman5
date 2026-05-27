@@ -85,6 +85,15 @@ class VariantAssemblyTest(unittest.TestCase):
         self.assertEqual("fallback", detected["source"])
         self.assertEqual("0306V10", detected["part_number"])
 
+    def test_hardware_detection_can_be_overridden_for_tests(self):
+        with mock.patch.dict(os.environ, {"PIRONMAN5_PART_NUMBER": "0312V10"}, clear=False):
+            variants = reload_variants()
+            detected = variants.detect_hardware_variant()
+
+        self.assertEqual("nas", detected["variant"])
+        self.assertEqual("environment", detected["source"])
+        self.assertEqual("0312V10", detected["part_number"])
+
     def test_optional_hardware_detects_pipower5_hat(self):
         from pironman5 import variants
 
@@ -108,6 +117,72 @@ class VariantAssemblyTest(unittest.TestCase):
             detected = variants.detect_optional_hardware()
 
         self.assertFalse(detected["pipower5"])
+
+    def test_capability_policy_filters_pipower5_from_profile_without_detection(self):
+        from pironman5.variants.hardware_policy import filter_enabled_modules
+        from pironman5.variants.products import PRODUCT_DEFINITIONS
+
+        modules = filter_enabled_modules(
+            PRODUCT_DEFINITIONS["ups"]["modules"],
+            detected_hardware={"pipower5": False},
+            enabled_optional_hardware=[],
+        )
+
+        self.assertNotIn("pipower5", modules)
+        self.assertNotIn("oled_ups_pages", modules)
+        self.assertIn("oled", modules)
+
+    def test_capability_policy_keeps_pipower5_when_hat_is_detected(self):
+        from pironman5.variants.hardware_policy import filter_enabled_modules
+        from pironman5.variants.products import PRODUCT_DEFINITIONS
+
+        modules = filter_enabled_modules(
+            PRODUCT_DEFINITIONS["ups"]["modules"],
+            detected_hardware={"pipower5": True},
+            enabled_optional_hardware=[],
+        )
+
+        self.assertIn("pipower5", modules)
+        self.assertIn("oled_ups_pages", modules)
+
+    def test_capability_policy_keeps_pipower5_when_explicitly_enabled(self):
+        from pironman5.variants.hardware_policy import filter_enabled_modules
+        from pironman5.variants.products import PRODUCT_DEFINITIONS
+
+        modules = filter_enabled_modules(
+            PRODUCT_DEFINITIONS["ups"]["modules"],
+            detected_hardware={"pipower5": False},
+            enabled_optional_hardware=["pipower5"],
+        )
+
+        self.assertIn("pipower5", modules)
+        self.assertIn("oled_ups_pages", modules)
+
+    def test_runtime_profile_filters_pipower5_without_detection(self):
+        with mock.patch.dict(
+            os.environ,
+            {"PIRONMAN5_VARIANT": "ups", "PIRONMAN5_PART_NUMBER": "0306V10"},
+            clear=False,
+        ):
+            variants = reload_variants()
+
+        self.assertNotIn("pipower5", variants.PERIPHERALS)
+        self.assertNotIn("send_email", variants.PERIPHERALS)
+
+    def test_runtime_profile_allows_explicit_pipower5_override(self):
+        with mock.patch.dict(
+            os.environ,
+            {
+                "PIRONMAN5_VARIANT": "ups",
+                "PIRONMAN5_PART_NUMBER": "0306V10",
+                "PIRONMAN5_ENABLE_OPTIONAL_HARDWARE": "pipower5",
+            },
+            clear=False,
+        ):
+            variants = reload_variants()
+
+        self.assertIn("pipower5", variants.PERIPHERALS)
+        self.assertIn("send_email", variants.PERIPHERALS)
 
 
 if __name__ == "__main__":
