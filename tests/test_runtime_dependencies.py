@@ -19,25 +19,16 @@ class RuntimeDependencyBoundaryTest(unittest.TestCase):
         self.assertIn("self.log.info('PM Dashboard not installed; skipping optional dashboard startup')", source)
         self.assertNotIn("self.log.warning('PM Dashboard not found skipping')", source)
 
-    def test_local_sf_rpi_status_compatibility_shim_is_packaged(self):
-        import sf_rpi_status
-
-        required = [
-            "get_cpu_temperature",
-            "get_cpu_percent",
-            "get_disks_info",
-            "get_network_speed",
-            "shutdown",
-        ]
-
-        for name in required:
-            with self.subTest(name=name):
-                self.assertTrue(callable(getattr(sf_rpi_status, name)))
-
-    def test_pyproject_packages_local_compatibility_shim(self):
+    def test_local_sf_rpi_status_compatibility_shim_is_not_packaged(self):
         pyproject = pathlib.Path("pyproject.toml").read_text(encoding="utf-8")
 
-        self.assertIn('"sf_rpi_status"', pyproject)
+        self.assertNotIn('"sf_rpi_status"', pyproject)
+
+    def test_pironman_runtime_does_not_instantiate_pm_auto_directly(self):
+        source = pathlib.Path("pironman5/pironman5.py").read_text(encoding="utf-8")
+
+        self.assertNotIn("from pm_auto.pm_auto import PMAuto", source)
+        self.assertIn("from .runtime import PironmanRuntime", source)
 
 
 if __name__ == "__main__":

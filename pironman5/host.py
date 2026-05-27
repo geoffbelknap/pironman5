@@ -109,7 +109,11 @@ def get_disks_info(disks=None, temperature=False):
 
 def get_ips():
     ips = {}
-    for interface, addresses in psutil.net_if_addrs().items():
+    try:
+        net_if_addrs = psutil.net_if_addrs()
+    except OSError:
+        return ips
+    for interface, addresses in net_if_addrs.items():
         values = []
         for address in addresses:
             if address.family in (socket.AF_INET, socket.AF_INET6):
@@ -121,7 +125,11 @@ def get_ips():
 
 def get_macs():
     macs = {}
-    for interface, addresses in psutil.net_if_addrs().items():
+    try:
+        net_if_addrs = psutil.net_if_addrs()
+    except OSError:
+        return macs
+    for interface, addresses in net_if_addrs.items():
         for address in addresses:
             if address.family == getattr(socket, "AF_PACKET", object()):
                 macs[interface] = address.address
@@ -131,7 +139,10 @@ def get_macs():
 
 def get_network_connection_type():
     active = []
-    stats = psutil.net_if_stats()
+    try:
+        stats = psutil.net_if_stats()
+    except OSError:
+        return active
     for interface, stat in stats.items():
         if not stat.isup or interface == "lo":
             continue

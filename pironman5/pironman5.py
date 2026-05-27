@@ -4,7 +4,6 @@ import os
 from importlib.resources import files as resource_files
 import signal
 
-from pm_auto.pm_auto import PMAuto
 from pm_auto import __version__ as pm_auto_version
 from .logger import Logger
 from .utils import merge_dict, log_error
@@ -14,6 +13,7 @@ from .version import __version__ as pironman5_version
 from .variants import NAME, ID, PRODUCT_VERSION, PERIPHERALS, SYSTEM_DEFAULT_CONFIG, EVENT_MAP
 from ._constants import CONFIG_PATH, APP_NAME, DEFAULT_DEBUG_LEVEL
 from .host import restart_service
+from .runtime import PironmanRuntime
 
 log = Logger(APP_NAME)
 __package_name__ = __name__.split('.')[0]
@@ -82,7 +82,7 @@ class Pironman5:
             self.history.initialize()
             self.history.apply_retention(self.config['system'].get('database_retention_days', 30))
 
-        # init PMAuto and PMDashboard
+        # init runtime and optional dashboard
         # -----------------------------------------
         device_info = {
             'name': NAME,
@@ -108,11 +108,11 @@ class Pironman5:
         if PMDashboard is not None:
             self.log.info(f"PM_Dashboard version: {pm_dashboard_version}")
 
-        self.pm_auto = PMAuto(self.config['system'],
-                              peripherals=self.peripherals,
-                              device_info=device_info,
-                              event_map=EVENT_MAP,
-                              log=log)
+        self.runtime = PironmanRuntime(self.config['system'],
+                                       peripherals=self.peripherals,
+                                       device_info=device_info,
+                                       event_map=EVENT_MAP,
+                                       log=log)
         if PMDashboard is None:
             self.pm_dashboard = None
             self.log.info('PM Dashboard not installed; skipping optional dashboard startup')
@@ -121,10 +121,10 @@ class Pironman5:
                                             database=ID,
                                             config=self.config,
                                             log=log)
-            self.pm_dashboard.set_read_data(self.pm_auto.read)
+            self.pm_dashboard.set_read_data(self.runtime.read)
             self.pm_dashboard.set_read_config(self.read_config)
             if 'send_email' in self.peripherals:
-                self.pm_dashboard.set_test_smtp(self.pm_auto.test_smtp)
+                self.pm_dashboard.set_test_smtp(self.runtime.test_smtp)
             self.pm_dashboard.set_on_config_changed(self.update_config)
             self.pm_dashboard.set_on_restart_service(restart_service)
 
@@ -150,7 +150,7 @@ class Pironman5:
             level = config['system']['debug_level'].upper()
             self.set_debug_level(level)
             patch['debug_level'] = level
-        pm_auto_patch = self.pm_auto.update_config(config['system'])
+        pm_auto_patch = self.runtime.update_config(config['system'])
         patch.update(pm_auto_patch)
         if self.pm_dashboard:
             dashboard_patch = self.pm_dashboard.update_config(config['system'])
@@ -169,7 +169,7 @@ class Pironman5:
         signal.signal(signal.SIGINT, self.signal_handler)
         signal.signal(signal.SIGTERM, self.signal_handler)
         signal.signal(signal.SIGABRT, self.signal_handler)
-        self.pm_auto.start()
+        self.runtime.start()
         if self.pm_dashboard:
             self.pm_dashboard.start()
         while True:
@@ -178,8 +178,8 @@ class Pironman5:
     @log_error
     def stop(self):
         self.log.info('Stopping Pironman5')
-        self.log.info('Stopping PMAuto')
-        self.pm_auto.stop()
+        self.log.info('Stopping runtime')
+        self.runtime.stop()
         if self.pm_dashboard:
             self.log.info('Stopping PmDashboard')
             self.pm_dashboard.stop()

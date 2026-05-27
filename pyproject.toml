@@ -55,7 +55,6 @@ packages = [
   "pironman5.assets.overlays",
   "pironman5.variants",
   "pironman5.variants.modules",
-  "sf_rpi_status",
 ]
 include-package-data = true
 
