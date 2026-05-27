@@ -1,5 +1,6 @@
 from os import path, listdir, getenv
 
+from .hardware_policy import filter_enabled_modules, normalize_enabled_optional_hardware
 from .modules import assemble
 from .products import PRODUCT_DEFINITIONS
 
@@ -132,8 +133,11 @@ def get_variant(variant_id, version=None):
 
 
 def detect_hardware_variant():
-    part_number = get_part_number()
-    source = "hat-eeprom"
+    part_number = getenv("PIRONMAN5_PART_NUMBER")
+    source = "environment"
+    if part_number is None:
+        part_number = get_part_number()
+        source = "hat-eeprom"
     if part_number is None:
         part_number = DEFAULT_PART_NUMBER
         source = "fallback"
@@ -183,6 +187,18 @@ def _custom_modules():
     return modules
 
 
+def _enabled_optional_hardware():
+    enabled = normalize_enabled_optional_hardware(getenv("PIRONMAN5_ENABLE_OPTIONAL_HARDWARE"))
+    enabled_path = "/opt/pironman5/.enabled_optional_hardware"
+    if path.exists(enabled_path):
+        with open(enabled_path) as f:
+            enabled.update(
+                line.strip() for line in f
+                if line.strip() and not line.strip().startswith("#")
+            )
+    return enabled
+
+
 # --- Assembly ---
 
 _variant_key = _detect_variant_key()
@@ -193,6 +209,11 @@ _custom = _custom_modules()
 for m in _custom:
     if m not in _module_names:
         _module_names.append(m)
+_module_names = filter_enabled_modules(
+    _module_names,
+    detected_hardware=detect_optional_hardware(),
+    enabled_optional_hardware=_enabled_optional_hardware(),
+)
 _assembled = assemble(_module_names)
 
 _config = dict(_assembled["default_config"])

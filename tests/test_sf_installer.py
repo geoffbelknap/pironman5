@@ -372,6 +372,26 @@ class InstallSettingsPolicyTest(unittest.TestCase):
 
         self.assertIn("pipower5", names)
 
+    def test_enable_ups_persists_runtime_optional_hardware(self):
+        import install
+
+        args = install.parse_install_args(["--enable-ups"])
+        installer = install.build_installer_for_settings(["base"])
+
+        install.apply_optional_hardware_install_settings(installer, args)
+
+        self.assertEqual(installer.work_files[".enabled_optional_hardware"], "pipower5\n")
+
+    def test_default_install_does_not_persist_optional_hardware(self):
+        import install
+
+        args = install.parse_install_args([])
+        installer = install.build_installer_for_settings(["base"])
+
+        install.apply_optional_hardware_install_settings(installer, args)
+
+        self.assertNotIn(".enabled_optional_hardware", installer.work_files)
+
     def test_rtl8125_requires_explicit_experimental_flag(self):
         import install
 
