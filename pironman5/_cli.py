@@ -103,6 +103,24 @@ def update_config_file(config, config_path):
             current[key] = config[key]
     write_json_private(config_path, current)
 
+
+def load_config_file(config_path):
+    if not os.path.exists(config_path):
+        return {'system': {}}
+    with open(config_path, 'r') as f:
+        try:
+            content = f.read()
+            if content == '':
+                return {'system': {}}
+            return json.loads(content)
+        except json.JSONDecodeError as exc:
+            raise ValueError(f"Invalid config file: {config_path}") from exc
+
+
+def get_system_config_value(config, key, default=None):
+    return config.get('system', {}).get(key, default)
+
+
 def main():
     global AVAILABLE_PAGES, AVAILABLE_EMAIL_MODES
 
@@ -246,18 +264,11 @@ def main():
 
     # load config file
     # ----------------------------------------
-    current_config = {'system': {}}
-    if os.path.exists(config_path):
-        with open(config_path, 'r') as f:
-            try:
-                content = f.read()
-                if content == '':
-                    current_config = {'system': {}}
-                else:
-                    current_config = json.loads(content)
-            except json.JSONDecodeError:
-                print(f"Invalid config file: {config_path}")
-                quit()
+    try:
+        current_config = load_config_file(config_path)
+    except ValueError as exc:
+        print(str(exc))
+        quit()
 
     # show config
     # ----------------------------------------
@@ -269,7 +280,7 @@ def main():
     # ----------------------------------------
     if args.debug_level != '':
         if args.debug_level == None:
-            print(f"Debug level: {current_config['system'].get('debug_level', debug_level)}")
+            print(f"Debug level: {get_system_config_value(current_config, 'debug_level', debug_level)}")
         else:
             if args.debug_level.lower() not in ['debug', 'info', 'warning', 'error', 'critical']:
                 print(f"Invalid debug level, it should be one of: debug, info, warning, error, critical")

@@ -10,6 +10,55 @@ from unittest import mock
 
 
 class SystemCliTest(unittest.TestCase):
+    def test_load_config_file_returns_empty_config_when_missing(self):
+        from pironman5 import _cli
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            config_path = Path(tmpdir) / "missing-config.json"
+
+            self.assertEqual({"system": {}}, _cli.load_config_file(str(config_path)))
+            self.assertFalse(config_path.exists())
+
+    def test_load_config_file_rejects_invalid_json(self):
+        from pironman5 import _cli
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            config_path = Path(tmpdir) / "config.json"
+            config_path.write_text("{bad json", encoding="utf-8")
+
+            with self.assertRaisesRegex(ValueError, f"Invalid config file: {config_path}"):
+                _cli.load_config_file(str(config_path))
+
+    def test_update_config_file_creates_missing_file(self):
+        from pironman5 import _cli
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            config_path = Path(tmpdir) / "config.json"
+
+            _cli.update_config_file({"system": {"debug_level": "DEBUG"}}, str(config_path))
+
+            self.assertEqual({"system": {"debug_level": "DEBUG"}}, json.loads(config_path.read_text(encoding="utf-8")))
+
+    def test_update_config_file_preserves_existing_values(self):
+        from pironman5 import _cli
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            config_path = Path(tmpdir) / "config.json"
+            config_path.write_text(json.dumps({"system": {"temperature_unit": "C"}}), encoding="utf-8")
+
+            _cli.update_config_file({"system": {"debug_level": "DEBUG"}}, str(config_path))
+
+            self.assertEqual(
+                {"system": {"temperature_unit": "C", "debug_level": "DEBUG"}},
+                json.loads(config_path.read_text(encoding="utf-8")),
+            )
+
+    def test_get_system_config_value_returns_default_for_missing_values(self):
+        from pironman5 import _cli
+
+        self.assertEqual("INFO", _cli.get_system_config_value({"system": {}}, "debug_level", "INFO"))
+        self.assertEqual("DEBUG", _cli.get_system_config_value({"system": {"debug_level": "DEBUG"}}, "debug_level", "INFO"))
+
     def test_detect_prints_variant_and_optional_hardware(self):
         from pironman5 import _cli
 
