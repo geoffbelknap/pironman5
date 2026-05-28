@@ -664,6 +664,20 @@ class ServiceHardeningTest(unittest.TestCase):
         self.assertNotIn("email_templates", script)
         self.assertNotIn("/opt/pipower5", script)
 
+    def test_rtl8125_setup_is_not_run_by_installer(self):
+        import install
+
+        installer = install.build_installer_for_settings(["rtl8125"])
+
+        self.assertNotIn("setup_rtl8125.sh", installer.before_install_scripts)
+
+    def test_rtl8125_setup_requires_explicit_write_efuse_flag(self):
+        with open("scripts/setup_rtl8125.sh", "r", encoding="utf-8") as f:
+            script = f.read()
+
+        self.assertIn("--write-efuse", script)
+        self.assertIn("This script writes RTL8125 eFuse data", script)
+
 
 class InfluxDefaultPolicyTest(unittest.TestCase):
     def test_default_install_does_not_reference_influxdb_script(self):
