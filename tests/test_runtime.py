@@ -110,6 +110,20 @@ class RuntimeTest(unittest.TestCase):
 
         self.assertEqual([], runtime.peripherals)
 
+    def test_legacy_hardware_runtime_treats_oled_as_local(self):
+        from pironman5.runtime import LegacyHardwareRuntime
+
+        with mock.patch("pironman5.runtime.Addons", None):
+            runtime = LegacyHardwareRuntime(
+                config={},
+                peripherals=["oled", "oled_sleep", "oled_page_mix", "oled_page_performance"],
+                device_info={},
+                event=None,
+                log=None,
+            )
+
+        self.assertEqual([], runtime.peripherals)
+
     def test_runtime_connects_event_map_once_on_shared_event_bus(self):
         from pironman5.runtime import PironmanRuntime
 
@@ -295,6 +309,47 @@ class RuntimeTest(unittest.TestCase):
 
         self.assertEqual({"vibration_switch_pin": 22, "vibration_switch_pull_up": True}, patch)
         fake_device.configure.assert_called_once_with(22, True)
+
+    def test_oled_module_tracks_data_and_pages(self):
+        from pironman5.runtime import EventBus, OLEDModule
+
+        fake_display = mock.Mock()
+        event = EventBus()
+        module = OLEDModule(
+            config={"oled_pages": ["mix", "performance"], "oled_sleep_timeout": 10},
+            peripherals=["oled", "oled_page_mix", "oled_page_performance"],
+            event=event,
+            display_factory=lambda rotation: fake_display,
+        )
+
+        event.publish("data_changed", {"cpu_percent": 12.5, "memory_percent": 34.5})
+        module.render_once()
+        event.publish("oled_wake_page_next")
+        module.render_once()
+
+        self.assertEqual({"cpu_percent": 12.5, "memory_percent": 34.5}, module.data)
+        self.assertEqual(1, module.page_index)
+        self.assertGreaterEqual(fake_display.draw_text.call_count, 2)
+
+    def test_oled_config_update_validates_pages_and_rotation(self):
+        from pironman5.runtime import EventBus, OLEDModule
+
+        fake_display = mock.Mock()
+        module = OLEDModule(
+            config={},
+            peripherals=["oled", "oled_page_mix"],
+            event=EventBus(),
+            display_factory=lambda rotation: fake_display,
+        )
+
+        patch = module.update_config({
+            "oled_rotation": 180,
+            "oled_sleep_timeout": 99999,
+            "oled_pages": ["mix", "missing", "mix"],
+        })
+
+        self.assertEqual({"oled_rotation": 180, "oled_sleep_timeout": 3600, "oled_pages": ["mix"]}, patch)
+        fake_display.set_rotation.assert_called_once_with(180)
 
     def test_runtime_starts_pi5_power_button_when_present(self):
         from pironman5.runtime import PironmanRuntime

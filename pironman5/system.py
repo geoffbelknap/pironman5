@@ -30,7 +30,6 @@ REMOVABLE_TREES = {
     LOG_DIR,
 }
 LEGACY_HARDWARE_MODULES = {
-    "oled",
     "pipower5",
     "pironman_mcu",
     "sf_rgb_led",
