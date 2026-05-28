@@ -744,7 +744,11 @@ class ServiceHardeningTest(unittest.TestCase):
             script = f.read()
 
         self.assertIn("--write-efuse", script)
+        self.assertIn("--confirm-mac-unset", script)
+        self.assertIn("--tool-dir", script)
         self.assertIn("This script writes RTL8125 eFuse data", script)
+        self.assertNotIn("git clone", script)
+        self.assertNotIn("rm -rf", script)
 
 
 class InfluxDefaultPolicyTest(unittest.TestCase):
