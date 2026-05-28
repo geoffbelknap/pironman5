@@ -454,7 +454,7 @@ class InstallSettingsPolicyTest(unittest.TestCase):
 
         self.assertNotIn("pipower5", names)
 
-    def test_pipower5_auto_enables_when_hat_is_detected(self):
+    def test_pipower5_detection_does_not_install_unaudited_legacy_dependency(self):
         import install
 
         args = install.parse_install_args([])
@@ -464,7 +464,7 @@ class InstallSettingsPolicyTest(unittest.TestCase):
         ):
             names = install.resolve_enabled_setting_names(args, peripherals=["pipower5"])
 
-        self.assertIn("pipower5", names)
+        self.assertNotIn("pipower5", names)
 
     def test_pipower5_flag_overrides_hardware_detection(self):
         import install
