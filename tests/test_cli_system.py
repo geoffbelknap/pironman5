@@ -552,13 +552,13 @@ class SystemCliTest(unittest.TestCase):
         self.assertFalse(any(command.args[:2] == ("sh", "-c") for command in commands))
         self.assertTrue(any(command.args[0] == "ensure-service-venv" for command in commands))
 
-    def test_system_setup_installs_legacy_extra_for_legacy_variant(self):
+    def test_system_setup_skips_legacy_extra_for_max_variant(self):
         from pironman5 import system
 
         _variant_key, commands = system.setup_commands("max")
         ensure_venv = next(command for command in commands if command.args[0] == "ensure-service-venv")
 
-        self.assertIn("[legacy-hardware]", ensure_venv.args[1])
+        self.assertNotIn("legacy-hardware", ensure_venv.args[1])
 
     def test_system_setup_skips_legacy_extra_for_local_only_variant(self):
         from pironman5 import system
@@ -586,6 +586,13 @@ class SystemCliTest(unittest.TestCase):
         from pironman5 import system
 
         product = {"modules": ["oled_ups_pages"], "dt_overlays": [], "config_txt": {}}
+
+        self.assertEqual((), system._service_package_extras(product))
+
+    def test_system_setup_skips_legacy_extra_for_oled_profile(self):
+        from pironman5 import system
+
+        product = {"modules": ["oled"], "dt_overlays": [], "config_txt": {}}
 
         self.assertEqual((), system._service_package_extras(product))
 
@@ -709,7 +716,7 @@ class SystemCliTest(unittest.TestCase):
         self.assertIn("/opt/pironman5-venv/bin/pip install --upgrade", output)
         self.assertIn("systemctl restart pironman5.service", output)
 
-    def test_system_upgrade_service_uses_installed_variant_extra(self):
+    def test_system_upgrade_service_skips_legacy_extra_for_installed_max_variant(self):
         from pironman5 import system
 
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -720,7 +727,7 @@ class SystemCliTest(unittest.TestCase):
                 commands = system.upgrade_service_commands()
 
         install = next(command for command in commands if command.description == "Install service application package")
-        self.assertIn("[legacy-hardware]", install.args[-1])
+        self.assertNotIn("legacy-hardware", install.args[-1])
 
     def test_system_upgrade_service_skips_ups_extra_without_pipower5_hardware(self):
         from pironman5 import system
