@@ -153,11 +153,11 @@ installs in hardened deployments.
 
 ```bash
 # install from folder
-sudo /opt/pironman5/venv/bin/pip3 uninstall pironman5 -y
-sudo /opt/pironman5/venv/bin/pip3 install ~/pironman5 --no-build-isolation
+sudo /opt/pironman5-venv/bin/pip uninstall pironman5 -y
+sudo /opt/pironman5-venv/bin/pip install ~/pironman5 --no-build-isolation
 
-sudo /opt/pironman5/venv/bin/pip3 uninstall pm_auto -y
-sudo /opt/pironman5/venv/bin/pip3 install ~/pm_auto --no-build-isolation
+sudo /opt/pironman5-venv/bin/pip uninstall pm_auto -y
+sudo /opt/pironman5-venv/bin/pip install ~/pm_auto --no-build-isolation
 ```
 
 
@@ -167,7 +167,7 @@ Start/stop the service for debug
 sudo systemctl stop pironman5.service
 sudo systemctl start pironman5.service
 sudo systemctl restart pironman5.service
-sudo -u pironman5 /opt/pironman5/venv/bin/python3
+sudo -u pironman5 /opt/pironman5-venv/bin/python
 
 journalctl -xefu pironman5.service
 sudo systemctl restart pironman5.service && journalctl -xefu pironman5.service
