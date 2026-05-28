@@ -650,12 +650,23 @@ class ServiceHardeningTest(unittest.TestCase):
         self.assertNotIn("wget {overlay}", installer)
         self.assertIn("Remote dtoverlay downloads are disabled", installer)
 
-    def test_pipower5_install_verifies_release_archives(self):
+    def test_pipower5_install_script_requires_local_driver_archive(self):
         with open("scripts/setup_pipower5.sh", "r", encoding="utf-8") as f:
             script = f.read()
 
+        self.assertIn("--driver-zip", script)
+        self.assertIn("--sha256", script)
         self.assertIn("sha256sum -c", script)
-        self.assertIn("0e346fb9fdeca94c5d2ca8f2388c494690576ef99b0aa1882f886a408db66d82", script)
+        self.assertNotIn("curl ", script)
+        self.assertNotIn("https://github.com/sunfounder/pipower5/releases", script)
+        self.assertNotIn("apt-get", script)
+
+    def test_pipower5_driver_script_is_not_run_by_installer(self):
+        import install
+
+        installer = install.build_installer_for_settings(["pipower5"])
+
+        self.assertNotIn("setup_pipower5.sh", installer.before_install_scripts)
 
     def test_pipower5_install_does_not_download_email_templates(self):
         with open("scripts/setup_pipower5.sh", "r", encoding="utf-8") as f:
