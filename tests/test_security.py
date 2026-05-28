@@ -43,3 +43,12 @@ class LoggingDefaultTest(unittest.TestCase):
         from pironman5._constants import DEFAULT_DEBUG_LEVEL
 
         self.assertEqual(DEFAULT_DEBUG_LEVEL, "WARNING")
+
+
+class LegacyInstallerIsolationTest(unittest.TestCase):
+    def test_install_module_does_not_import_legacy_installer_at_module_load(self):
+        with open("install.py", "r", encoding="utf-8") as f:
+            source = f.read()
+
+        module_load_source = source.split("def build_installer", 1)[0]
+        self.assertNotIn("tools.sf_installer", module_load_source)
