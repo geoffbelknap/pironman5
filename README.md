@@ -62,17 +62,17 @@ sudo pironman5 system setup
 pironman5 system doctor
 ```
 
-To force a refresh of the root-owned service environment:
+To rebuild the service install:
 
 ```bash
-sudo pironman5 system upgrade-service
+sudo pironman5 system update
 ```
 
 After upgrading the user-facing command, refresh the service environment too:
 
 ```bash
 pipx reinstall pironman5
-sudo pironman5 system upgrade-service
+sudo pironman5 system update
 pironman5 system doctor
 ```
 
