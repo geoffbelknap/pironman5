@@ -77,6 +77,27 @@ class InstallerCommandConstructionTest(unittest.TestCase):
         self.assertTrue(run.call_args.kwargs["shell"])
         self.assertEqual("/bin/bash", run.call_args.kwargs["executable"])
 
+    def test_run_command_passes_structured_stdin_without_shell(self):
+        installer = SF_Installer("pironman5")
+        command = SF_Installer.command(["install", "-m", "0640", "/dev/stdin", "/opt/pironman5/.variant"], stdin="mini\n")
+
+        with unittest.mock.patch("tools.sf_installer.subprocess.run") as run:
+            run.return_value.returncode = 0
+            run.return_value.stdout = ""
+            run.return_value.stderr = ""
+
+            installer.run_command(command)
+
+        run.assert_called_once_with(
+            ["install", "-m", "0640", "/dev/stdin", "/opt/pironman5/.variant"],
+            input="mini\n",
+            stdout=unittest.mock.ANY,
+            stderr=unittest.mock.ANY,
+            text=True,
+            check=False,
+        )
+        self.assertNotIn("shell", run.call_args.kwargs)
+
     def test_working_directory_commands_quote_paths(self):
         installer = SF_Installer(
             "pironman5",
@@ -125,10 +146,10 @@ class InstallerCommandConstructionTest(unittest.TestCase):
 
         installer.setup_user()
 
-        useradd_commands = [cmd for cmd in commands if cmd.startswith("useradd ")]
+        useradd_commands = [cmd for cmd in commands if str(cmd).startswith("useradd ")]
         self.assertEqual(len(useradd_commands), 1)
-        self.assertNotIn(" -m ", useradd_commands[0])
-        self.assertIn("--no-create-home", useradd_commands[0])
+        self.assertNotIn(" -m ", str(useradd_commands[0]))
+        self.assertIn("--no-create-home", str(useradd_commands[0]))
 
     def test_setup_user_sudoers_uses_narrow_command_list(self):
         installer = SF_Installer("pironman5")
@@ -140,11 +161,14 @@ class InstallerCommandConstructionTest(unittest.TestCase):
         with unittest.mock.patch("tools.sf_installer.shutil.which", return_value="/usr/bin/sudo"):
             installer.setup_user()
 
-        sudoers_commands = [cmd for cmd in commands if "/etc/sudoers.d/pironman5" in cmd]
+        sudoers_commands = [cmd for cmd in commands if "/etc/sudoers.d/pironman5" in str(cmd)]
         self.assertTrue(sudoers_commands)
-        self.assertTrue(any("/usr/bin/systemctl restart pironman5.service" in cmd for cmd in sudoers_commands))
-        self.assertFalse(any("NOPASSWD: /usr/bin/systemctl," in cmd for cmd in sudoers_commands))
-        self.assertFalse(any("/usr/bin/lsblk" in cmd for cmd in sudoers_commands))
+        self.assertTrue(any(
+            "/usr/bin/systemctl restart pironman5.service" in getattr(cmd, "stdin", str(cmd))
+            for cmd in sudoers_commands
+        ))
+        self.assertFalse(any("NOPASSWD: /usr/bin/systemctl," in getattr(cmd, "stdin", str(cmd)) for cmd in sudoers_commands))
+        self.assertFalse(any("/usr/bin/lsblk" in getattr(cmd, "stdin", str(cmd)) for cmd in sudoers_commands))
 
     def test_work_dir_fix_keeps_directory_private(self):
         installer = SF_Installer("pironman5", work_dir="/opt/pironman5")
@@ -166,7 +190,10 @@ class InstallerCommandConstructionTest(unittest.TestCase):
 
         installer.write_work_files()
 
-        self.assertIn("printf %s 'mini\n' | tee /opt/pironman5/.variant > /dev/null", commands)
+        write_commands = [cmd for cmd in commands if hasattr(cmd, "stdin")]
+        self.assertEqual(len(write_commands), 1)
+        self.assertEqual(["install", "-m", "0640", "-o", "pironman5", "-g", "pironman5", "/dev/stdin", "/opt/pironman5/.variant"], write_commands[0].args)
+        self.assertEqual("mini\n", write_commands[0].stdin)
         self.assertIn("chown pironman5:pironman5 /opt/pironman5/.variant", commands)
         self.assertIn("chmod 640 /opt/pironman5/.variant", commands)
 

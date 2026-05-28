@@ -11,6 +11,19 @@ import grp
 import shutil
 import shlex
 
+
+class CommandSpec:
+    def __init__(self, args, stdin=None, display=None):
+        self.args = [str(arg) for arg in args]
+        self.stdin = stdin
+        self.display = display
+
+    def __str__(self):
+        if self.display is not None:
+            return self.display
+        return SF_Installer.shell_join(self.args)
+
+
 class ConfigTxt(object):
     DEFAULT_BOOT_FILE = "/boot/firmware/config.txt"
     BACKUP_BOOT_FILE = "/boot/config.txt"
@@ -282,6 +295,16 @@ class SF_Installer():
         return user
 
     def run_command(self, cmd=None):
+        if isinstance(cmd, CommandSpec):
+            result = subprocess.run(
+                cmd.args,
+                input=cmd.stdin,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                text=True,
+                check=False,
+            )
+            return result.returncode, result.stdout, result.stderr
         if isinstance(cmd, (list, tuple)):
             result = subprocess.run(
                 list(cmd),
@@ -308,6 +331,10 @@ class SF_Installer():
     @staticmethod
     def shell_join(args):
         return " ".join(shlex.quote(str(arg)) for arg in args)
+
+    @staticmethod
+    def command(args, stdin=None, display=None):
+        return CommandSpec(args, stdin=stdin, display=display)
 
     @staticmethod
     def asset_path(*parts):
@@ -451,11 +478,11 @@ class SF_Installer():
         if shutil.which('sudo'):
             sudoers_file = f'/etc/sudoers.d/{self.user}'
             sudoers_line = f'{self.user} ALL=(ALL) NOPASSWD: {", ".join(self.SUDOER_PERMISSION)}'
-            printf_cmd = self.shell_join(['printf', '%s\n', sudoers_line])
-            tee_cmd = self.shell_join(['tee', sudoers_file])
-            sudoers_cmd = f"{printf_cmd} | {tee_cmd} > /dev/null"
+            sudoers_cmd = self.command(
+                ['install', '-m', '0440', '-o', 'root', '-g', 'root', '/dev/stdin', sudoers_file],
+                stdin=f"{sudoers_line}\n",
+            )
             self.do(f'Add permission to user "{self.user}"', sudoers_cmd)
-            self.do(f'Change sudoers file mode to 0440', self.shell_join(['chmod', '0440', sudoers_file]))
             self.do(f'Check sudoers file', self.shell_join(['visudo', '-c', '-f', sudoers_file]))
         else:
             print(f"{self.WARNING} Sudo is not exist, skip sudo permission setup")
@@ -676,9 +703,13 @@ class SF_Installer():
         self.print_title("Write work files...")
         for filename, content in self.work_files.items():
             destination = f"{self.work_dir}/{filename}"
-            printf_cmd = self.shell_join(['printf', '%s', content])
-            tee_cmd = self.shell_join(['tee', destination])
-            self.do(f'Write work file: "{destination}"', f"{printf_cmd} | {tee_cmd} > /dev/null")
+            self.do(
+                f'Write work file: "{destination}"',
+                self.command(
+                    ['install', '-m', '0640', '-o', self.user, '-g', self.user, '/dev/stdin', destination],
+                    stdin=content,
+                ),
+            )
             self.do(f'Change work file owner to "{self.user}"', self.shell_join(['chown', f'{self.user}:{self.user}', destination]))
             self.do(f'Change work file mode to 640', self.shell_join(['chmod', '640', destination]))
 
