@@ -1,6 +1,8 @@
 import argparse
+import grp
 import json
 import os
+import pwd
 import subprocess
 import sys
 from dataclasses import dataclass
@@ -28,6 +30,27 @@ class Command:
 
     def shell(self):
         import shlex
+        if self.args[0] == "ensure-group":
+            return f"getent group {shlex.quote(str(self.args[1]))} >/dev/null || groupadd -r {shlex.quote(str(self.args[1]))}"
+        if self.args[0] == "ensure-user":
+            user, group, home = self.args[1:4]
+            return (
+                f"getent passwd {shlex.quote(str(user))} >/dev/null || "
+                f"useradd -r -g {shlex.quote(str(group))} -s /sbin/nologin "
+                f"-d {shlex.quote(str(home))} --no-create-home {shlex.quote(str(user))}"
+            )
+        if self.args[0] == "add-user-to-group-if-exists":
+            user, group = self.args[1:3]
+            return f"getent group {shlex.quote(str(group))} >/dev/null && usermod -aG {shlex.quote(str(group))} {shlex.quote(str(user))} || true"
+        if self.args[0] == "ensure-service-venv":
+            install_spec = self.args[1]
+            return "\n".join([
+                f"install -d -m 0755 -o root -g root {shlex.quote(str(SERVICE_VENV))}",
+                f"python3 -m venv {shlex.quote(str(SERVICE_VENV))}",
+                f"{shlex.quote(str(SERVICE_VENV / 'bin' / 'pip'))} install --upgrade pip",
+                f"{shlex.quote(str(SERVICE_VENV / 'bin' / 'pip'))} install --upgrade {shlex.quote(str(install_spec))}",
+                f"chmod -R go-w {shlex.quote(str(SERVICE_VENV))}",
+            ])
         return " ".join(shlex.quote(str(arg)) for arg in self.args)
 
 
@@ -120,17 +143,8 @@ def _create_or_refresh_venv_commands(refresh_venv):
             Command("Make service application venv non-writable by group/other", ("chmod", "-R", "go-w", str(SERVICE_VENV))),
         ]
 
-    setup_script = (
-        f"if [ ! -x {SERVICE_VENV / 'bin' / 'python'} ]; then "
-        f"install -d -m 0755 -o root -g root {SERVICE_VENV} && "
-        f"python3 -m venv {SERVICE_VENV} && "
-        f"{SERVICE_VENV / 'bin' / 'pip'} install --upgrade pip && "
-        f"{SERVICE_VENV / 'bin' / 'pip'} install --upgrade {install_spec} && "
-        f"chmod -R go-w {SERVICE_VENV}; "
-        "fi"
-    )
     return [
-        Command("Ensure service application venv", ("sh", "-c", setup_script)),
+        Command("Ensure service application venv", ("ensure-service-venv", install_spec)),
     ]
 
 
@@ -147,8 +161,8 @@ def setup_commands(variant, refresh_venv=False):
     variant_key, _source, product = _variant_product(variant)
     overlay_dir = _overlay_dir()
     commands = [
-        Command("Create service group", ("sh", "-c", f"getent group {SERVICE_USER} >/dev/null || groupadd -r {SERVICE_USER}")),
-        Command("Create service user", ("sh", "-c", f"getent passwd {SERVICE_USER} >/dev/null || useradd -r -g {SERVICE_USER} -s /sbin/nologin -d {WORK_DIR} --no-create-home {SERVICE_USER}")),
+        Command("Create service group", ("ensure-group", SERVICE_USER)),
+        Command("Create service user", ("ensure-user", SERVICE_USER, SERVICE_USER, str(WORK_DIR))),
         Command("Create service home", ("install", "-d", "-m", "0750", "-o", SERVICE_USER, "-g", SERVICE_USER, str(WORK_DIR))),
         Command("Create log directory", ("install", "-d", "-m", "0750", "-o", SERVICE_USER, "-g", SERVICE_USER, str(LOG_DIR))),
     ]
@@ -163,7 +177,7 @@ def setup_commands(variant, refresh_venv=False):
         Command("Enable service", ("systemctl", "enable", SERVICE_NAME)),
     ])
     for group in ("i2c", "spi", "gpio", "input", "video"):
-        commands.append(Command(f"Add service user to {group}", ("sh", "-c", f"getent group {group} >/dev/null && usermod -aG {group} {SERVICE_USER} || true")))
+        commands.append(Command(f"Add service user to {group}", ("add-user-to-group-if-exists", SERVICE_USER, group)))
     for overlay in product.get("dt_overlays", []):
         commands.append(Command(
             f"Install overlay {overlay}",
@@ -196,6 +210,46 @@ def uninstall_commands(variant, purge=False):
     return commands
 
 
+def _run_service_venv_bootstrap(install_spec):
+    if (SERVICE_VENV / "bin" / "python").exists():
+        return
+    subprocess.run(("install", "-d", "-m", "0755", "-o", "root", "-g", "root", str(SERVICE_VENV)), text=True, check=True)
+    subprocess.run(("python3", "-m", "venv", str(SERVICE_VENV)), text=True, check=True)
+    subprocess.run((str(SERVICE_VENV / "bin" / "pip"), "install", "--upgrade", "pip"), text=True, check=True)
+    subprocess.run((str(SERVICE_VENV / "bin" / "pip"), "install", "--upgrade", install_spec), text=True, check=True)
+    subprocess.run(("chmod", "-R", "go-w", str(SERVICE_VENV)), text=True, check=True)
+
+
+def _run_internal_command(command):
+    action = command.args[0]
+    if action == "ensure-group":
+        group = command.args[1]
+        try:
+            grp.getgrnam(group)
+        except KeyError:
+            subprocess.run(("groupadd", "-r", group), text=True, check=True)
+        return True
+    if action == "ensure-user":
+        user, group, home = command.args[1:4]
+        try:
+            pwd.getpwnam(user)
+        except KeyError:
+            subprocess.run(("useradd", "-r", "-g", group, "-s", "/sbin/nologin", "-d", home, "--no-create-home", user), text=True, check=True)
+        return True
+    if action == "add-user-to-group-if-exists":
+        user, group = command.args[1:3]
+        try:
+            grp.getgrnam(group)
+        except KeyError:
+            return True
+        subprocess.run(("usermod", "-aG", group, user), text=True, check=True)
+        return True
+    if action == "ensure-service-venv":
+        _run_service_venv_bootstrap(command.args[1])
+        return True
+    return False
+
+
 def _run_commands(commands, dry_run, stdin_by_description=None):
     stdin_by_description = stdin_by_description or {}
     if dry_run:
@@ -207,6 +261,8 @@ def _run_commands(commands, dry_run, stdin_by_description=None):
         print("pironman5 system setup must be run as root; use sudo.", file=sys.stderr)
         raise SystemExit(1)
     for command in commands:
+        if _run_internal_command(command):
+            continue
         subprocess.run(
             command.args,
             input=stdin_by_description.get(command.description),

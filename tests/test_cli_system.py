@@ -492,6 +492,14 @@ class SystemCliTest(unittest.TestCase):
         self.assertNotIn("/home/geoff/.local/pipx", output)
         self.assertNotIn("rm -rf /opt/pironman5-venv", output)
 
+    def test_system_setup_default_venv_bootstrap_does_not_use_shell(self):
+        from pironman5 import system
+
+        _variant_key, commands = system.setup_commands("max")
+
+        self.assertFalse(any(command.args[:2] == ("sh", "-c") for command in commands))
+        self.assertTrue(any(command.args[0] == "ensure-service-venv" for command in commands))
+
     def test_system_setup_refresh_venv_reinstalls_service_environment(self):
         from pironman5 import _cli
 
