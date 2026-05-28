@@ -109,6 +109,13 @@ To remove the dashboard package from the service install:
 sudo pironman5 dashboard remove
 ```
 
+Read or change settings through the config command:
+
+```bash
+pironman5 config get debug_level
+sudo pironman5 config set debug_level INFO
+```
+
 ## Auto launch dashboard on browser
 
 ```bash
