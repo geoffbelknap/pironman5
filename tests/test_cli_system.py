@@ -203,7 +203,7 @@ class SystemCliTest(unittest.TestCase):
                             _cli.main()
 
             update_config_file.assert_not_called()
-            run.assert_called_once_with(["pkill", "-f", "pironman5"], check=False)
+            run.assert_called_once_with(["systemctl", "stop", "pironman5.service"], check=False)
 
     def test_stop_does_not_create_missing_config_file(self):
         from pironman5 import _cli
@@ -220,6 +220,11 @@ class SystemCliTest(unittest.TestCase):
 
             write_json_private.assert_not_called()
             self.assertFalse(config_path.exists())
+
+    def test_stop_command_does_not_use_process_name_kill(self):
+        source = Path("pironman5/_cli.py").read_text(encoding="utf-8")
+
+        self.assertNotIn("pkill", source)
 
     def test_start_does_not_create_missing_config_file(self):
         from pironman5 import _cli
