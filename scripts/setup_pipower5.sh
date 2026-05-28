@@ -13,7 +13,6 @@ if [ $# -ge 1 ] && [ "$1" == "--uninstall" ]; then
     echo "Uninstalling PiPower 5 driver"
     rm -rf /lib/modules/$(uname -r)/kernel/drivers/misc/pipower5_driver.ko
     rm -rf /etc/modules-load.d/pipower5_driver.conf
-    rm -rf /opt/pipower5/
     exit 0
 fi
 
@@ -42,22 +41,6 @@ cd driver
 bash install.sh
 cd ..
 rm -rf driver.zip driver/
-
-echo "Setting up email templates"
-
-download_and_verify \
-    "https://github.com/sunfounder/pipower5/releases/download/1.2.1/email_templates.zip" \
-    "email_templates.zip" \
-    "7cc1bf3612c7bf4fcdf18846da9eeefc1043e16dd98a1262a1ac0afbfea1b868"
-unzip email_templates.zip
-if [ ! -d /opt/pipower5 ]; then
-    mkdir /opt/pipower5
-fi
-if [ -d /opt/pipower5/email_templates ]; then
-    rm -rf /opt/pipower5/email_templates
-fi
-mv email_templates/ /opt/pipower5/email_templates/
-rm -rf email_templates.zip email_templates/
 
 # create pipower5 user
 if ! id -u pipower5 > /dev/null 2>&1; then
