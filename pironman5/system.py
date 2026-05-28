@@ -507,7 +507,8 @@ def build_parser():
     plan.add_argument("--variant", choices=variant_choices, default="auto", type=normalize_variant_key)
     setup = subparsers.add_parser("setup", help="Apply privileged system integration")
     setup.add_argument("--variant", choices=variant_choices, default="auto", type=normalize_variant_key)
-    setup.add_argument("--enable-optional-hardware", action="append", default=[], choices=["pipower5"], help="Enable optional hardware that was not auto-detected")
+    setup.add_argument("--with", dest="enabled_hardware", action="append", default=[], choices=["pipower5"], help="Enable hardware that was not auto-detected")
+    setup.add_argument("--enable-optional-hardware", dest="enabled_hardware", action="append", choices=["pipower5"], help=argparse.SUPPRESS)
     setup.add_argument("--refresh-venv", action="store_true", help="Recreate and reinstall the root-owned service virtualenv")
     setup.add_argument("--dry-run", action="store_true", help="Print commands without changing the system")
     doctor = subparsers.add_parser("doctor", help="Check privileged system integration")
@@ -528,7 +529,7 @@ def main(argv=None):
     if args.command == "plan":
         print("\n".join(_plan_lines(args.variant)))
     elif args.command == "setup":
-        enabled_optional_hardware = normalize_enabled_optional_hardware(args.enable_optional_hardware)
+        enabled_optional_hardware = normalize_enabled_optional_hardware(args.enabled_hardware)
         variant_key, commands = setup_commands(
             args.variant,
             refresh_venv=args.refresh_venv,

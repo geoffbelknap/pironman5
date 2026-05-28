@@ -50,7 +50,7 @@ Optional hardware is detected during system setup. To force-enable the PiPower5
 UPS HAT when it is not auto-detected, use:
 
 ```bash
-sudo pironman5 system setup --variant ups --enable-optional-hardware pipower5
+sudo pironman5 system setup --variant ups --with pipower5
 ```
 
 `uv` is also supported for users who already have it installed:
