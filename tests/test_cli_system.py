@@ -226,6 +226,23 @@ class SystemCliTest(unittest.TestCase):
 
         self.assertNotIn("pkill", source)
 
+    def test_remove_dashboard_uses_service_venv_pip(self):
+        from pironman5 import _cli
+
+        argv = ["pironman5", "--remove-dashboard"]
+        with mock.patch.object(sys, "argv", argv):
+            with mock.patch.object(_cli, "PERIPHERALS", []):
+                with mock.patch.object(_cli.subprocess, "run") as run:
+                    with self.assertRaises(SystemExit):
+                        _cli.main()
+
+        run.assert_called_once_with(["/opt/pironman5-venv/bin/pip", "uninstall", "pm_dashboard", "-y"], check=False)
+
+    def test_cli_does_not_reference_legacy_installer_venv(self):
+        source = Path("pironman5/_cli.py").read_text(encoding="utf-8")
+
+        self.assertNotIn("/opt/pironman5/venv", source)
+
     def test_start_does_not_create_missing_config_file(self):
         from pironman5 import _cli
 

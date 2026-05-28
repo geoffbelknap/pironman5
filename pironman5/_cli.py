@@ -282,7 +282,7 @@ def main():
 
     __package_name__ = __name__.split('.')[0]
     CONFIG_PATH = "/opt/pironman5/config.json"
-    PIP_PATH = "/opt/pironman5/venv/bin/pip"
+    PIP_PATH = "/opt/pironman5-venv/bin/pip"
 
     current_config = None
     new_sys_config = {}
