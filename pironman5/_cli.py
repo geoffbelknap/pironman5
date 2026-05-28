@@ -3,6 +3,7 @@ import argparse
 import json
 import sys
 import os
+import subprocess
 from importlib.resources import files as resource_files
 
 from ._launch_browser import run as launch_browser
@@ -92,7 +93,11 @@ Categories=Utility;Network;Browser;
 Keywords=pironman5;browser;autostart;""")
         elif auto_start in false_list:
             print(f"Remove dashboard auto start")
-            os.system(f'rm -f ~/.config/autostart/pironman5-dashboard.desktop')
+            autostart_file = os.path.expanduser("~/.config/autostart/pironman5-dashboard.desktop")
+            try:
+                os.remove(autostart_file)
+            except FileNotFoundError:
+                pass
         else:
             print(f"Invalid value for auto start, it should be true/on/1 or false/off/0")
             quit()
@@ -397,7 +402,7 @@ def main():
         pironman5.start()
         return
     if args.subcommand == 'stop':
-        os.system('pkill -f pironman5')
+        subprocess.run(["pkill", "-f", "pironman5"], check=False)
         return
     if args.subcommand == 'launch-browser':
         handle_launch_browser(args.auto_start, TRUE_LIST, FALSE_LIST)
@@ -434,7 +439,10 @@ def main():
     # ----------------------------------------    
     if args.remove_dashboard:
         print("Remove Dashboard")
-        os.system(f'{PIP_PATH} uninstall pm_dashboard -y')
+        try:
+            subprocess.run([PIP_PATH, "uninstall", "pm_dashboard", "-y"], check=False)
+        except FileNotFoundError:
+            print(f"Dashboard removal skipped: {PIP_PATH} not found", file=sys.stderr)
         print("Dashboard removed, restart pironman5 to apply changes: sudo systemctl restart pironman5.service")
         quit()
 
@@ -807,7 +815,6 @@ def main():
                 *remaining_args
             ]
             try:
-                import subprocess
                 result = subprocess.run(
                     cmd,
                     check=True,
