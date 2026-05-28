@@ -165,6 +165,7 @@ def detect_optional_hardware():
     is_hat_eeprom = detected["source"] == "hat-eeprom"
     return {
         "pipower5": is_hat_eeprom and detected["variant_id"] == "2602",
+        "pironman_mcu": is_hat_eeprom and detected["variant_id"] == "0312",
         "rtl8125": probe_rtl8125(),
         "i2c_bus": probe_i2c_bus(),
         "spi0": probe_spi0(),

@@ -203,6 +203,31 @@ class VariantAssemblyTest(unittest.TestCase):
         self.assertNotIn("oled_ups_pages", modules)
         self.assertIn("oled", modules)
 
+    def test_capability_policy_filters_pironman_mcu_from_nas_without_detection(self):
+        from pironman5.variants.hardware_policy import filter_enabled_modules
+        from pironman5.variants.products import PRODUCT_DEFINITIONS
+
+        modules = filter_enabled_modules(
+            PRODUCT_DEFINITIONS["nas"]["modules"],
+            detected_hardware={"pironman_mcu": False},
+            enabled_optional_hardware=[],
+        )
+
+        self.assertNotIn("pironman_mcu", modules)
+        self.assertIn("oled", modules)
+
+    def test_capability_policy_keeps_pironman_mcu_when_explicitly_enabled(self):
+        from pironman5.variants.hardware_policy import filter_enabled_modules
+        from pironman5.variants.products import PRODUCT_DEFINITIONS
+
+        modules = filter_enabled_modules(
+            PRODUCT_DEFINITIONS["nas"]["modules"],
+            detected_hardware={"pironman_mcu": False},
+            enabled_optional_hardware=["pironman_mcu"],
+        )
+
+        self.assertIn("pironman_mcu", modules)
+
     def test_capability_policy_keeps_pipower5_when_hat_is_detected(self):
         from pironman5.variants.hardware_policy import filter_enabled_modules
         from pironman5.variants.products import PRODUCT_DEFINITIONS
@@ -254,6 +279,30 @@ class VariantAssemblyTest(unittest.TestCase):
 
         self.assertIn("pipower5", variants.PERIPHERALS)
         self.assertIn("send_email", variants.PERIPHERALS)
+
+    def test_runtime_profile_filters_pironman_mcu_without_detection(self):
+        with mock.patch.dict(
+            os.environ,
+            {"PIRONMAN5_VARIANT": "nas", "PIRONMAN5_PART_NUMBER": "0306V10"},
+            clear=False,
+        ):
+            variants = reload_variants()
+
+        self.assertNotIn("pironman_mcu", variants.PERIPHERALS)
+
+    def test_runtime_profile_allows_explicit_pironman_mcu_override(self):
+        with mock.patch.dict(
+            os.environ,
+            {
+                "PIRONMAN5_VARIANT": "nas",
+                "PIRONMAN5_PART_NUMBER": "0306V10",
+                "PIRONMAN5_ENABLE_OPTIONAL_HARDWARE": "pironman_mcu",
+            },
+            clear=False,
+        ):
+            variants = reload_variants()
+
+        self.assertIn("pironman_mcu", variants.PERIPHERALS)
 
 
 if __name__ == "__main__":
