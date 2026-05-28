@@ -243,6 +243,18 @@ class SystemCliTest(unittest.TestCase):
 
         self.assertNotIn("/opt/pironman5/venv", source)
 
+    def test_available_oled_pages_are_derived_from_peripherals(self):
+        from pironman5 import _cli
+
+        pages = _cli.available_oled_pages([
+            "oled",
+            "oled_page_mix",
+            "oled_page_performance",
+            "oled_page_battery",
+        ])
+
+        self.assertEqual(["mix", "performance", "battery"], pages)
+
     def test_start_does_not_create_missing_config_file(self):
         from pironman5 import _cli
 
