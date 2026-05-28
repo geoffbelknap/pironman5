@@ -550,6 +550,55 @@ class SystemCliTest(unittest.TestCase):
 
         self.assertNotIn("legacy-hardware", ensure_venv.args[1])
 
+    def test_system_setup_skips_ups_extra_without_pipower5_hardware(self):
+        from pironman5 import system
+
+        with mock.patch.object(system, "detect_optional_hardware", return_value={"pipower5": False}):
+            _variant_key, commands = system.setup_commands("ups")
+
+        ensure_venv = next(command for command in commands if command.args[0] == "ensure-service-venv")
+        self.assertNotIn("ups", ensure_venv.args[1])
+
+    def test_system_setup_installs_ups_extra_for_detected_pipower5_hardware(self):
+        from pironman5 import system
+
+        with mock.patch.object(system, "detect_optional_hardware", return_value={"pipower5": True}):
+            _variant_key, commands = system.setup_commands("ups")
+
+        ensure_venv = next(command for command in commands if command.args[0] == "ensure-service-venv")
+        self.assertIn("[legacy-hardware,ups]", ensure_venv.args[1])
+
+    def test_system_setup_installs_ups_extra_for_explicit_pipower5_hardware(self):
+        from pironman5 import system
+
+        with mock.patch.object(system, "detect_optional_hardware", return_value={"pipower5": False}):
+            _variant_key, commands = system.setup_commands("ups", enabled_optional_hardware=["pipower5"])
+
+        ensure_venv = next(command for command in commands if command.args[0] == "ensure-service-venv")
+        self.assertIn("[legacy-hardware,ups]", ensure_venv.args[1])
+
+    def test_system_setup_persists_explicit_optional_hardware(self):
+        from pironman5 import system
+
+        stdout = io.StringIO()
+        argv = [
+            "pironman5",
+            "system",
+            "setup",
+            "--variant",
+            "ups",
+            "--enable-optional-hardware",
+            "pipower5",
+            "--dry-run",
+        ]
+
+        with mock.patch.object(sys, "argv", argv):
+            with contextlib.redirect_stdout(stdout):
+                system.main(sys.argv[2:])
+
+        output = stdout.getvalue()
+        self.assertIn("/opt/pironman5/.enabled_optional_hardware", output)
+
     def test_system_setup_refresh_venv_reinstalls_service_environment(self):
         from pironman5 import _cli
 
@@ -632,6 +681,38 @@ class SystemCliTest(unittest.TestCase):
 
         install = next(command for command in commands if command.description == "Install service application package")
         self.assertIn("[legacy-hardware]", install.args[-1])
+
+    def test_system_upgrade_service_skips_ups_extra_without_pipower5_hardware(self):
+        from pironman5 import system
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            work_dir = Path(tmpdir)
+            (work_dir / ".variant").write_text("ups\n", encoding="utf-8")
+
+            with mock.patch.object(system, "WORK_DIR", work_dir), \
+                    mock.patch.object(system, "OPTIONAL_HARDWARE_FILE", work_dir / ".enabled_optional_hardware"), \
+                    mock.patch.object(system, "detect_optional_hardware", return_value={"pipower5": False}):
+                commands = system.upgrade_service_commands()
+
+        install = next(command for command in commands if command.description == "Install service application package")
+        self.assertIn("[legacy-hardware]", install.args[-1])
+        self.assertNotIn("ups", install.args[-1])
+
+    def test_system_upgrade_service_uses_persisted_optional_hardware_extra(self):
+        from pironman5 import system
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            work_dir = Path(tmpdir)
+            (work_dir / ".variant").write_text("ups\n", encoding="utf-8")
+            (work_dir / ".enabled_optional_hardware").write_text("pipower5\n", encoding="utf-8")
+
+            with mock.patch.object(system, "WORK_DIR", work_dir), \
+                    mock.patch.object(system, "OPTIONAL_HARDWARE_FILE", work_dir / ".enabled_optional_hardware"), \
+                    mock.patch.object(system, "detect_optional_hardware", return_value={"pipower5": False}):
+                commands = system.upgrade_service_commands()
+
+        install = next(command for command in commands if command.description == "Install service application package")
+        self.assertIn("[legacy-hardware,ups]", install.args[-1])
 
     def test_service_install_info_does_not_import_from_current_checkout(self):
         from pironman5 import system
