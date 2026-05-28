@@ -31,7 +31,6 @@ REMOVABLE_TREES = {
 }
 LEGACY_HARDWARE_MODULES = {
     "oled",
-    "oled_ups_pages",
     "pipower5",
     "pironman_mcu",
     "sf_rgb_led",

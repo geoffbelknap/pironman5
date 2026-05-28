@@ -582,6 +582,13 @@ class SystemCliTest(unittest.TestCase):
 
         self.assertEqual((), system._service_package_extras(product))
 
+    def test_system_setup_skips_legacy_extra_for_oled_ups_pages_only_profile(self):
+        from pironman5 import system
+
+        product = {"modules": ["oled_ups_pages"], "dt_overlays": [], "config_txt": {}}
+
+        self.assertEqual((), system._service_package_extras(product))
+
     def test_system_setup_skips_ups_extra_without_pipower5_hardware(self):
         from pironman5 import system
 
