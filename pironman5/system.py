@@ -34,7 +34,6 @@ LEGACY_HARDWARE_MODULES = {
     "oled_ups_pages",
     "pipower5",
     "pironman_mcu",
-    "rtl8125",
     "sf_rgb_led",
     "vibration_switch",
 }
