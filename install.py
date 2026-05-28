@@ -168,10 +168,6 @@ pipower5_settings = {
     'symlinks': [
         'pipower5',
     ],
-    # Before install scripts, default to []
-    'run_scripts_before_install': [
-        "setup_pipower5.sh",
-    ],
     # - Copy device tree overlay to /boot/overlays
     'dtoverlays': [
         'sunfounder-pipower5.dtbo',
