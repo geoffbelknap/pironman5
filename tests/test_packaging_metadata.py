@@ -51,10 +51,11 @@ class PackagingMetadataTest(unittest.TestCase):
         )
         self.assertIn("rgb-matrix", optional)
         self.assertIn("numpy", optional["rgb-matrix"])
-        self.assertIn("legacy-hardware", optional)
+        self.assertIn("legacy-ups", optional)
+        self.assertNotIn("legacy-hardware", optional)
         self.assertIn(
             "pm_auto @ git+https://github.com/geoffbelknap/pm_auto.git@b00dd490ce498e963c352876801b5cb4e59c4bd2",
-            optional["legacy-hardware"],
+            optional["legacy-ups"],
         )
 
     def test_legacy_influxdb_is_not_installed_by_package_metadata(self):

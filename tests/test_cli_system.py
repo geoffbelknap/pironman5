@@ -630,8 +630,8 @@ class SystemCliTest(unittest.TestCase):
             _variant_key, commands = system.setup_commands("ups")
 
         ensure_venv = next(command for command in commands if command.args[0] == "ensure-service-venv")
-        self.assertIn("[legacy-hardware]", ensure_venv.args[1])
-        self.assertNotIn("ups", ensure_venv.args[1])
+        self.assertIn("[legacy-ups]", ensure_venv.args[1])
+        self.assertNotIn("[legacy-ups,ups]", ensure_venv.args[1])
 
     def test_system_setup_installs_ups_extra_for_explicit_pipower5_hardware(self):
         from pironman5 import system
@@ -640,7 +640,7 @@ class SystemCliTest(unittest.TestCase):
             _variant_key, commands = system.setup_commands("ups", enabled_optional_hardware=["pipower5"])
 
         ensure_venv = next(command for command in commands if command.args[0] == "ensure-service-venv")
-        self.assertIn("[legacy-hardware,ups]", ensure_venv.args[1])
+        self.assertIn("[legacy-ups,ups]", ensure_venv.args[1])
 
     def test_system_setup_persists_explicit_optional_hardware(self):
         from pironman5 import system
@@ -815,7 +815,7 @@ class SystemCliTest(unittest.TestCase):
                 commands = system.upgrade_service_commands()
 
         install = next(command for command in commands if command.description == "Install service application package")
-        self.assertIn("[legacy-hardware,ups]", install.args[-1])
+        self.assertIn("[legacy-ups,ups]", install.args[-1])
 
     def test_service_install_info_does_not_import_from_current_checkout(self):
         from pironman5 import system

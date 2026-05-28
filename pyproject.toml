@@ -32,7 +32,7 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-legacy-hardware = [
+legacy-ups = [
   "pm_auto @ git+https://github.com/geoffbelknap/pm_auto.git@b00dd490ce498e963c352876801b5cb4e59c4bd2",
 ]
 dashboard = [
