@@ -284,6 +284,15 @@ def handle_temperature_unit(args, current_config, new_sys_config):
     print(f"Set Temperature unit: {args.temperature_unit}")
 
 
+def remove_dashboard(pip_path):
+    print("Remove Dashboard")
+    try:
+        subprocess.run([pip_path, "uninstall", "pm_dashboard", "-y"], check=False)
+    except FileNotFoundError:
+        print(f"Dashboard removal skipped: {pip_path} not found", file=sys.stderr)
+    print("Dashboard removed, restart pironman5 to apply changes: sudo systemctl restart pironman5.service")
+
+
 def main():
     global AVAILABLE_PAGES, AVAILABLE_EMAIL_MODES
 
@@ -315,7 +324,7 @@ def main():
     parser.add_argument("-c", "--config", action="store_true", help="Show config")
     parser.add_argument("-drd", "--database-retention-days", nargs='?', default='', help="Database retention days")
     parser.add_argument("-dl", "--debug-level", nargs='?', default='', choices=DEBUG_LEVELS, help="Debug level")
-    parser.add_argument("-rd", "--remove-dashboard", action="store_true", help="Remove dashboard")
+    parser.add_argument("-rd", "--remove-dashboard", action="store_true", help=argparse.SUPPRESS)
     parser.add_argument("-cp", "--config-path", nargs='?', default='', help="Config path")
     parser.add_argument("-eh", "--enable-history", nargs='?', default='', help="Enable history, True/true/on/On/1 or False/false/off/Off/0")
     # ws2812
@@ -376,6 +385,9 @@ def main():
     config_set_parser.add_argument("config_value", help="New value")
     detect_parser = subparsers.add_parser("detect", help="Detect variant and optional hardware")
     detect_parser.add_argument("--json", action="store_true", help="Print detection results as JSON")
+    dashboard_parser = subparsers.add_parser("dashboard", help="Manage dashboard")
+    dashboard_subparsers = dashboard_parser.add_subparsers(dest="dashboard_action")
+    dashboard_subparsers.add_parser("remove", help="Remove dashboard package")
     start_parser = subparsers.add_parser("start", help="Start Pironman5")
     stop_parser = subparsers.add_parser("stop", help="Stop Pironman5")
     launch_browser_parser = subparsers.add_parser("launch-browser", help="Launch browser")
@@ -418,6 +430,12 @@ def main():
     if args.subcommand == 'launch-browser':
         handle_launch_browser(args.auto_start, TRUE_LIST, FALSE_LIST)
         return
+    if args.subcommand == 'dashboard':
+        if args.dashboard_action == 'remove':
+            remove_dashboard(PIP_PATH)
+            return
+        dashboard_parser.print_help()
+        return
 
     # load config file
     # ----------------------------------------
@@ -449,12 +467,7 @@ def main():
     # remove dashboard
     # ----------------------------------------    
     if args.remove_dashboard:
-        print("Remove Dashboard")
-        try:
-            subprocess.run([PIP_PATH, "uninstall", "pm_dashboard", "-y"], check=False)
-        except FileNotFoundError:
-            print(f"Dashboard removal skipped: {PIP_PATH} not found", file=sys.stderr)
-        print("Dashboard removed, restart pironman5 to apply changes: sudo systemctl restart pironman5.service")
+        remove_dashboard(PIP_PATH)
         quit()
 
     # swtich history
