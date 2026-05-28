@@ -478,6 +478,28 @@ class InstallSettingsPolicyTest(unittest.TestCase):
 
         self.assertIn("pipower5", names)
 
+    def test_pironman_mcu_is_not_enabled_without_explicit_legacy_flag(self):
+        import install
+
+        args = install.parse_install_args([])
+        with unittest.mock.patch(
+            "install.detect_optional_hardware",
+            return_value={"pironman_mcu": True},
+        ):
+            names = install.resolve_enabled_setting_names(args, peripherals=["pironman_mcu"])
+
+        self.assertNotIn("legacy_hardware", names)
+
+    def test_pironman_mcu_flag_persists_runtime_optional_hardware(self):
+        import install
+
+        args = install.parse_install_args(["--enable-legacy-hardware", "pironman_mcu"])
+        installer = install.build_installer_for_settings(["base"])
+
+        install.apply_optional_hardware_install_settings(installer, args)
+
+        self.assertEqual(installer.work_files[".enabled_optional_hardware"], "pironman_mcu\n")
+
     def test_enable_ups_persists_runtime_optional_hardware(self):
         import install
 

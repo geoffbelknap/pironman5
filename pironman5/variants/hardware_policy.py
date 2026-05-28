@@ -3,21 +3,37 @@ from os import listdir, path
 
 OPTIONAL_HARDWARE_MODULES = {
     "pipower5": {
-        "modules": {"pipower5", "oled_ups_pages"},
+        "modules": {"pipower5", "oled_ups_pages", "sf_rgb_led"},
         "hardware": "pipower5",
+    },
+    "pironman_mcu": {
+        "modules": {"pironman_mcu"},
+        "hardware": "pironman_mcu",
     },
 }
 
+OPTIONAL_HARDWARE_CHOICES = tuple(sorted(OPTIONAL_HARDWARE_MODULES))
 REALTEK_VENDOR_ID = "0x10ec"
 RTL8125_DEVICE_IDS = {"0x8125"}
+
+
+def normalize_optional_hardware_name(name):
+    if not isinstance(name, str):
+        return None
+    return name.strip().lower().replace("-", "_")
 
 
 def normalize_enabled_optional_hardware(enabled_optional_hardware=None):
     if enabled_optional_hardware is None:
         return set()
     if isinstance(enabled_optional_hardware, str):
-        return {item.strip() for item in enabled_optional_hardware.split(",") if item.strip()}
-    return {item for item in enabled_optional_hardware if item}
+        enabled_optional_hardware = enabled_optional_hardware.split(",")
+    return {
+        normalized
+        for item in enabled_optional_hardware
+        for normalized in [normalize_optional_hardware_name(item)]
+        if normalized
+    }
 
 
 def filter_enabled_modules(module_names, detected_hardware=None, enabled_optional_hardware=None):

@@ -13,6 +13,7 @@ from pironman5.variants import (
     get_product_definition,
     normalize_variant_key,
 )
+from pironman5.variants.hardware_policy import OPTIONAL_HARDWARE_CHOICES, normalize_optional_hardware_name
 from pironman5.variants.modules import assemble
 
 PM_AUTO_REF = 'b00dd490ce498e963c352876801b5cb4e59c4bd2'  # geoffbelknap/pironman5-1.4.7-hardened
@@ -208,6 +209,14 @@ def parse_install_args(argv=None, parser=None):
     parser.add_argument("--print-variant", action="store_true", help="Print detected/selected variant and exit")
     parser.add_argument("--enable-dashboard", action="store_true", help="Enable dashboard components")
     parser.add_argument("--enable-ups", action="store_true", help="Enable PiPower5 UPS components")
+    parser.add_argument(
+        "--enable-legacy-hardware",
+        action="append",
+        default=[],
+        type=normalize_optional_hardware_name,
+        choices=OPTIONAL_HARDWARE_CHOICES,
+        help="Enable a legacy hardware module explicitly",
+    )
     parser.add_argument("--enable-experimental-dependency", action="append", default=[], help="Enable a named experimental dependency")
     parser.add_argument("--legacy-installer", action="store_true", help="Run the deprecated install.py workflow")
     parser.add_argument("--disable-dashboard", action="store_true", help=argparse.SUPPRESS)
@@ -317,11 +326,12 @@ def apply_optional_hardware_install_settings(installer_obj, args):
     enabled = []
     if getattr(args, "enable_ups", False):
         enabled.append("pipower5")
+    enabled.extend(getattr(args, "enable_legacy_hardware", []) or [])
     if not enabled:
         return
     installer_obj.update_settings({
         "work_files": {
-            ".enabled_optional_hardware": "\n".join(enabled) + "\n",
+            ".enabled_optional_hardware": "\n".join(sorted(set(enabled))) + "\n",
         },
     })
 
@@ -334,6 +344,7 @@ def build_installer_for_variant(variant_key):
             variant=variant_key,
             enable_dashboard=False,
             enable_ups=False,
+            enable_legacy_hardware=[],
             enable_experimental_dependency=[],
         )
     )

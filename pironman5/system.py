@@ -12,7 +12,12 @@ from importlib.resources import files as resource_files
 from pathlib import Path
 
 from .variants import PRODUCT_DEFINITIONS, detect_hardware_variant, detect_optional_hardware, get_product_definition, normalize_variant_key
-from .variants.hardware_policy import filter_enabled_modules, normalize_enabled_optional_hardware
+from .variants.hardware_policy import (
+    OPTIONAL_HARDWARE_CHOICES,
+    filter_enabled_modules,
+    normalize_enabled_optional_hardware,
+    normalize_optional_hardware_name,
+)
 
 MODULES_FILE = Path("/etc/modules-load.d/pironman5.conf")
 SERVICE_FILE = Path("/etc/systemd/system/pironman5.service")
@@ -505,8 +510,8 @@ def build_parser():
     plan.add_argument("--variant", choices=variant_choices, default="auto", type=normalize_variant_key)
     setup = subparsers.add_parser("setup", help="Apply privileged system integration")
     setup.add_argument("--variant", choices=variant_choices, default="auto", type=normalize_variant_key)
-    setup.add_argument("--with", dest="enabled_hardware", action="append", default=[], choices=["pipower5"], help="Enable hardware that was not auto-detected")
-    setup.add_argument("--enable-optional-hardware", dest="enabled_hardware", action="append", choices=["pipower5"], help=argparse.SUPPRESS)
+    setup.add_argument("--with", dest="enabled_hardware", action="append", default=[], type=normalize_optional_hardware_name, choices=OPTIONAL_HARDWARE_CHOICES, help="Enable hardware that was not auto-detected")
+    setup.add_argument("--enable-optional-hardware", dest="enabled_hardware", action="append", type=normalize_optional_hardware_name, choices=OPTIONAL_HARDWARE_CHOICES, help=argparse.SUPPRESS)
     setup.add_argument("--fresh", dest="refresh_venv", action="store_true", help="Recreate the service install")
     setup.add_argument("--refresh-venv", dest="refresh_venv", action="store_true", help=argparse.SUPPRESS)
     setup.add_argument("--dry-run", action="store_true", help="Print commands without changing the system")

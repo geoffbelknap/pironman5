@@ -605,6 +605,24 @@ class SystemCliTest(unittest.TestCase):
         ensure_venv = next(command for command in commands if command.args[0] == "ensure-service-venv")
         self.assertNotIn("ups", ensure_venv.args[1])
 
+    def test_system_setup_skips_legacy_extra_for_nas_without_mcu_detection(self):
+        from pironman5 import system
+
+        with mock.patch.object(system, "detect_optional_hardware", return_value={"pironman_mcu": False}):
+            _variant_key, commands = system.setup_commands("nas")
+
+        ensure_venv = next(command for command in commands if command.args[0] == "ensure-service-venv")
+        self.assertNotIn("legacy-hardware", ensure_venv.args[1])
+
+    def test_system_setup_installs_legacy_extra_for_explicit_pironman_mcu(self):
+        from pironman5 import system
+
+        with mock.patch.object(system, "detect_optional_hardware", return_value={"pironman_mcu": False}):
+            _variant_key, commands = system.setup_commands("nas", enabled_optional_hardware=["pironman_mcu"])
+
+        ensure_venv = next(command for command in commands if command.args[0] == "ensure-service-venv")
+        self.assertIn("[legacy-hardware]", ensure_venv.args[1])
+
     def test_system_setup_does_not_install_unaudited_ups_extra_for_detected_pipower5_hardware(self):
         from pironman5 import system
 
@@ -645,6 +663,29 @@ class SystemCliTest(unittest.TestCase):
 
         output = stdout.getvalue()
         self.assertIn("/opt/pironman5/.enabled_optional_hardware", output)
+
+    def test_system_setup_accepts_pironman_mcu_optional_hardware(self):
+        from pironman5 import system
+
+        stdout = io.StringIO()
+        argv = [
+            "pironman5",
+            "system",
+            "setup",
+            "--variant",
+            "nas",
+            "--with",
+            "pironman_mcu",
+            "--dry-run",
+        ]
+
+        with mock.patch.object(sys, "argv", argv):
+            with contextlib.redirect_stdout(stdout):
+                system.main(sys.argv[2:])
+
+        output = stdout.getvalue()
+        self.assertIn("/opt/pironman5/.enabled_optional_hardware", output)
+        self.assertIn("[legacy-hardware]", output)
 
     def test_system_setup_refresh_venv_reinstalls_service_environment(self):
         from pironman5 import _cli
@@ -742,8 +783,23 @@ class SystemCliTest(unittest.TestCase):
                 commands = system.upgrade_service_commands()
 
         install = next(command for command in commands if command.description == "Install service application package")
-        self.assertIn("[legacy-hardware]", install.args[-1])
+        self.assertNotIn("legacy-hardware", install.args[-1])
         self.assertNotIn("ups", install.args[-1])
+
+    def test_system_upgrade_service_skips_legacy_extra_for_nas_without_mcu_detection(self):
+        from pironman5 import system
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            work_dir = Path(tmpdir)
+            (work_dir / ".variant").write_text("nas\n", encoding="utf-8")
+
+            with mock.patch.object(system, "WORK_DIR", work_dir), \
+                    mock.patch.object(system, "OPTIONAL_HARDWARE_FILE", work_dir / ".enabled_optional_hardware"), \
+                    mock.patch.object(system, "detect_optional_hardware", return_value={"pironman_mcu": False}):
+                commands = system.upgrade_service_commands()
+
+        install = next(command for command in commands if command.description == "Install service application package")
+        self.assertNotIn("legacy-hardware", install.args[-1])
 
     def test_system_upgrade_service_uses_persisted_optional_hardware_extra(self):
         from pironman5 import system
