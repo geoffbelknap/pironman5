@@ -623,7 +623,13 @@ class ServiceHardeningTest(unittest.TestCase):
 
         self.assertIn("sha256sum -c", script)
         self.assertIn("0e346fb9fdeca94c5d2ca8f2388c494690576ef99b0aa1882f886a408db66d82", script)
-        self.assertIn("7cc1bf3612c7bf4fcdf18846da9eeefc1043e16dd98a1262a1ac0afbfea1b868", script)
+
+    def test_pipower5_install_does_not_download_email_templates(self):
+        with open("scripts/setup_pipower5.sh", "r", encoding="utf-8") as f:
+            script = f.read()
+
+        self.assertNotIn("email_templates", script)
+        self.assertNotIn("/opt/pipower5", script)
 
 
 class InfluxDefaultPolicyTest(unittest.TestCase):
