@@ -267,7 +267,7 @@ def resolve_enabled_setting_names(args, peripherals=None):
 
     if args.enable_dashboard:
         names.append("dashboard")
-    if args.enable_ups or optional_hardware.get("pipower5"):
+    if args.enable_ups:
         names.append("pipower5")
 
     return names
