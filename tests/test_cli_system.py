@@ -278,6 +278,80 @@ class SystemCliTest(unittest.TestCase):
 
         self.assertIn('"system": {}', stdout.getvalue())
 
+    def test_config_get_uses_default_without_creating_missing_config_file(self):
+        from pironman5 import _cli
+
+        stdout = io.StringIO()
+        with tempfile.TemporaryDirectory() as tmpdir:
+            config_path = Path(tmpdir) / "missing-config.json"
+            argv = ["pironman5", "--config-path", str(config_path), "config", "get", "database_retention_days"]
+
+            with mock.patch.object(sys, "argv", argv):
+                with mock.patch.object(_cli, "PERIPHERALS", []):
+                    with mock.patch.object(_cli, "write_json_private") as write_json_private:
+                        with contextlib.redirect_stdout(stdout):
+                            _cli.main()
+
+            write_json_private.assert_not_called()
+            self.assertFalse(config_path.exists())
+
+        self.assertIn("database_retention_days: 30", stdout.getvalue())
+
+    def test_config_get_rejects_unknown_key(self):
+        from pironman5 import _cli
+
+        stdout = io.StringIO()
+        with tempfile.TemporaryDirectory() as tmpdir:
+            config_path = Path(tmpdir) / "missing-config.json"
+            argv = ["pironman5", "--config-path", str(config_path), "config", "get", "not_a_key"]
+
+            with mock.patch.object(sys, "argv", argv):
+                with mock.patch.object(_cli, "PERIPHERALS", []):
+                    with contextlib.redirect_stdout(stdout):
+                        with self.assertRaises(SystemExit):
+                            _cli.main()
+
+            self.assertFalse(config_path.exists())
+
+        self.assertIn("Unknown config key: not_a_key", stdout.getvalue())
+
+    def test_config_set_writes_typed_value(self):
+        from pironman5 import _cli
+
+        stdout = io.StringIO()
+        with tempfile.TemporaryDirectory() as tmpdir:
+            config_path = Path(tmpdir) / "config.json"
+            config_path.write_text(json.dumps({"system": {"database_retention_days": 30}}), encoding="utf-8")
+            argv = ["pironman5", "--config-path", str(config_path), "config", "set", "database_retention_days", "14"]
+
+            with mock.patch.object(sys, "argv", argv):
+                with mock.patch.object(_cli, "PERIPHERALS", []):
+                    with contextlib.redirect_stdout(stdout):
+                        _cli.main()
+
+            self.assertEqual(
+                {"system": {"database_retention_days": 14}},
+                json.loads(config_path.read_text(encoding="utf-8")),
+            )
+
+        self.assertIn("Set database_retention_days: 14", stdout.getvalue())
+
+    def test_config_set_normalizes_debug_level(self):
+        from pironman5 import _cli
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            config_path = Path(tmpdir) / "config.json"
+            argv = ["pironman5", "--config-path", str(config_path), "config", "set", "debug_level", "debug"]
+
+            with mock.patch.object(sys, "argv", argv):
+                with mock.patch.object(_cli, "PERIPHERALS", []):
+                    _cli.main()
+
+            self.assertEqual(
+                {"system": {"debug_level": "DEBUG"}},
+                json.loads(config_path.read_text(encoding="utf-8")),
+            )
+
     def test_debug_level_query_does_not_create_missing_config_file(self):
         from pironman5 import _cli
 
