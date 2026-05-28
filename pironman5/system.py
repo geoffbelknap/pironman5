@@ -127,11 +127,13 @@ def _variant_product(variant):
 def _setup_product(variant, enabled_optional_hardware=None):
     variant_key, source, product = _variant_product(variant)
     product = dict(product)
+    enabled_optional_hardware = normalize_enabled_optional_hardware(enabled_optional_hardware or [])
     product["modules"] = filter_enabled_modules(
         product.get("modules", []),
         detected_hardware=detect_optional_hardware(),
         enabled_optional_hardware=enabled_optional_hardware,
     )
+    product["enabled_optional_hardware"] = enabled_optional_hardware
     return variant_key, source, product
 
 
@@ -177,7 +179,7 @@ def _service_package_extras(product):
     modules = set(product.get("modules", []))
     if modules & LEGACY_HARDWARE_MODULES:
         extras.append("legacy-hardware")
-    if "pipower5" in modules:
+    if "pipower5" in modules and "pipower5" in product.get("enabled_optional_hardware", ()):
         extras.append("ups")
     return tuple(extras)
 

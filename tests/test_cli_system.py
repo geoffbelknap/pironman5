@@ -577,14 +577,15 @@ class SystemCliTest(unittest.TestCase):
         ensure_venv = next(command for command in commands if command.args[0] == "ensure-service-venv")
         self.assertNotIn("ups", ensure_venv.args[1])
 
-    def test_system_setup_installs_ups_extra_for_detected_pipower5_hardware(self):
+    def test_system_setup_does_not_install_unaudited_ups_extra_for_detected_pipower5_hardware(self):
         from pironman5 import system
 
         with mock.patch.object(system, "detect_optional_hardware", return_value={"pipower5": True}):
             _variant_key, commands = system.setup_commands("ups")
 
         ensure_venv = next(command for command in commands if command.args[0] == "ensure-service-venv")
-        self.assertIn("[legacy-hardware,ups]", ensure_venv.args[1])
+        self.assertIn("[legacy-hardware]", ensure_venv.args[1])
+        self.assertNotIn("ups", ensure_venv.args[1])
 
     def test_system_setup_installs_ups_extra_for_explicit_pipower5_hardware(self):
         from pironman5 import system

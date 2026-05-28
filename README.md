@@ -46,8 +46,9 @@ sudo pironman5 system setup
 pironman5 system doctor
 ```
 
-Optional hardware is detected during system setup. To force-enable the PiPower5
-UPS HAT when it is not auto-detected, use:
+Optional hardware is detected during system setup. The PiPower5 UPS HAT still
+depends on an unaudited upstream compatibility package, so its Python package is
+installed only when explicitly requested:
 
 ```bash
 sudo pironman5 system setup --variant ups --with pipower5
