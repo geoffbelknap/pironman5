@@ -2,7 +2,6 @@
 
 import argparse
 
-from tools.sf_installer import SF_Installer
 from pironman5.version import __version__
 from pironman5.variants import (
     NAME,
@@ -180,6 +179,8 @@ rtl8125_settings = {
 }
 
 def build_installer(variant_key=None):
+    from tools.sf_installer import SF_Installer
+
     product = get_product_definition(variant_key) if variant_key else None
     return SF_Installer(
         name='pironman5',
