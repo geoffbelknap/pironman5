@@ -96,6 +96,22 @@ class InstallerCommandConstructionTest(unittest.TestCase):
         self.assertNotIn(" -m ", useradd_commands[0])
         self.assertIn("--no-create-home", useradd_commands[0])
 
+    def test_setup_user_sudoers_uses_narrow_command_list(self):
+        installer = SF_Installer("pironman5")
+        installer.args = SimpleNamespace(plain_text=True)
+        commands = []
+        installer.run_command = lambda _cmd, **_kwargs: (0, "", "")
+        installer.do = lambda _msg, cmd, **_kwargs: commands.append(cmd)
+
+        with unittest.mock.patch("tools.sf_installer.shutil.which", return_value="/usr/bin/sudo"):
+            installer.setup_user()
+
+        sudoers_commands = [cmd for cmd in commands if "/etc/sudoers.d/pironman5" in cmd]
+        self.assertTrue(sudoers_commands)
+        self.assertTrue(any("/usr/bin/systemctl restart pironman5.service" in cmd for cmd in sudoers_commands))
+        self.assertFalse(any("NOPASSWD: /usr/bin/systemctl," in cmd for cmd in sudoers_commands))
+        self.assertFalse(any("/usr/bin/lsblk" in cmd for cmd in sudoers_commands))
+
     def test_work_dir_fix_keeps_directory_private(self):
         installer = SF_Installer("pironman5", work_dir="/opt/pironman5")
         installer.args = SimpleNamespace(plain_text=True)

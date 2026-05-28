@@ -116,8 +116,7 @@ class SF_Installer():
         "/usr/sbin/reboot",
         "/usr/sbin/poweroff",
         "/usr/sbin/halt",
-        "/usr/bin/systemctl",
-        "/usr/bin/lsblk",
+        "/usr/bin/systemctl restart pironman5.service",
     ]
 
     DEFAULT_GROUPS = [
