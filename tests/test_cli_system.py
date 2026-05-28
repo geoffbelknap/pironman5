@@ -587,7 +587,7 @@ class SystemCliTest(unittest.TestCase):
             "setup",
             "--variant",
             "ups",
-            "--enable-optional-hardware",
+            "--with",
             "pipower5",
             "--dry-run",
         ]
