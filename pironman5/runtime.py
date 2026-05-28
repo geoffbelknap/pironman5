@@ -122,6 +122,7 @@ LOCAL_PERIPHERALS = {
     "pwm_fan",
     "rtl8125",
     "vibration_switch",
+    "pironman_mcu",
     "oled",
     "oled_sleep",
     *OLED_PAGE_PERIPHERALS,
@@ -322,6 +323,104 @@ class Pi5PowerButtonModule:
 
     async def stop(self):
         self.button.stop()
+
+
+class PironmanMcuRegister(IntEnum):
+    FIRMWARE_VERSION = 0x00
+    DEFAULT_ON = 0x01
+    PWR_BTN = 0x02
+    SHUTDOWN_REQ = 0x03
+
+
+class PironmanMcuButtonStatus(IntEnum):
+    RELEASED = 0
+    CLICK = 1
+    DOUBLE_CLICK = 2
+    LONG_PRESS_2S = 3
+    LONG_PRESS_2S_RELEASED = 4
+    LONG_PRESS_5S = 5
+    LONG_PRESS_5S_RELEASED = 6
+
+
+class PironmanMcuDevice:
+    I2C_ADDRESSES = (0x6A,)
+
+    def __init__(self, bus=1, bus_factory=None, scanner=None):
+        from smbus2 import SMBus
+
+        self.bus_number = bus
+        self.bus_factory = bus_factory or SMBus
+        self.scanner = scanner or self.scan
+        self.address = self._detect_address()
+        self.bus = self.bus_factory(self.bus_number)
+
+    def _detect_address(self):
+        addresses = self.scanner(self.bus_number)
+        for address in addresses:
+            if address in self.I2C_ADDRESSES:
+                return address
+        expected = ", ".join(f"0x{address:02X}" for address in self.I2C_ADDRESSES)
+        raise OSError(f"Pironman MCU I2C address not found in [{expected}]")
+
+    def scan(self, bus):
+        devices = []
+        for address in range(0x03, 0x78):
+            try:
+                with self.bus_factory(bus) as smbus:
+                    smbus.write_quick(address)
+                    devices.append(address)
+            except OSError:
+                continue
+        return devices
+
+    def get_firmware_version(self):
+        data = self.bus.read_i2c_block_data(self.address, PironmanMcuRegister.FIRMWARE_VERSION, 1)[0]
+        major = data >> 6 & 0x03
+        minor = data >> 3 & 0x07
+        patch = data & 0x07
+        return major, minor, patch
+
+    def get_button(self):
+        data = self.bus.read_i2c_block_data(self.address, PironmanMcuRegister.PWR_BTN, 1)[0]
+        self.bus.write_byte_data(self.address, PironmanMcuRegister.PWR_BTN, 0)
+        return PironmanMcuButtonStatus(data)
+
+    def close(self):
+        close = getattr(self.bus, "close", None)
+        if close is not None:
+            close()
+
+
+class PironmanMcuModule:
+    INTERVAL = 0.1
+
+    def __init__(self, event, log=None, mcu_factory=None):
+        self.event = event
+        self.log = log or logging.getLogger(__name__)
+        self.mcu = (mcu_factory or PironmanMcuDevice)()
+        self.tasks = TaskScheduler()
+
+    def poll_once(self):
+        try:
+            mcu_button = self.mcu.get_button()
+        except ValueError as exc:
+            self.log.warning("Unknown Pironman MCU button status: %s", exc)
+            return
+        if mcu_button == PironmanMcuButtonStatus.CLICK:
+            self.event.publish("pironman_mcu_button_click")
+        elif mcu_button == PironmanMcuButtonStatus.DOUBLE_CLICK:
+            self.event.publish("pironman_mcu_button_double_click")
+        elif mcu_button == PironmanMcuButtonStatus.LONG_PRESS_2S:
+            self.event.publish("pironman_mcu_button_long_press", "button_long_press")
+        elif mcu_button == PironmanMcuButtonStatus.LONG_PRESS_2S_RELEASED:
+            self.event.publish("pironman_mcu_button_long_press_released", "button_long_press_released")
+
+    async def start(self):
+        await self.tasks.run_periodically(self.poll_once, self.INTERVAL)
+
+    async def stop(self):
+        await self.tasks.stop()
+        self.mcu.close()
 
 
 class GPIOOutputPin:
@@ -1367,6 +1466,11 @@ class PironmanRuntime:
             if "vibration_switch" in peripherals
             else None
         )
+        self.pironman_mcu = (
+            PironmanMcuModule(event=self.event, log=self.log)
+            if "pironman_mcu" in peripherals
+            else None
+        )
         self.oled = (
             OLEDModule(config=config, peripherals=peripherals, event=self.event, log=self.log)
             if "oled" in peripherals
@@ -1437,6 +1541,8 @@ class PironmanRuntime:
             await self.ws2812.start()
         if self.vibration_switch is not None:
             await self.vibration_switch.start()
+        if self.pironman_mcu is not None:
+            await self.pironman_mcu.start()
         if self.oled is not None:
             await self.oled.start()
         await self.hardware.start()
@@ -1445,6 +1551,8 @@ class PironmanRuntime:
         await self.hardware.stop()
         if self.oled is not None:
             await self.oled.stop()
+        if self.pironman_mcu is not None:
+            await self.pironman_mcu.stop()
         if self.vibration_switch is not None:
             await self.vibration_switch.stop()
         if self.ws2812 is not None:

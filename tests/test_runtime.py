@@ -124,6 +124,20 @@ class RuntimeTest(unittest.TestCase):
 
         self.assertEqual([], runtime.peripherals)
 
+    def test_legacy_hardware_runtime_treats_pironman_mcu_as_local(self):
+        from pironman5.runtime import LegacyHardwareRuntime
+
+        with mock.patch("pironman5.runtime.Addons", None):
+            runtime = LegacyHardwareRuntime(
+                config={},
+                peripherals=["pironman_mcu"],
+                device_info={},
+                event=None,
+                log=None,
+            )
+
+        self.assertEqual([], runtime.peripherals)
+
     def test_runtime_connects_event_map_once_on_shared_event_bus(self):
         from pironman5.runtime import PironmanRuntime
 
@@ -274,6 +288,53 @@ class RuntimeTest(unittest.TestCase):
             ],
             published,
         )
+
+    def test_pironman_mcu_module_publishes_button_events(self):
+        from pironman5.runtime import EventBus, PironmanMcuButtonStatus, PironmanMcuModule
+
+        fake_mcu = mock.Mock()
+        fake_mcu.get_button.side_effect = [
+            PironmanMcuButtonStatus.CLICK,
+            PironmanMcuButtonStatus.DOUBLE_CLICK,
+            PironmanMcuButtonStatus.LONG_PRESS_2S,
+            PironmanMcuButtonStatus.LONG_PRESS_2S_RELEASED,
+            PironmanMcuButtonStatus.RELEASED,
+        ]
+        event = EventBus()
+        published = []
+        for name in (
+            "pironman_mcu_button_click",
+            "pironman_mcu_button_double_click",
+            "pironman_mcu_button_long_press",
+            "pironman_mcu_button_long_press_released",
+        ):
+            event.subscribe(name, lambda *args, _name=name: published.append((_name, args)))
+
+        module = PironmanMcuModule(event=event, mcu_factory=lambda: fake_mcu)
+        for _ in range(5):
+            module.poll_once()
+
+        self.assertEqual(
+            [
+                ("pironman_mcu_button_click", ()),
+                ("pironman_mcu_button_double_click", ()),
+                ("pironman_mcu_button_long_press", ("button_long_press",)),
+                ("pironman_mcu_button_long_press_released", ("button_long_press_released",)),
+            ],
+            published,
+        )
+
+    def test_pironman_mcu_device_reads_and_clears_button_register(self):
+        from pironman5.runtime import PironmanMcuButtonStatus, PironmanMcuDevice
+
+        bus = mock.Mock()
+        bus.read_i2c_block_data.return_value = [PironmanMcuButtonStatus.DOUBLE_CLICK]
+
+        device = PironmanMcuDevice(bus_factory=lambda _bus: bus, scanner=lambda _bus: [0x6A])
+
+        self.assertEqual(PironmanMcuButtonStatus.DOUBLE_CLICK, device.get_button())
+        bus.read_i2c_block_data.assert_called_once_with(0x6A, 0x02, 1)
+        bus.write_byte_data.assert_called_once_with(0x6A, 0x02, 0)
 
     def test_vibration_switch_module_publishes_activation_event(self):
         from pironman5.runtime import EventBus, VibrationSwitchModule
