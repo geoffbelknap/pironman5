@@ -96,6 +96,20 @@ class RuntimeTest(unittest.TestCase):
 
         self.assertEqual([], runtime.peripherals)
 
+    def test_legacy_hardware_runtime_treats_vibration_switch_as_local(self):
+        from pironman5.runtime import LegacyHardwareRuntime
+
+        with mock.patch("pironman5.runtime.Addons", None):
+            runtime = LegacyHardwareRuntime(
+                config={},
+                peripherals=["vibration_switch"],
+                device_info={},
+                event=None,
+                log=None,
+            )
+
+        self.assertEqual([], runtime.peripherals)
+
     def test_runtime_connects_event_map_once_on_shared_event_bus(self):
         from pironman5.runtime import PironmanRuntime
 
@@ -246,6 +260,41 @@ class RuntimeTest(unittest.TestCase):
             ],
             published,
         )
+
+    def test_vibration_switch_module_publishes_activation_event(self):
+        from pironman5.runtime import EventBus, VibrationSwitchModule
+
+        fake_device = mock.Mock()
+        event = EventBus()
+        published = []
+        event.subscribe("vibration_detected", lambda *args: published.append(args))
+
+        module = VibrationSwitchModule(
+            config={"vibration_switch_pin": 17, "vibration_switch_pull_up": False},
+            event=event,
+            device_factory=lambda pin, pull_up: fake_device,
+        )
+        callback = fake_device.set_activation_callback.call_args.args[0]
+
+        callback()
+
+        self.assertEqual([()], published)
+        fake_device.configure.assert_called_once_with(17, False)
+
+    def test_vibration_switch_config_update_reconfigures_device(self):
+        from pironman5.runtime import EventBus, VibrationSwitchModule
+
+        fake_device = mock.Mock()
+        module = VibrationSwitchModule(
+            config={},
+            event=EventBus(),
+            device_factory=lambda pin, pull_up: fake_device,
+        )
+
+        patch = module.update_config({"vibration_switch_pin": 22, "vibration_switch_pull_up": True})
+
+        self.assertEqual({"vibration_switch_pin": 22, "vibration_switch_pull_up": True}, patch)
+        fake_device.configure.assert_called_once_with(22, True)
 
     def test_runtime_starts_pi5_power_button_when_present(self):
         from pironman5.runtime import PironmanRuntime

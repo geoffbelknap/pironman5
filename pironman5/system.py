@@ -35,7 +35,6 @@ LEGACY_HARDWARE_MODULES = {
     "pipower5",
     "pironman_mcu",
     "sf_rgb_led",
-    "vibration_switch",
 }
 
 

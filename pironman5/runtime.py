@@ -112,6 +112,7 @@ LOCAL_PERIPHERALS = {
     "pwm_fan_speed",
     "pwm_fan",
     "rtl8125",
+    "vibration_switch",
 }
 RGB_STYLES = ["solid", "breathing", "flow", "flow_reverse", "rainbow", "rainbow_reverse", "hue_cycle"]
 
@@ -354,6 +355,82 @@ class GPIOOutputPin:
                 notify_thread.join(timeout=1)
         except Exception:
             pass
+
+
+class GPIODigitalInputDevice:
+    def __init__(self, pin=None, pull_up=True):
+        from RPi import GPIO
+
+        self.gpio = GPIO
+        self.pin = None
+        self.callback = None
+        self.gpio.setmode(self.gpio.BCM)
+        if pin is not None:
+            self.configure(pin, pull_up)
+
+    def configure(self, pin, pull_up=True):
+        if self.pin is not None:
+            self.close()
+        self.pin = int(pin)
+        pull = self.gpio.PUD_UP if pull_up else self.gpio.PUD_DOWN
+        self.gpio.setup(self.pin, self.gpio.IN, pull_up_down=pull)
+        self.gpio.add_event_detect(self.pin, self.gpio.RISING, callback=self._handle_activation, bouncetime=200)
+
+    def set_activation_callback(self, callback):
+        self.callback = callback
+
+    def _handle_activation(self, _pin):
+        if self.callback is not None:
+            self.callback()
+
+    def close(self):
+        if self.pin is None:
+            return
+        try:
+            self.gpio.remove_event_detect(self.pin)
+        except Exception:
+            pass
+        self.gpio.cleanup(self.pin)
+        self.pin = None
+
+
+class VibrationSwitchModule:
+    def __init__(self, config, event, log=None, device_factory=None):
+        self.config = dict(config or {})
+        self.event = event
+        self.log = log or logging.getLogger(__name__)
+        self.device = (device_factory or GPIODigitalInputDevice)(None, self.config.get("vibration_switch_pull_up", True))
+        self.device.set_activation_callback(self.when_activated)
+        if self.config.get("vibration_switch_pin") is not None:
+            self.device.configure(
+                int(self.config["vibration_switch_pin"]),
+                bool(self.config.get("vibration_switch_pull_up", True)),
+            )
+
+    def when_activated(self):
+        self.event.publish("vibration_detected")
+
+    def update_config(self, config):
+        patch = {}
+        if "vibration_switch_pin" in config:
+            patch["vibration_switch_pin"] = int(config["vibration_switch_pin"])
+        if "vibration_switch_pull_up" in config:
+            patch["vibration_switch_pull_up"] = bool(config["vibration_switch_pull_up"])
+        if not patch:
+            return {}
+        self.config.update(patch)
+        if self.config.get("vibration_switch_pin") is not None:
+            self.device.configure(
+                int(self.config["vibration_switch_pin"]),
+                bool(self.config.get("vibration_switch_pull_up", True)),
+            )
+        return patch
+
+    async def start(self):
+        return
+
+    async def stop(self):
+        self.device.close()
 
 
 class GPIOFanModule:
@@ -978,6 +1055,11 @@ class PironmanRuntime:
             if "ws2812" in peripherals
             else None
         )
+        self.vibration_switch = (
+            VibrationSwitchModule(config=config, event=self.event, log=self.log)
+            if "vibration_switch" in peripherals
+            else None
+        )
         self.hardware = LegacyHardwareRuntime(
             config=config,
             peripherals=peripherals,
@@ -1003,6 +1085,8 @@ class PironmanRuntime:
             patch.update(self.gpio_fan.update_config(config))
         if self.ws2812 is not None:
             patch.update(self.ws2812.update_config(config))
+        if self.vibration_switch is not None:
+            patch.update(self.vibration_switch.update_config(config))
         patch.update(self.hardware.update_config(config))
         return patch
 
@@ -1037,10 +1121,14 @@ class PironmanRuntime:
             await self.pi5_power_button.start()
         if self.ws2812 is not None:
             await self.ws2812.start()
+        if self.vibration_switch is not None:
+            await self.vibration_switch.start()
         await self.hardware.start()
 
     async def _stop(self):
         await self.hardware.stop()
+        if self.vibration_switch is not None:
+            await self.vibration_switch.stop()
         if self.ws2812 is not None:
             await self.ws2812.stop()
         if self.pi5_power_button is not None:
