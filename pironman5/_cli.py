@@ -13,6 +13,12 @@ from .security import write_json_private
 
 AVAILABLE_PAGES = []
 AVAILABLE_EMAIL_MODES = []
+TRUE_LIST = ['true', 'True', 'TRUE', '1', 'on', 'On', 'ON']
+FALSE_LIST = ['false', 'False', 'FALSE', '0', 'off', 'Off', 'OFF']
+DEBUG_LEVELS = [
+    'DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL',
+    'debug', 'info', 'warning', 'error', 'critical',
+]
 OPTIONAL_HARDWARE_LABELS = {
     "pipower5": "PiPower5 UPS",
     "rtl8125": "RTL8125 NIC",
@@ -123,6 +129,57 @@ def get_system_config_value(config, key, default=None):
     return config.get('system', {}).get(key, default)
 
 
+def handle_debug_level(args, current_config, new_sys_config):
+    if args.debug_level == None:
+        print(f"Debug level: {get_system_config_value(current_config, 'debug_level', 'INFO')}")
+        return
+    if args.debug_level.lower() not in ['debug', 'info', 'warning', 'error', 'critical']:
+        print(f"Invalid debug level, it should be one of: debug, info, warning, error, critical")
+        quit()
+    debug_level = args.debug_level.upper()
+    new_sys_config['debug_level'] = debug_level
+    print(f"Set debug level: {debug_level}")
+
+
+def handle_database_retention_days(args, current_config, new_sys_config):
+    if args.database_retention_days == None:
+        print(f"Database retention days: {get_system_config_value(current_config, 'database_retention_days')}")
+        return
+    try:
+        database_retention_days = int(args.database_retention_days)
+    except ValueError:
+        print(f"Invalid value for database retention days, it should be a number")
+        quit()
+    new_sys_config['database_retention_days'] = database_retention_days
+    print(f"Set database retention days: {database_retention_days}")
+
+
+def handle_enable_history(args, current_config, new_sys_config):
+    if args.enable_history == None:
+        print(f"Enable history: {get_system_config_value(current_config, 'enable_history')}")
+        return
+    if args.enable_history in TRUE_LIST:
+        new_sys_config['enable_history'] = True
+        print(f"Set enable history: True")
+    elif args.enable_history in FALSE_LIST:
+        new_sys_config['enable_history'] = False
+        print(f"Set enable history: False")
+    else:
+        print(f"Invalid value for enable history, it should be True/true/on/On/1 or False/false/off/Off/0")
+        quit()
+
+
+def handle_temperature_unit(args, current_config, new_sys_config):
+    if args.temperature_unit == None:
+        print(f"Temperature unit: {get_system_config_value(current_config, 'temperature_unit')}")
+        return
+    if args.temperature_unit not in ['C', 'F']:
+        print(f"Invalid value for Temperature unit, it should be C or F")
+        quit()
+    new_sys_config['temperature_unit'] = args.temperature_unit
+    print(f"Set Temperature unit: {args.temperature_unit}")
+
+
 def main():
     global AVAILABLE_PAGES, AVAILABLE_EMAIL_MODES
 
@@ -137,17 +194,11 @@ def main():
         print_detect(json_output=detect_args.json)
         return
 
-    TRUE_LIST = ['true', 'True', 'TRUE', '1', 'on', 'On', 'ON']
-    FALSE_LIST = ['false', 'False', 'FALSE', '0', 'off', 'Off', 'OFF']
-
     __package_name__ = __name__.split('.')[0]
     CONFIG_PATH = "/opt/pironman5/config.json"
     PIP_PATH = "/opt/pironman5/venv/bin/pip"
-    DEBUG_LEVELS = ['DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL',\
-        'debug', 'info', 'warning', 'error', 'critical']
 
     current_config = None
-    debug_level = 'INFO'
     new_sys_config = {}
     help_requested = any(arg in ("-h", "--help") for arg in sys.argv[1:])
 
@@ -281,30 +332,12 @@ def main():
     # get or set debug level
     # ----------------------------------------
     if args.debug_level != '':
-        if args.debug_level == None:
-            print(f"Debug level: {get_system_config_value(current_config, 'debug_level', debug_level)}")
-        else:
-            if args.debug_level.lower() not in ['debug', 'info', 'warning', 'error', 'critical']:
-                print(f"Invalid debug level, it should be one of: debug, info, warning, error, critical")
-                quit()
-            else:
-                debug_level = args.debug_level.upper()
-                new_sys_config['debug_level'] = debug_level
-                print(f"Set debug level: {debug_level}")
+        handle_debug_level(args, current_config, new_sys_config)
 
     # Set database retention days
     # ----------------------------------------
     if args.database_retention_days != '':
-        if args.database_retention_days == None:
-            print(f"Database retention days: {get_system_config_value(current_config, 'database_retention_days')}")
-        else:
-            try:
-                database_retention_days = int(args.database_retention_days)
-                new_sys_config['database_retention_days'] = database_retention_days
-                print(f"Set database retention days: {database_retention_days}")
-            except ValueError:
-                print(f"Invalid value for database retention days, it should be a number")
-                quit()
+        handle_database_retention_days(args, current_config, new_sys_config)
 
     # remove dashboard
     # ----------------------------------------    
@@ -316,18 +349,7 @@ def main():
 
     # swtich history
     if args.enable_history != '':
-        if args.enable_history == None:
-            print(f"Enable history: {get_system_config_value(current_config, 'enable_history')}")
-        else:
-            if args.enable_history in TRUE_LIST:
-                new_sys_config['enable_history'] = True
-                print(f"Set enable history: True")
-            elif args.enable_history in FALSE_LIST:
-                new_sys_config['enable_history'] = False
-                print(f"Set enable history: False")
-            else:
-                print(f"Invalid value for enable history, it should be True/true/on/On/1 or False/false/off/Off/0")
-                quit()
+        handle_enable_history(args, current_config, new_sys_config)
 
     # ws2812 settings
     # ----------------------------------------
@@ -430,14 +452,7 @@ def main():
     # ----------------------------------------
     if is_included(PERIPHERALS, "temperature_unit"):
         if args.temperature_unit != '':
-            if args.temperature_unit == None:
-                print(f"Temperature unit: {get_system_config_value(current_config, 'temperature_unit')}")
-            else:
-                if args.temperature_unit not in ['C', 'F']:
-                    print(f"Invalid value for Temperature unit, it should be C or F")
-                    quit()
-                new_sys_config['temperature_unit'] = args.temperature_unit
-                print(f"Set Temperature unit: {args.temperature_unit}")
+            handle_temperature_unit(args, current_config, new_sys_config)
 
     # GPIO fan settings
     # ----------------------------------------

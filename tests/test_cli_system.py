@@ -59,6 +59,71 @@ class SystemCliTest(unittest.TestCase):
         self.assertEqual("INFO", _cli.get_system_config_value({"system": {}}, "debug_level", "INFO"))
         self.assertEqual("DEBUG", _cli.get_system_config_value({"system": {"debug_level": "DEBUG"}}, "debug_level", "INFO"))
 
+    def test_handle_debug_level_sets_normalized_value(self):
+        from pironman5 import _cli
+
+        args = types.SimpleNamespace(debug_level="debug")
+        patch = {}
+        stdout = io.StringIO()
+
+        with contextlib.redirect_stdout(stdout):
+            _cli.handle_debug_level(args, {"system": {}}, patch)
+
+        self.assertEqual({"debug_level": "DEBUG"}, patch)
+        self.assertIn("Set debug level: DEBUG", stdout.getvalue())
+
+    def test_handle_debug_level_queries_default_without_patch(self):
+        from pironman5 import _cli
+
+        args = types.SimpleNamespace(debug_level=None)
+        patch = {}
+        stdout = io.StringIO()
+
+        with contextlib.redirect_stdout(stdout):
+            _cli.handle_debug_level(args, {"system": {}}, patch)
+
+        self.assertEqual({}, patch)
+        self.assertIn("Debug level: INFO", stdout.getvalue())
+
+    def test_handle_database_retention_days_sets_integer_value(self):
+        from pironman5 import _cli
+
+        args = types.SimpleNamespace(database_retention_days="14")
+        patch = {}
+        stdout = io.StringIO()
+
+        with contextlib.redirect_stdout(stdout):
+            _cli.handle_database_retention_days(args, {"system": {}}, patch)
+
+        self.assertEqual({"database_retention_days": 14}, patch)
+        self.assertIn("Set database retention days: 14", stdout.getvalue())
+
+    def test_handle_enable_history_sets_boolean_value(self):
+        from pironman5 import _cli
+
+        args = types.SimpleNamespace(enable_history="off")
+        patch = {}
+        stdout = io.StringIO()
+
+        with contextlib.redirect_stdout(stdout):
+            _cli.handle_enable_history(args, {"system": {}}, patch)
+
+        self.assertEqual({"enable_history": False}, patch)
+        self.assertIn("Set enable history: False", stdout.getvalue())
+
+    def test_handle_temperature_unit_sets_value(self):
+        from pironman5 import _cli
+
+        args = types.SimpleNamespace(temperature_unit="F")
+        patch = {}
+        stdout = io.StringIO()
+
+        with contextlib.redirect_stdout(stdout):
+            _cli.handle_temperature_unit(args, {"system": {}}, patch)
+
+        self.assertEqual({"temperature_unit": "F"}, patch)
+        self.assertIn("Set Temperature unit: F", stdout.getvalue())
+
     def test_detect_prints_variant_and_optional_hardware(self):
         from pironman5 import _cli
 
