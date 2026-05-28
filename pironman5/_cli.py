@@ -14,6 +14,16 @@ from .security import write_json_private
 
 AVAILABLE_PAGES = []
 AVAILABLE_EMAIL_MODES = []
+OLED_SLEEP_TIMEOUT_MIN = 5
+OLED_SLEEP_TIMEOUT_MAX = 3600
+RGB_MATRIX_EFFECT_LIST = [
+    "solid",
+    "breathing",
+    "rainbow",
+    "rainbow_reverse",
+    "flow",
+    "flow_reverse",
+]
 TRUE_LIST = ['true', 'True', 'TRUE', '1', 'on', 'On', 'ON']
 FALSE_LIST = ['false', 'False', 'FALSE', '0', 'off', 'Off', 'OFF']
 DEBUG_LEVELS = [
@@ -31,6 +41,14 @@ OPTIONAL_HARDWARE_LABELS = {
     "gpio_chip": "GPIO chip",
     "pwm": "PWM chip",
 }
+
+
+def available_oled_pages(peripherals):
+    pages = []
+    for peripheral in peripherals:
+        if peripheral.startswith("oled_page_"):
+            pages.append(peripheral.removeprefix("oled_page_"))
+    return pages
 
 
 def _variant_source_label(detected):
@@ -323,11 +341,7 @@ def main():
     # oled
     if is_included(PERIPHERALS, "oled"):
         global AVAILABLE_PAGES
-        if help_requested:
-            AVAILABLE_PAGES = []
-        else:
-            from pm_auto.addons.oled import get_available_pages
-            AVAILABLE_PAGES = get_available_pages(PERIPHERALS)
+        AVAILABLE_PAGES = [] if help_requested else available_oled_pages(PERIPHERALS)
         parser.add_argument("-oe", "--oled-enable", nargs='?', default='', help="OLED enable True/true/on/On/1 or False/false/off/Off/0")
         parser.add_argument("-or", "--oled-rotation", nargs='?', default=-1, type=int, choices=[0, 180], help="Set to rotate OLED display, 0, 180")
         parser.add_argument("-op", "--oled-pages", nargs='?', default='', help=f"OLED pages, split by ',': {','.join(AVAILABLE_PAGES)}")
@@ -339,12 +353,9 @@ def main():
         parser.add_argument("-vu", "--vibration-switch-pull-up", nargs='?', default='', help="Vibration switch pull up True/False")
     # rgb_matrix
     if is_included(PERIPHERALS, "rgb_matrix"):
-        if help_requested:
-            EFFECT_LIST = []
-        else:
-            from pm_auto.addons.rgb_matrix import EFFECT_LIST
+        effect_list = [] if help_requested else RGB_MATRIX_EFFECT_LIST
         parser.add_argument("-rme", "--rgb-matrix-enable", nargs='?', default='', help="RGB enable True/False")
-        parser.add_argument("-rms", "--rgb-matrix-style",  nargs='?', default='', help=f"RGB style: {EFFECT_LIST}")
+        parser.add_argument("-rms", "--rgb-matrix-style",  nargs='?', default='', help=f"RGB style: {effect_list}")
         parser.add_argument("-rmc", "--rgb-matrix-color", nargs='?', default='', help='RGB color in hex format without # (e.g. 00aabb)')
         parser.add_argument("-rmc2", "--rgb-matrix-color2", nargs='?', default='', help='RGB color in hex format without # (e.g. 00aabb)')
         parser.add_argument("-rmp", "--rgb-matrix-speed", nargs='?', default='', help="RGB speed 0-100")
@@ -647,9 +658,6 @@ def main():
             if args.oled_sleep_timeout == None:
                 print(f"OLED sleep timeout: {get_system_config_value(current_config, 'oled_sleep_timeout')}")
             else:
-                from pm_auto.addons.oled import OLEDAddon
-                min = OLEDAddon.MIN_SLEEP_TIMEOUT
-                max = OLEDAddon.MAX_SLEEP_TIMEOUT
                 try:
                     args.oled_sleep_timeout = int(args.oled_sleep_timeout)
                 except ValueError:
@@ -659,9 +667,12 @@ def main():
                     print(f"Invalid value for OLED sleep timeout, it should be greater than or equal to 0")
                     quit()
                 oled_sleep_timeout = args.oled_sleep_timeout
-                if args.oled_sleep_timeout != 0 and (args.oled_sleep_timeout < min or args.oled_sleep_timeout > max):
-                    print(f"[WARNING] OLED sleep timeout value should be between {min} and {max}")
-                    oled_sleep_timeout = constrain(oled_sleep_timeout, min, max)
+                if args.oled_sleep_timeout != 0 and (
+                    args.oled_sleep_timeout < OLED_SLEEP_TIMEOUT_MIN
+                    or args.oled_sleep_timeout > OLED_SLEEP_TIMEOUT_MAX
+                ):
+                    print(f"[WARNING] OLED sleep timeout value should be between {OLED_SLEEP_TIMEOUT_MIN} and {OLED_SLEEP_TIMEOUT_MAX}")
+                    oled_sleep_timeout = constrain(oled_sleep_timeout, OLED_SLEEP_TIMEOUT_MIN, OLED_SLEEP_TIMEOUT_MAX)
                 new_sys_config['oled_sleep_timeout'] = oled_sleep_timeout
                 if oled_sleep_timeout == 0:
                     print("Set OLED sleep timeout: disabled")
@@ -742,8 +753,8 @@ def main():
             if args.rgb_matrix_style == None:
                 print(f"RGB Matrix style: {get_system_config_value(current_config, 'rgb_matrix_style')}")
             else:
-                if args.rgb_matrix_style not in EFFECT_LIST:
-                    print(f"Invalid value for RGB Matrix style: {args.rgb_matrix_style}, it should be one of {EFFECT_LIST}")
+                if args.rgb_matrix_style not in RGB_MATRIX_EFFECT_LIST:
+                    print(f"Invalid value for RGB Matrix style: {args.rgb_matrix_style}, it should be one of {RGB_MATRIX_EFFECT_LIST}")
                     quit()
                 new_sys_config['rgb_matrix_style'] = args.rgb_matrix_style
                 print(f"Set RGB Matrix style: {args.rgb_matrix_style}")
