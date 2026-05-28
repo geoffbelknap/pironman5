@@ -281,18 +281,29 @@ class SF_Installer():
                             ).readline().strip()
         return user
 
-    def run_command(self, cmd=""):
-        p = subprocess.Popen(cmd,
-                             shell=True,
-                             executable="/bin/bash",
-                             stdout=subprocess.PIPE,
-                             stderr=subprocess.PIPE,
-                             universal_newlines=True)
-        p.wait()
-        result = p.stdout.read()
-        error = p.stderr.read()
-        status = p.poll()
-        return status, result, error
+    def run_command(self, cmd=None):
+        if isinstance(cmd, (list, tuple)):
+            result = subprocess.run(
+                list(cmd),
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                text=True,
+                check=False,
+            )
+            return result.returncode, result.stdout, result.stderr
+        return self.run_shell_command(cmd or "")
+
+    def run_shell_command(self, cmd=""):
+        result = subprocess.run(
+            cmd,
+            shell=True,
+            executable="/bin/bash",
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+            check=False,
+        )
+        return result.returncode, result.stdout, result.stderr
 
     @staticmethod
     def shell_join(args):
