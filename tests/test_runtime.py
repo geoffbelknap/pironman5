@@ -11,9 +11,26 @@ class RuntimeTest(unittest.TestCase):
             LegacyHardwareRuntime(
                 config={},
                 peripherals=[
+                    "storage",
                     "cpu",
+                    "network",
+                    "memory",
+                    "history",
+                    "log",
+                    "cpu_temperature",
+                    "gpu_temperature",
+                    "temperature_unit",
+                    "clear_history",
+                    "delete_log_file",
+                    "debug_level",
+                    "ip_address",
+                    "mac_address",
+                    "restart_service",
+                    "reboot",
+                    "shutdown",
                     "system",
                     "gpio_fan_state",
+                    "gpio_fan_mode",
                     "gpio_fan_led",
                     "pi5_power_button",
                     "ws2812",
@@ -24,8 +41,46 @@ class RuntimeTest(unittest.TestCase):
                 log=None,
             )
 
-        kwargs = addons.call_args.kwargs
-        self.assertEqual(["cpu"], kwargs["peripherals"])
+        addons.assert_not_called()
+
+    def test_legacy_hardware_runtime_allows_local_modules_without_pm_auto(self):
+        from pironman5.runtime import LegacyHardwareRuntime
+
+        with mock.patch("pironman5.runtime.Addons", None):
+            runtime = LegacyHardwareRuntime(
+                config={},
+                peripherals=[
+                    "storage",
+                    "cpu",
+                    "network",
+                    "memory",
+                    "history",
+                    "log",
+                    "cpu_temperature",
+                    "gpu_temperature",
+                    "temperature_unit",
+                    "clear_history",
+                    "delete_log_file",
+                    "debug_level",
+                    "ip_address",
+                    "mac_address",
+                    "restart_service",
+                    "reboot",
+                    "shutdown",
+                    "system",
+                    "gpio_fan_state",
+                    "gpio_fan_mode",
+                    "gpio_fan_led",
+                    "pi5_power_button",
+                    "ws2812",
+                    "pwm_fan_speed",
+                ],
+                device_info={},
+                event=None,
+                log=None,
+            )
+
+        self.assertEqual([], runtime.peripherals)
 
     def test_runtime_connects_event_map_once_on_shared_event_bus(self):
         from pironman5.runtime import PironmanRuntime
