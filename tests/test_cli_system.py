@@ -188,6 +188,11 @@ class SystemCliTest(unittest.TestCase):
         self.assertIn("stop", output)
         self.assertIn("launch-browser", output)
         self.assertNotIn("--remove-dashboard", output)
+        self.assertNotIn("--enable-history", output)
+        self.assertNotIn("--database-retention-days", output)
+        self.assertNotIn("--debug-level", output)
+        self.assertNotIn("--rgb-brightness", output)
+        self.assertNotIn("--oled-enable", output)
         self.assertNotIn("{hardware", output)
 
     def test_stop_does_not_rewrite_config_file(self):

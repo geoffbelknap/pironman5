@@ -16,6 +16,7 @@ AVAILABLE_PAGES = []
 AVAILABLE_EMAIL_MODES = []
 OLED_SLEEP_TIMEOUT_MIN = 5
 OLED_SLEEP_TIMEOUT_MAX = 3600
+OLED_SLEEP_TIMEOUT_HELP = "OLED sleep timeout in seconds (set to 0 to disable timeout)"
 RGB_MATRIX_EFFECT_LIST = [
     "solid",
     "breathing",
@@ -322,40 +323,40 @@ def main():
 
     parser.add_argument("-v", "--version", action="store_true", help="Show version")
     parser.add_argument("-c", "--config", action="store_true", help="Show config")
-    parser.add_argument("-drd", "--database-retention-days", nargs='?', default='', help="Database retention days")
-    parser.add_argument("-dl", "--debug-level", nargs='?', default='', choices=DEBUG_LEVELS, help="Debug level")
+    parser.add_argument("-drd", "--database-retention-days", nargs='?', default='', help=argparse.SUPPRESS)
+    parser.add_argument("-dl", "--debug-level", nargs='?', default='', choices=DEBUG_LEVELS, help=argparse.SUPPRESS)
     parser.add_argument("-rd", "--remove-dashboard", action="store_true", help=argparse.SUPPRESS)
     parser.add_argument("-cp", "--config-path", nargs='?', default='', help="Config path")
-    parser.add_argument("-eh", "--enable-history", nargs='?', default='', help="Enable history, True/true/on/On/1 or False/false/off/Off/0")
+    parser.add_argument("-eh", "--enable-history", nargs='?', default='', help=argparse.SUPPRESS)
     # ws2812
     if is_included(PERIPHERALS, "ws2812"):
         from .runtime import RGB_STYLES
-        parser.add_argument("-re", "--rgb-enable", nargs='?', default='', help="RGB enable True/False")
-        parser.add_argument("-rs", "--rgb-style", nargs='?', default='', help=f"RGB style: {RGB_STYLES}")
-        parser.add_argument("-rc", "--rgb-color", nargs='?', default='', help='RGB color in hex format without # (e.g. 00aabb)')
-        parser.add_argument("-rb", "--rgb-brightness", nargs='?', default='', help="RGB brightness 0-100")
-        parser.add_argument("-rp", "--rgb-speed", nargs='?', default='', help="RGB speed 0-100")
-        parser.add_argument("-rl", "--rgb-led-count", nargs='?', default='', help="RGB LED count int")
+        parser.add_argument("-re", "--rgb-enable", nargs='?', default='', help=argparse.SUPPRESS)
+        parser.add_argument("-rs", "--rgb-style", nargs='?', default='', help=argparse.SUPPRESS)
+        parser.add_argument("-rc", "--rgb-color", nargs='?', default='', help=argparse.SUPPRESS)
+        parser.add_argument("-rb", "--rgb-brightness", nargs='?', default='', help=argparse.SUPPRESS)
+        parser.add_argument("-rp", "--rgb-speed", nargs='?', default='', help=argparse.SUPPRESS)
+        parser.add_argument("-rl", "--rgb-led-count", nargs='?', default='', help=argparse.SUPPRESS)
     # temperature_unit
     if is_included(PERIPHERALS, "temperature_unit"):
-        parser.add_argument("-u", "--temperature-unit", choices=["C", "F"], nargs='?', default='', help="Temperature unit")
+        parser.add_argument("-u", "--temperature-unit", choices=["C", "F"], nargs='?', default='', help=argparse.SUPPRESS)
     # gpio_fan_mode
     if is_included(PERIPHERALS, "gpio_fan_mode"):
         from .runtime import GPIO_FAN_MODES
-        parser.add_argument("-gm", "--gpio-fan-mode", nargs='?', default='', help=f"GPIO fan mode, {', '.join([f'{i}: {mode}' for i, mode in enumerate(GPIO_FAN_MODES)])}")
-        parser.add_argument("-gp", "--gpio-fan-pin", nargs='?', default='', help="GPIO fan pin")
+        parser.add_argument("-gm", "--gpio-fan-mode", nargs='?', default='', help=argparse.SUPPRESS)
+        parser.add_argument("-gp", "--gpio-fan-pin", nargs='?', default='', help=argparse.SUPPRESS)
     if is_included(PERIPHERALS, "gpio_fan_led"):
-        parser.add_argument("-fl", "--gpio-fan-led", nargs='?', default='', help="GPIO fan LED state on/off/follow")
-        parser.add_argument("-fp", "--gpio-fan-led-pin", nargs='?', default='', help="GPIO fan LED pin")
+        parser.add_argument("-fl", "--gpio-fan-led", nargs='?', default='', help=argparse.SUPPRESS)
+        parser.add_argument("-fp", "--gpio-fan-led-pin", nargs='?', default='', help=argparse.SUPPRESS)
     # oled
     if is_included(PERIPHERALS, "oled"):
         global AVAILABLE_PAGES
         AVAILABLE_PAGES = [] if help_requested else available_oled_pages(PERIPHERALS)
-        parser.add_argument("-oe", "--oled-enable", nargs='?', default='', help="OLED enable True/true/on/On/1 or False/false/off/Off/0")
-        parser.add_argument("-or", "--oled-rotation", nargs='?', default=-1, type=int, choices=[0, 180], help="Set to rotate OLED display, 0, 180")
-        parser.add_argument("-op", "--oled-pages", nargs='?', default='', help=f"OLED pages, split by ',': {','.join(AVAILABLE_PAGES)}")
+        parser.add_argument("-oe", "--oled-enable", nargs='?', default='', help=argparse.SUPPRESS)
+        parser.add_argument("-or", "--oled-rotation", nargs='?', default=-1, type=int, choices=[0, 180], help=argparse.SUPPRESS)
+        parser.add_argument("-op", "--oled-pages", nargs='?', default='', help=argparse.SUPPRESS)
         if is_included(PERIPHERALS, "oled_sleep"):
-            parser.add_argument("-os", "--oled-sleep-timeout", nargs='?', default='', help="OLED sleep timeout in seconds (set to 0 to disable timeout)")
+            parser.add_argument("-os", "--oled-sleep-timeout", nargs='?', default='', help=argparse.SUPPRESS)
     # vibration_switch
     if is_included(PERIPHERALS, "vibration_switch"):
         parser.add_argument("-vp", "--vibration-switch-pin", nargs='?', default='', help="Vibration switch pin")
