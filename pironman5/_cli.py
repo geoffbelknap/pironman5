@@ -19,6 +19,9 @@ DEBUG_LEVELS = [
     'DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL',
     'debug', 'info', 'warning', 'error', 'critical',
 ]
+EXTRA_CONFIG_DEFAULTS = {
+    'debug_level': 'INFO',
+}
 OPTIONAL_HARDWARE_LABELS = {
     "pipower5": "PiPower5 UPS",
     "rtl8125": "RTL8125 NIC",
@@ -127,6 +130,80 @@ def get_system_config_value(config, key, default=None):
     if default is None:
         default = SYSTEM_DEFAULT_CONFIG.get(key)
     return config.get('system', {}).get(key, default)
+
+
+def get_config_defaults():
+    defaults = dict(SYSTEM_DEFAULT_CONFIG)
+    for key, value in EXTRA_CONFIG_DEFAULTS.items():
+        defaults.setdefault(key, value)
+    return defaults
+
+
+def ensure_known_config_key(key):
+    defaults = get_config_defaults()
+    if key not in defaults:
+        print(f"Unknown config key: {key}")
+        quit()
+    return defaults[key]
+
+
+def format_config_value(value):
+    if isinstance(value, (list, dict)):
+        return json.dumps(value)
+    return str(value)
+
+
+def parse_config_value(key, raw_value):
+    default = ensure_known_config_key(key)
+    if key == 'debug_level':
+        if raw_value.lower() not in ['debug', 'info', 'warning', 'error', 'critical']:
+            print(f"Invalid debug level, it should be one of: debug, info, warning, error, critical")
+            quit()
+        return raw_value.upper()
+    if key == 'temperature_unit':
+        if raw_value not in ['C', 'F']:
+            print(f"Invalid value for Temperature unit, it should be C or F")
+            quit()
+        return raw_value
+    if isinstance(default, bool):
+        if raw_value in TRUE_LIST:
+            return True
+        if raw_value in FALSE_LIST:
+            return False
+        print(f"Invalid value for {key}, it should be True/true/on/On/1 or False/false/off/Off/0")
+        quit()
+    if isinstance(default, int):
+        try:
+            return int(raw_value)
+        except ValueError:
+            print(f"Invalid value for {key}, it should be an integer")
+            quit()
+    if isinstance(default, (list, dict)):
+        try:
+            value = json.loads(raw_value)
+        except json.JSONDecodeError:
+            print(f"Invalid value for {key}, it should be valid JSON")
+            quit()
+        if not isinstance(value, type(default)):
+            print(f"Invalid value for {key}, it should be a {type(default).__name__}")
+            quit()
+        return value
+    return raw_value
+
+
+def handle_config_command(args, current_config, config_path):
+    if args.config_action == 'get':
+        default = ensure_known_config_key(args.config_key)
+        value = get_system_config_value(current_config, args.config_key, default)
+        print(f"{args.config_key}: {format_config_value(value)}")
+        return
+    if args.config_action == 'set':
+        value = parse_config_value(args.config_key, args.config_value)
+        update_config_file({'system': {args.config_key: value}}, config_path)
+        print(f"Set {args.config_key}: {format_config_value(value)}")
+        return
+    print("Invalid config command")
+    quit()
 
 
 def handle_debug_level(args, current_config, new_sys_config):
@@ -270,6 +347,13 @@ def main():
             "pipower5",
             add_help=False  # 禁用子命令的-h处理，确保透传
         )
+    config_parser = subparsers.add_parser("config", help="Read or update config values")
+    config_subparsers = config_parser.add_subparsers(dest="config_action")
+    config_get_parser = config_subparsers.add_parser("get", help="Read a config value")
+    config_get_parser.add_argument("config_key", help="System config key")
+    config_set_parser = config_subparsers.add_parser("set", help="Update a config value")
+    config_set_parser.add_argument("config_key", help="System config key")
+    config_set_parser.add_argument("config_value", help="New value")
     detect_parser = subparsers.add_parser("detect", help="Detect variant and optional hardware")
     detect_parser.add_argument("--json", action="store_true", help="Print detection results as JSON")
     start_parser = subparsers.add_parser("start", help="Start Pironman5")
@@ -327,6 +411,9 @@ def main():
     # ----------------------------------------
     if args.config:
         print(json.dumps(current_config, indent=4))
+        return
+    if args.subcommand == 'config':
+        handle_config_command(args, current_config, config_path)
         return
 
     # get or set debug level
