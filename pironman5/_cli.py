@@ -25,6 +25,10 @@ EXTRA_CONFIG_DEFAULTS = {
 OPTIONAL_HARDWARE_LABELS = {
     "pipower5": "PiPower5 UPS",
     "rtl8125": "RTL8125 NIC",
+    "i2c_bus": "I2C bus",
+    "spi0": "SPI0 device",
+    "gpio_chip": "GPIO chip",
+    "pwm": "PWM chip",
 }
 
 

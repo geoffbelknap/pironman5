@@ -1,6 +1,14 @@
 from os import path, listdir, getenv
 
-from .hardware_policy import filter_enabled_modules, normalize_enabled_optional_hardware, probe_rtl8125
+from .hardware_policy import (
+    filter_enabled_modules,
+    normalize_enabled_optional_hardware,
+    probe_gpio_chip,
+    probe_i2c_bus,
+    probe_pwm,
+    probe_rtl8125,
+    probe_spi0,
+)
 from .modules import assemble
 from .products import PRODUCT_DEFINITIONS
 
@@ -158,6 +166,10 @@ def detect_optional_hardware():
     return {
         "pipower5": is_hat_eeprom and detected["variant_id"] == "2602",
         "rtl8125": probe_rtl8125(),
+        "i2c_bus": probe_i2c_bus(),
+        "spi0": probe_spi0(),
+        "gpio_chip": probe_gpio_chip(),
+        "pwm": probe_pwm(),
     }
 
 

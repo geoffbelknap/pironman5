@@ -41,6 +41,30 @@ def _read_sysfs_id(file_path):
         return None
 
 
+def probe_device_node(device_path):
+    return path.exists(device_path)
+
+
+def probe_i2c_bus(dev_root="/dev", bus=1):
+    return probe_device_node(path.join(dev_root, f"i2c-{bus}"))
+
+
+def probe_spi0(dev_root="/dev"):
+    return probe_device_node(path.join(dev_root, "spidev0.0"))
+
+
+def probe_gpio_chip(dev_root="/dev", chip=0):
+    return probe_device_node(path.join(dev_root, f"gpiochip{chip}"))
+
+
+def probe_pwm(sysfs_root="/sys/class/pwm"):
+    try:
+        device_names = listdir(sysfs_root)
+    except OSError:
+        return False
+    return any(device_name.startswith("pwmchip") for device_name in device_names)
+
+
 def probe_rtl8125(sysfs_root="/sys/bus/pci/devices"):
     try:
         device_names = listdir(sysfs_root)

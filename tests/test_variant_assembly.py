@@ -142,6 +142,31 @@ class VariantAssemblyTest(unittest.TestCase):
 
             self.assertFalse(probe_rtl8125(tmpdir))
 
+    def test_device_node_probe_detects_present_device(self):
+        from pironman5.variants.hardware_policy import probe_device_node
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            device = Path(tmpdir) / "i2c-1"
+            device.touch()
+
+            self.assertTrue(probe_device_node(str(device)))
+
+    def test_spi_probe_detects_spidev_node(self):
+        from pironman5.variants.hardware_policy import probe_spi0
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            (Path(tmpdir) / "spidev0.0").touch()
+
+            self.assertTrue(probe_spi0(tmpdir))
+
+    def test_pwm_probe_detects_pwmchip(self):
+        from pironman5.variants.hardware_policy import probe_pwm
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            (Path(tmpdir) / "pwmchip0").mkdir()
+
+            self.assertTrue(probe_pwm(tmpdir))
+
     def test_optional_hardware_reports_rtl8125_probe(self):
         from pironman5 import variants
 
@@ -149,6 +174,20 @@ class VariantAssemblyTest(unittest.TestCase):
             detected = variants.detect_optional_hardware()
 
         self.assertTrue(detected["rtl8125"])
+
+    def test_optional_hardware_reports_passive_capability_probes(self):
+        from pironman5 import variants
+
+        with mock.patch.object(variants, "probe_i2c_bus", return_value=True), \
+                mock.patch.object(variants, "probe_spi0", return_value=True), \
+                mock.patch.object(variants, "probe_gpio_chip", return_value=True), \
+                mock.patch.object(variants, "probe_pwm", return_value=True):
+            detected = variants.detect_optional_hardware()
+
+        self.assertTrue(detected["i2c_bus"])
+        self.assertTrue(detected["spi0"])
+        self.assertTrue(detected["gpio_chip"])
+        self.assertTrue(detected["pwm"])
 
     def test_capability_policy_filters_pipower5_from_profile_without_detection(self):
         from pironman5.variants.hardware_policy import filter_enabled_modules
