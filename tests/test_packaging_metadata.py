@@ -62,6 +62,13 @@ class PackagingMetadataTest(unittest.TestCase):
 
         self.assertFalse(any("pm_dashboard" in dependency for dependency in dependencies))
 
+    def test_package_init_does_not_contain_legacy_cli(self):
+        source = pathlib.Path("pironman5/__init__.py").read_text(encoding="utf-8")
+
+        self.assertNotIn("def main(", source)
+        self.assertNotIn("os.system", source)
+        self.assertNotIn("current_config['system']", source)
+
 
 if __name__ == "__main__":
     unittest.main()
