@@ -30,6 +30,13 @@ class RuntimeDependencyBoundaryTest(unittest.TestCase):
         self.assertNotIn("from pm_auto.pm_auto import PMAuto", source)
         self.assertIn("from .runtime import PironmanRuntime", source)
 
+    def test_pironman_entrypoint_does_not_require_pm_auto_at_import_time(self):
+        source = pathlib.Path("pironman5/pironman5.py").read_text(encoding="utf-8")
+
+        self.assertNotIn("from pm_auto import __version__ as pm_auto_version", source)
+        self.assertIn('metadata.version("pm_auto")', source)
+        self.assertIn("metadata.PackageNotFoundError", source)
+
     def test_ws2812_cli_uses_local_runtime_constants(self):
         source = pathlib.Path("pironman5/_cli.py").read_text(encoding="utf-8")
 

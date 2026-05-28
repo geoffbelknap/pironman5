@@ -1,10 +1,9 @@
 import json
 import time
 import os
-from importlib.resources import files as resource_files
+from importlib import metadata
 import signal
 
-from pm_auto import __version__ as pm_auto_version
 from .logger import Logger
 from .utils import merge_dict, log_error
 from .security import redact_secrets, write_json_private
@@ -17,6 +16,12 @@ from .runtime import PironmanRuntime
 
 log = Logger(APP_NAME)
 __package_name__ = __name__.split('.')[0]
+
+pm_auto_version = None
+try:
+    pm_auto_version = metadata.version("pm_auto")
+except metadata.PackageNotFoundError:
+    pass
 
 PMDashboard = None
 try:
@@ -104,7 +109,10 @@ class Pironman5:
         for line in _device_info_json.splitlines():
             self.log.info(line)
 
-        self.log.info(f"PM_Auto version: {pm_auto_version}")
+        if pm_auto_version is None:
+            self.log.info('PM Auto not installed; legacy hardware modules remain unavailable')
+        else:
+            self.log.info(f"PM_Auto version: {pm_auto_version}")
         if PMDashboard is not None:
             self.log.info(f"PM_Dashboard version: {pm_dashboard_version}")
 
