@@ -208,6 +208,7 @@ def parse_install_args(argv=None, parser=None):
     parser.add_argument("--enable-dashboard", action="store_true", help="Enable dashboard components")
     parser.add_argument("--enable-ups", action="store_true", help="Enable PiPower5 UPS components")
     parser.add_argument("--enable-experimental-dependency", action="append", default=[], help="Enable a named experimental dependency")
+    parser.add_argument("--legacy-installer", action="store_true", help="Run the deprecated install.py workflow")
     parser.add_argument("--disable-dashboard", action="store_true", help=argparse.SUPPRESS)
     return parser.parse_args(argv)
 
@@ -354,6 +355,15 @@ def main(argv=None):
     print(variant_description)
     if args.print_variant:
         return
+    if not args.legacy_installer:
+        print("")
+        print("install.py is deprecated and no longer runs the legacy root installer by default.")
+        print("Use the package CLI system setup flow instead:")
+        print("")
+        print(f"  sudo pironman5 system setup --variant {variant_key}")
+        print("")
+        print("To run the old compatibility path explicitly, pass --legacy-installer.")
+        return 2
     installer_obj.friendly_name = get_product_definition(variant_key)["name"]
     names = resolve_enabled_setting_names(args)
     apply_settings_by_name(installer_obj, names)
@@ -364,4 +374,4 @@ def main(argv=None):
 
 
 if __name__ == "__main__":
-    main()
+    raise SystemExit(main())

@@ -81,25 +81,17 @@ To also remove `/opt/pironman5` and logs, use:
 sudo pironman5 system uninstall --purge
 ```
 
-The legacy installer remains available for compatibility:
+The legacy `install.py` entry point now prints migration guidance by default.
+Use it only if you explicitly need the old compatibility workflow:
 
 ```bash
 git clone https://github.com/geoffbelknap/pironman5.git
 cd pironman5
-sudo python3 install.py
+sudo python3 install.py --legacy-installer
 ```
 
-Dashboard and graph history are optional.
-
-```bash
-sudo python3 install.py --enable-dashboard
-```
-
-The default history backend is SQLite. The old InfluxDB path is legacy-only:
-
-```bash
-sudo python3 install.py --enable-dashboard --enable-influxdb-legacy
-```
+Dashboard and graph history are optional package extras. The default history
+backend is SQLite. The old InfluxDB path is no longer installed by default.
 
 ## Auto launch dashboard on browser
 
