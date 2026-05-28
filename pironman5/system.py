@@ -3,6 +3,7 @@ import grp
 import json
 import os
 import pwd
+import shutil
 import subprocess
 import sys
 from dataclasses import dataclass
@@ -21,6 +22,11 @@ SERVICE_VENV = Path("/opt/pironman5-venv")
 LOG_DIR = Path("/var/log/pironman5")
 SERVICE_NAME = "pironman5.service"
 SERVICE_USER = "pironman5"
+REMOVABLE_TREES = {
+    SERVICE_VENV,
+    WORK_DIR,
+    LOG_DIR,
+}
 
 
 @dataclass(frozen=True)
@@ -51,6 +57,8 @@ class Command:
                 f"{shlex.quote(str(SERVICE_VENV / 'bin' / 'pip'))} install --upgrade {shlex.quote(str(install_spec))}",
                 f"chmod -R go-w {shlex.quote(str(SERVICE_VENV))}",
             ])
+        if self.args[0] == "remove-tree":
+            return f"rm -rf {shlex.quote(str(self.args[1]))}"
         return " ".join(shlex.quote(str(arg)) for arg in self.args)
 
 
@@ -135,7 +143,7 @@ def _create_or_refresh_venv_commands(refresh_venv):
     install_spec = _install_spec()
     if refresh_venv:
         return [
-            Command("Remove service application venv", ("rm", "-rf", str(SERVICE_VENV))),
+            Command("Remove service application venv", ("remove-tree", str(SERVICE_VENV))),
             Command("Create service application venv directory", ("install", "-d", "-m", "0755", "-o", "root", "-g", "root", str(SERVICE_VENV))),
             Command("Create service application venv", ("python3", "-m", "venv", str(SERVICE_VENV))),
             Command("Upgrade service application installer", (str(SERVICE_VENV / "bin" / "pip"), "install", "--upgrade", "pip")),
@@ -195,7 +203,7 @@ def uninstall_commands(variant, purge=False):
         Command("Disable service", ("systemctl", "disable", SERVICE_NAME)),
         Command("Remove service file", ("rm", "-f", str(SERVICE_FILE))),
         Command("Remove CLI wrapper", ("rm", "-f", str(WRAPPER_FILE))),
-        Command("Remove service application venv", ("rm", "-rf", str(SERVICE_VENV))),
+        Command("Remove service application venv", ("remove-tree", str(SERVICE_VENV))),
         Command("Remove module load config", ("rm", "-f", str(MODULES_FILE))),
         Command("Remove udev rules", ("rm", "-f", str(UDEV_RULES_FILE))),
     ]
@@ -203,8 +211,8 @@ def uninstall_commands(variant, purge=False):
         commands.append(Command(f"Remove overlay {overlay}", ("rm", "-f", str(overlay_dir / overlay))))
     if purge:
         commands.extend([
-            Command("Remove runtime state", ("rm", "-rf", str(WORK_DIR))),
-            Command("Remove logs", ("rm", "-rf", str(LOG_DIR))),
+            Command("Remove runtime state", ("remove-tree", str(WORK_DIR))),
+            Command("Remove logs", ("remove-tree", str(LOG_DIR))),
         ])
     commands.append(Command("Reload systemd", ("systemctl", "daemon-reload")))
     return commands
@@ -246,6 +254,12 @@ def _run_internal_command(command):
         return True
     if action == "ensure-service-venv":
         _run_service_venv_bootstrap(command.args[1])
+        return True
+    if action == "remove-tree":
+        path = Path(command.args[1])
+        if path not in REMOVABLE_TREES:
+            raise ValueError(f"Refusing to remove unapproved tree: {path}")
+        shutil.rmtree(path, ignore_errors=True)
         return True
     return False
 

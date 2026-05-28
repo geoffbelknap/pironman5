@@ -514,6 +514,25 @@ class SystemCliTest(unittest.TestCase):
         self.assertIn("python3 -m venv /opt/pironman5-venv", output)
         self.assertIn("/opt/pironman5-venv/bin/pip install --upgrade", output)
 
+    def test_system_removal_commands_use_guarded_internal_actions(self):
+        from pironman5 import system
+
+        _variant_key, setup_refresh_commands = system.setup_commands("max", refresh_venv=True)
+        uninstall_commands = system.uninstall_commands("max", purge=True)
+        commands = [*setup_refresh_commands, *uninstall_commands]
+
+        self.assertFalse(any(command.args[:2] == ("rm", "-rf") for command in commands))
+        self.assertTrue(any(command.args == ("remove-tree", str(system.SERVICE_VENV)) for command in commands))
+        self.assertTrue(any(command.args == ("remove-tree", str(system.WORK_DIR)) for command in commands))
+
+    def test_guarded_tree_removal_rejects_unapproved_paths(self):
+        from pironman5 import system
+
+        command = system.Command("Remove unsafe tree", ("remove-tree", "/tmp"))
+
+        with self.assertRaisesRegex(ValueError, "Refusing to remove unapproved tree"):
+            system._run_internal_command(command)
+
     def test_system_doctor_reports_missing_setup_files(self):
         from pironman5 import system
 
