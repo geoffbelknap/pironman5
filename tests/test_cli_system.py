@@ -568,6 +568,13 @@ class SystemCliTest(unittest.TestCase):
 
         self.assertNotIn("legacy-hardware", ensure_venv.args[1])
 
+    def test_system_setup_skips_legacy_extra_for_rtl8125_only_profile(self):
+        from pironman5 import system
+
+        product = {"modules": ["rtl8125"], "dt_overlays": [], "config_txt": {}}
+
+        self.assertEqual((), system._service_package_extras(product))
+
     def test_system_setup_skips_ups_extra_without_pipower5_hardware(self):
         from pironman5 import system
 

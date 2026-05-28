@@ -82,6 +82,20 @@ class RuntimeTest(unittest.TestCase):
 
         self.assertEqual([], runtime.peripherals)
 
+    def test_legacy_hardware_runtime_treats_rtl8125_as_local_setup_only(self):
+        from pironman5.runtime import LegacyHardwareRuntime
+
+        with mock.patch("pironman5.runtime.Addons", None):
+            runtime = LegacyHardwareRuntime(
+                config={},
+                peripherals=["rtl8125"],
+                device_info={},
+                event=None,
+                log=None,
+            )
+
+        self.assertEqual([], runtime.peripherals)
+
     def test_runtime_connects_event_map_once_on_shared_event_bus(self):
         from pironman5.runtime import PironmanRuntime
 

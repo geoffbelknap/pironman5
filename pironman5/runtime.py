@@ -111,6 +111,7 @@ LOCAL_PERIPHERALS = {
     "ws2812",
     "pwm_fan_speed",
     "pwm_fan",
+    "rtl8125",
 }
 RGB_STYLES = ["solid", "breathing", "flow", "flow_reverse", "rainbow", "rainbow_reverse", "hue_cycle"]
 
