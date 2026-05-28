@@ -11,13 +11,15 @@ from importlib import metadata
 from importlib.resources import files as resource_files
 from pathlib import Path
 
-from .variants import PRODUCT_DEFINITIONS, detect_hardware_variant, get_product_definition, normalize_variant_key
+from .variants import PRODUCT_DEFINITIONS, detect_hardware_variant, detect_optional_hardware, get_product_definition, normalize_variant_key
+from .variants.hardware_policy import filter_enabled_modules, normalize_enabled_optional_hardware
 
 MODULES_FILE = Path("/etc/modules-load.d/pironman5.conf")
 SERVICE_FILE = Path("/etc/systemd/system/pironman5.service")
 UDEV_RULES_FILE = Path("/etc/udev/rules.d/99-com.rules")
 WRAPPER_FILE = Path("/usr/local/bin/pironman5")
 WORK_DIR = Path("/opt/pironman5")
+OPTIONAL_HARDWARE_FILE = WORK_DIR / ".enabled_optional_hardware"
 SERVICE_VENV = Path("/opt/pironman5-venv")
 LOG_DIR = Path("/var/log/pironman5")
 SERVICE_NAME = "pironman5.service"
@@ -122,6 +124,17 @@ def _variant_product(variant):
     return variant_key, source, get_product_definition(variant_key)
 
 
+def _setup_product(variant, enabled_optional_hardware=None):
+    variant_key, source, product = _variant_product(variant)
+    product = dict(product)
+    product["modules"] = filter_enabled_modules(
+        product.get("modules", []),
+        detected_hardware=detect_optional_hardware(),
+        enabled_optional_hardware=enabled_optional_hardware,
+    )
+    return variant_key, source, product
+
+
 def _wrapper_source():
     return f"""#!{SERVICE_VENV / "bin" / "python"}
 from pironman5._cli import main
@@ -160,17 +173,30 @@ def _install_spec(extras=()):
 
 
 def _service_package_extras(product):
+    extras = []
     modules = set(product.get("modules", []))
     if modules & LEGACY_HARDWARE_MODULES:
-        return ("legacy-hardware",)
-    return ()
+        extras.append("legacy-hardware")
+    if "pipower5" in modules:
+        extras.append("ups")
+    return tuple(extras)
 
 
 def _installed_variant_product():
     marker = _variant_marker()
     if marker in PRODUCT_DEFINITIONS:
-        return get_product_definition(marker)
+        _variant_key, _source, product = _setup_product(marker, _enabled_optional_hardware_marker())
+        return product
     return {}
+
+
+def _enabled_optional_hardware_marker():
+    try:
+        if not OPTIONAL_HARDWARE_FILE.exists():
+            return set()
+        return normalize_enabled_optional_hardware(OPTIONAL_HARDWARE_FILE.read_text(encoding="utf-8").splitlines())
+    except OSError:
+        return set()
 
 
 def _create_or_refresh_venv_commands(refresh_venv, product=None):
@@ -199,8 +225,8 @@ def upgrade_service_commands():
     return commands
 
 
-def setup_commands(variant, refresh_venv=False):
-    variant_key, _source, product = _variant_product(variant)
+def setup_commands(variant, refresh_venv=False, enabled_optional_hardware=None):
+    variant_key, _source, product = _setup_product(variant, enabled_optional_hardware)
     overlay_dir = _overlay_dir()
     commands = [
         Command("Create service group", ("ensure-group", SERVICE_USER)),
@@ -211,6 +237,7 @@ def setup_commands(variant, refresh_venv=False):
     commands.extend(_create_or_refresh_venv_commands(refresh_venv, product))
     commands.extend([
         Command("Write selected variant", ("install", "-m", "0640", "-o", SERVICE_USER, "-g", SERVICE_USER, "/dev/stdin", str(WORK_DIR / ".variant"))),
+        Command("Write enabled optional hardware", ("install", "-m", "0640", "-o", SERVICE_USER, "-g", SERVICE_USER, "/dev/stdin", str(OPTIONAL_HARDWARE_FILE))),
         Command("Install CLI wrapper", ("install", "-m", "0755", "-o", "root", "-g", "root", "/dev/stdin", str(WRAPPER_FILE))),
         Command("Install udev rules", ("install", "-m", "0644", "-o", "root", "-g", "root", str(_asset_path("bin", "99-com.rules")), str(UDEV_RULES_FILE))),
         Command("Write module load config", ("install", "-m", "0644", "-o", "root", "-g", "root", "/dev/stdin", str(MODULES_FILE))),
@@ -480,6 +507,7 @@ def build_parser():
     plan.add_argument("--variant", choices=variant_choices, default="auto", type=normalize_variant_key)
     setup = subparsers.add_parser("setup", help="Apply privileged system integration")
     setup.add_argument("--variant", choices=variant_choices, default="auto", type=normalize_variant_key)
+    setup.add_argument("--enable-optional-hardware", action="append", default=[], choices=["pipower5"], help="Enable optional hardware that was not auto-detected")
     setup.add_argument("--refresh-venv", action="store_true", help="Recreate and reinstall the root-owned service virtualenv")
     setup.add_argument("--dry-run", action="store_true", help="Print commands without changing the system")
     doctor = subparsers.add_parser("doctor", help="Check privileged system integration")
@@ -500,12 +528,18 @@ def main(argv=None):
     if args.command == "plan":
         print("\n".join(_plan_lines(args.variant)))
     elif args.command == "setup":
-        variant_key, commands = setup_commands(args.variant, refresh_venv=args.refresh_venv)
+        enabled_optional_hardware = normalize_enabled_optional_hardware(args.enable_optional_hardware)
+        variant_key, commands = setup_commands(
+            args.variant,
+            refresh_venv=args.refresh_venv,
+            enabled_optional_hardware=enabled_optional_hardware,
+        )
         _run_commands(
             commands,
             args.dry_run,
             {
                 "Write selected variant": f"{variant_key}\n",
+                "Write enabled optional hardware": "".join(f"{name}\n" for name in sorted(enabled_optional_hardware)),
                 "Install CLI wrapper": _wrapper_source(),
                 "Write module load config": "i2c-dev\n",
             },
