@@ -402,7 +402,7 @@ def main():
         pironman5.start()
         return
     if args.subcommand == 'stop':
-        subprocess.run(["pkill", "-f", "pironman5"], check=False)
+        subprocess.run(["systemctl", "stop", "pironman5.service"], check=False)
         return
     if args.subcommand == 'launch-browser':
         handle_launch_browser(args.auto_start, TRUE_LIST, FALSE_LIST)
