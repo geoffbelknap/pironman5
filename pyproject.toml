@@ -29,10 +29,12 @@ dependencies = [
   "adafruit-circuitpython-typing",
   "Adafruit-PureIO>=1.1.7",
   "pyftdi>=0.40.0",
-  "pm_auto @ git+https://github.com/geoffbelknap/pm_auto.git@b00dd490ce498e963c352876801b5cb4e59c4bd2",
 ]
 
 [project.optional-dependencies]
+legacy-hardware = [
+  "pm_auto @ git+https://github.com/geoffbelknap/pm_auto.git@b00dd490ce498e963c352876801b5cb4e59c4bd2",
+]
 dashboard = [
   "pm_dashboard @ git+https://github.com/geoffbelknap/pm_dashboard.git@7a347dd84115949e916811cfe536172cb44cadf0",
 ]

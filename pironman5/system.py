@@ -27,6 +27,15 @@ REMOVABLE_TREES = {
     WORK_DIR,
     LOG_DIR,
 }
+LEGACY_HARDWARE_MODULES = {
+    "oled",
+    "oled_ups_pages",
+    "pipower5",
+    "pironman_mcu",
+    "rtl8125",
+    "sf_rgb_led",
+    "vibration_switch",
+}
 
 
 @dataclass(frozen=True)
@@ -122,25 +131,50 @@ if __name__ == "__main__":
 """
 
 
-def _install_spec():
+def _with_extras(install_spec, extras):
+    if not extras:
+        return install_spec
+    extras_spec = ",".join(sorted(extras))
+    if install_spec.startswith(("git+", "file://")):
+        return f"pironman5[{extras_spec}] @ {install_spec}"
+    return f"{install_spec}[{extras_spec}]"
+
+
+def _install_spec(extras=()):
     try:
         direct_url = metadata.distribution("pironman5").read_text("direct_url.json")
     except metadata.PackageNotFoundError:
         direct_url = None
+    install_spec = str(Path(__file__).resolve().parents[1])
     if direct_url:
         data = json.loads(direct_url)
         url = data.get("url")
         vcs_info = data.get("vcs_info", {})
         revision = vcs_info.get("requested_revision") or vcs_info.get("commit_id")
         if data.get("vcs_info", {}).get("vcs") == "git" and url and revision:
-            return f"git+{url}@{revision}"
+            install_spec = f"git+{url}@{revision}"
+            return _with_extras(install_spec, extras)
         if url and data.get("dir_info", {}).get("editable") is not None:
-            return url
-    return str(Path(__file__).resolve().parents[1])
+            install_spec = url
+    return _with_extras(install_spec, extras)
 
 
-def _create_or_refresh_venv_commands(refresh_venv):
-    install_spec = _install_spec()
+def _service_package_extras(product):
+    modules = set(product.get("modules", []))
+    if modules & LEGACY_HARDWARE_MODULES:
+        return ("legacy-hardware",)
+    return ()
+
+
+def _installed_variant_product():
+    marker = _variant_marker()
+    if marker in PRODUCT_DEFINITIONS:
+        return get_product_definition(marker)
+    return {}
+
+
+def _create_or_refresh_venv_commands(refresh_venv, product=None):
+    install_spec = _install_spec(_service_package_extras(product or {}))
     if refresh_venv:
         return [
             Command("Remove service application venv", ("remove-tree", str(SERVICE_VENV))),
@@ -157,7 +191,7 @@ def _create_or_refresh_venv_commands(refresh_venv):
 
 
 def upgrade_service_commands():
-    commands = _create_or_refresh_venv_commands(refresh_venv=True)
+    commands = _create_or_refresh_venv_commands(refresh_venv=True, product=_installed_variant_product())
     commands.extend([
         Command("Install CLI wrapper", ("install", "-m", "0755", "-o", "root", "-g", "root", "/dev/stdin", str(WRAPPER_FILE))),
         Command("Restart service", ("systemctl", "restart", SERVICE_NAME)),
@@ -174,7 +208,7 @@ def setup_commands(variant, refresh_venv=False):
         Command("Create service home", ("install", "-d", "-m", "0750", "-o", SERVICE_USER, "-g", SERVICE_USER, str(WORK_DIR))),
         Command("Create log directory", ("install", "-d", "-m", "0750", "-o", SERVICE_USER, "-g", SERVICE_USER, str(LOG_DIR))),
     ]
-    commands.extend(_create_or_refresh_venv_commands(refresh_venv))
+    commands.extend(_create_or_refresh_venv_commands(refresh_venv, product))
     commands.extend([
         Command("Write selected variant", ("install", "-m", "0640", "-o", SERVICE_USER, "-g", SERVICE_USER, "/dev/stdin", str(WORK_DIR / ".variant"))),
         Command("Install CLI wrapper", ("install", "-m", "0755", "-o", "root", "-g", "root", "/dev/stdin", str(WRAPPER_FILE))),
@@ -328,9 +362,9 @@ def _wrapper_target():
 
 def _variant_marker():
     variant_path = WORK_DIR / ".variant"
-    if not variant_path.exists():
-        return "missing"
     try:
+        if not variant_path.exists():
+            return "missing"
         return variant_path.read_text(encoding="utf-8").strip() or "empty"
     except OSError:
         return "unreadable"

@@ -30,11 +30,11 @@ class PackagingMetadataTest(unittest.TestCase):
             "adafruit-circuitpython-typing",
             "Adafruit-PureIO>=1.1.7",
             "pyftdi>=0.40.0",
-            "pm_auto @ git+https://github.com/geoffbelknap/pm_auto.git@b00dd490ce498e963c352876801b5cb4e59c4bd2",
         }
 
         self.assertTrue(expected.issubset(dependencies))
         self.assertFalse(any("sf_rpi_status" in dependency for dependency in dependencies))
+        self.assertFalse(any("pm_auto" in dependency for dependency in dependencies))
 
     def test_optional_dependency_extras_are_declared(self):
         optional = self.data["project"]["optional-dependencies"]
@@ -51,6 +51,11 @@ class PackagingMetadataTest(unittest.TestCase):
         )
         self.assertIn("rgb-matrix", optional)
         self.assertIn("numpy", optional["rgb-matrix"])
+        self.assertIn("legacy-hardware", optional)
+        self.assertIn(
+            "pm_auto @ git+https://github.com/geoffbelknap/pm_auto.git@b00dd490ce498e963c352876801b5cb4e59c4bd2",
+            optional["legacy-hardware"],
+        )
 
     def test_legacy_influxdb_is_not_installed_by_package_metadata(self):
         serialized = str(self.data["project"])

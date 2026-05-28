@@ -90,8 +90,11 @@ cd pironman5
 sudo python3 install.py --legacy-installer
 ```
 
-Dashboard and graph history are optional package extras. The default history
-backend is SQLite. The old InfluxDB path is no longer installed by default.
+Dashboard, graph history, and legacy hardware drivers are optional package
+extras. `pironman5 system setup` installs the legacy hardware extra into the
+service environment only when the selected case profile needs it. The default
+history backend is SQLite. The old InfluxDB path is no longer installed by
+default.
 
 ## Auto launch dashboard on browser
 
@@ -143,9 +146,9 @@ Clone the dependency you want to debug or edit. Treat SunFounder dependencies
 as unreviewed until pinned to an audited fork or exact commit.
 
 ```bash
-git clone https://github.com/sunfounder/pironman5.git
-git clone https://github.com/sunfounder/pm_dashboard.git
-git clone https://github.com/sunfounder/pm_auto.git
+git clone https://github.com/geoffbelknap/pironman5.git
+git clone https://github.com/geoffbelknap/pm_dashboard.git
+git clone https://github.com/geoffbelknap/pm_auto.git
 ```
 
 Make adjustments, then manually install from local folders. Avoid floating Git
@@ -154,7 +157,7 @@ installs in hardened deployments.
 ```bash
 # install from folder
 sudo /opt/pironman5-venv/bin/pip uninstall pironman5 -y
-sudo /opt/pironman5-venv/bin/pip install ~/pironman5 --no-build-isolation
+sudo /opt/pironman5-venv/bin/pip install "$HOME/pironman5[legacy-hardware]" --no-build-isolation
 
 sudo /opt/pironman5-venv/bin/pip uninstall pm_auto -y
 sudo /opt/pironman5-venv/bin/pip install ~/pm_auto --no-build-isolation

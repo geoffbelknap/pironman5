@@ -534,6 +534,22 @@ class SystemCliTest(unittest.TestCase):
         self.assertFalse(any(command.args[:2] == ("sh", "-c") for command in commands))
         self.assertTrue(any(command.args[0] == "ensure-service-venv" for command in commands))
 
+    def test_system_setup_installs_legacy_extra_for_legacy_variant(self):
+        from pironman5 import system
+
+        _variant_key, commands = system.setup_commands("max")
+        ensure_venv = next(command for command in commands if command.args[0] == "ensure-service-venv")
+
+        self.assertIn("[legacy-hardware]", ensure_venv.args[1])
+
+    def test_system_setup_skips_legacy_extra_for_local_only_variant(self):
+        from pironman5 import system
+
+        _variant_key, commands = system.setup_commands("mini")
+        ensure_venv = next(command for command in commands if command.args[0] == "ensure-service-venv")
+
+        self.assertNotIn("legacy-hardware", ensure_venv.args[1])
+
     def test_system_setup_refresh_venv_reinstalls_service_environment(self):
         from pironman5 import _cli
 
@@ -603,6 +619,19 @@ class SystemCliTest(unittest.TestCase):
         self.assertIn("python3 -m venv /opt/pironman5-venv", output)
         self.assertIn("/opt/pironman5-venv/bin/pip install --upgrade", output)
         self.assertIn("systemctl restart pironman5.service", output)
+
+    def test_system_upgrade_service_uses_installed_variant_extra(self):
+        from pironman5 import system
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            work_dir = Path(tmpdir)
+            (work_dir / ".variant").write_text("max\n", encoding="utf-8")
+
+            with mock.patch.object(system, "WORK_DIR", work_dir):
+                commands = system.upgrade_service_commands()
+
+        install = next(command for command in commands if command.description == "Install service application package")
+        self.assertIn("[legacy-hardware]", install.args[-1])
 
     def test_service_install_info_does_not_import_from_current_checkout(self):
         from pironman5 import system
