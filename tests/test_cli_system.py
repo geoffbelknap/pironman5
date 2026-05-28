@@ -603,7 +603,7 @@ class SystemCliTest(unittest.TestCase):
         from pironman5 import _cli
 
         stdout = io.StringIO()
-        argv = ["pironman5", "system", "setup", "--variant", "max", "--refresh-venv", "--dry-run"]
+        argv = ["pironman5", "system", "setup", "--variant", "max", "--fresh", "--dry-run"]
         with mock.patch.object(sys, "argv", argv):
             with contextlib.redirect_stdout(stdout):
                 _cli.main()
@@ -658,7 +658,7 @@ class SystemCliTest(unittest.TestCase):
         from pironman5 import _cli
 
         stdout = io.StringIO()
-        argv = ["pironman5", "system", "upgrade-service", "--dry-run"]
+        argv = ["pironman5", "system", "update", "--dry-run"]
         with mock.patch.object(sys, "argv", argv):
             with contextlib.redirect_stdout(stdout):
                 _cli.main()
@@ -761,9 +761,36 @@ class SystemCliTest(unittest.TestCase):
 
         self.assertIn("primary install path", readme)
         self.assertIn("/opt/pironman5-venv", readme)
-        self.assertIn("system upgrade-service", readme)
+        self.assertIn("system update", readme)
+        self.assertNotIn("system upgrade-service", readme)
         self.assertIn("pipx reinstall pironman5", readme)
         self.assertNotIn("moving toward a split install model", readme)
+
+    def test_system_help_uses_update_command(self):
+        from pironman5 import system
+
+        stdout = io.StringIO()
+        with contextlib.redirect_stdout(stdout):
+            with self.assertRaises(SystemExit) as exit_context:
+                system.main(["--help"])
+
+        self.assertEqual(0, exit_context.exception.code)
+        output = stdout.getvalue()
+        self.assertIn("update", output)
+        self.assertNotIn("upgrade-service", output)
+
+    def test_system_setup_help_uses_fresh_flag(self):
+        from pironman5 import system
+
+        stdout = io.StringIO()
+        with contextlib.redirect_stdout(stdout):
+            with self.assertRaises(SystemExit) as exit_context:
+                system.main(["setup", "--help"])
+
+        self.assertEqual(0, exit_context.exception.code)
+        output = stdout.getvalue()
+        self.assertIn("--fresh", output)
+        self.assertNotIn("--refresh-venv", output)
 
 
 if __name__ == "__main__":

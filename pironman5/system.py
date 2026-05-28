@@ -500,7 +500,7 @@ def _install_drift(user_info, service_info):
 
 def build_parser():
     parser = argparse.ArgumentParser(prog="pironman5 system", description="Manage Pironman 5 system integration")
-    subparsers = parser.add_subparsers(dest="command", required=True)
+    subparsers = parser.add_subparsers(dest="command", required=True, metavar="{plan,setup,doctor,uninstall,update}")
 
     variant_choices = ["auto", *sorted(PRODUCT_DEFINITIONS)]
     plan = subparsers.add_parser("plan", help="Show privileged setup actions without changing the system")
@@ -509,7 +509,8 @@ def build_parser():
     setup.add_argument("--variant", choices=variant_choices, default="auto", type=normalize_variant_key)
     setup.add_argument("--with", dest="enabled_hardware", action="append", default=[], choices=["pipower5"], help="Enable hardware that was not auto-detected")
     setup.add_argument("--enable-optional-hardware", dest="enabled_hardware", action="append", choices=["pipower5"], help=argparse.SUPPRESS)
-    setup.add_argument("--refresh-venv", action="store_true", help="Recreate and reinstall the root-owned service virtualenv")
+    setup.add_argument("--fresh", dest="refresh_venv", action="store_true", help="Recreate the service install")
+    setup.add_argument("--refresh-venv", dest="refresh_venv", action="store_true", help=argparse.SUPPRESS)
     setup.add_argument("--dry-run", action="store_true", help="Print commands without changing the system")
     doctor = subparsers.add_parser("doctor", help="Check privileged system integration")
     doctor.add_argument("--variant", choices=variant_choices, default="auto", type=normalize_variant_key)
@@ -517,14 +518,19 @@ def build_parser():
     uninstall.add_argument("--variant", choices=variant_choices, default="auto", type=normalize_variant_key)
     uninstall.add_argument("--purge", action="store_true", help="Also remove runtime state and logs")
     uninstall.add_argument("--dry-run", action="store_true", help="Print commands without changing the system")
-    upgrade = subparsers.add_parser("upgrade-service", help="Refresh the root-owned service virtualenv and restart the service")
+    upgrade = subparsers.add_parser("update", help="Refresh the service install and restart")
     upgrade.add_argument("--dry-run", action="store_true", help="Print commands without changing the system")
-
     return parser
 
 
 def main(argv=None):
     parser = build_parser()
+    if argv is None:
+        argv = sys.argv[1:]
+    else:
+        argv = list(argv)
+    if argv and argv[0] == "upgrade-service":
+        argv[0] = "update"
     args = parser.parse_args(argv)
     if args.command == "plan":
         print("\n".join(_plan_lines(args.variant)))
@@ -549,7 +555,7 @@ def main(argv=None):
         print("\n".join(_doctor_lines(args.variant)))
     elif args.command == "uninstall":
         _run_commands(uninstall_commands(args.variant, purge=args.purge), args.dry_run)
-    elif args.command == "upgrade-service":
+    elif args.command == "update":
         _run_commands(
             upgrade_service_commands(),
             args.dry_run,
