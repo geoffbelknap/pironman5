@@ -263,12 +263,15 @@ def resolve_enabled_setting_names(args, peripherals=None):
         names.append("pi5_power_button")
     if "rgb_matrix" in peripherals:
         names.append("rgb_matrix")
-    if "rtl8125" in peripherals and "rtl8125" in args.enable_experimental_dependency:
+    if (
+        "rtl8125" in peripherals
+        and (optional_hardware.get("rtl8125") or "rtl8125" in args.enable_experimental_dependency)
+    ):
         names.append("rtl8125")
 
     if args.enable_dashboard:
         names.append("dashboard")
-    if args.enable_ups or optional_hardware["pipower5"]:
+    if args.enable_ups or optional_hardware.get("pipower5"):
         names.append("pipower5")
 
     return names

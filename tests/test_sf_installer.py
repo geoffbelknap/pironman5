@@ -396,12 +396,32 @@ class InstallSettingsPolicyTest(unittest.TestCase):
         import install
 
         args = install.parse_install_args([])
-        names = install.resolve_enabled_setting_names(args, peripherals=["rtl8125"])
+        with unittest.mock.patch(
+            "install.detect_optional_hardware",
+            return_value={"rtl8125": False, "pipower5": False},
+        ):
+            names = install.resolve_enabled_setting_names(args, peripherals=["rtl8125"])
 
         self.assertNotIn("rtl8125", names)
 
         args = install.parse_install_args(["--enable-experimental-dependency", "rtl8125"])
-        names = install.resolve_enabled_setting_names(args, peripherals=["rtl8125"])
+        with unittest.mock.patch(
+            "install.detect_optional_hardware",
+            return_value={"rtl8125": False, "pipower5": False},
+        ):
+            names = install.resolve_enabled_setting_names(args, peripherals=["rtl8125"])
+
+        self.assertIn("rtl8125", names)
+
+    def test_rtl8125_auto_enables_when_hardware_is_detected(self):
+        import install
+
+        args = install.parse_install_args([])
+        with unittest.mock.patch(
+            "install.detect_optional_hardware",
+            return_value={"rtl8125": True, "pipower5": False},
+        ):
+            names = install.resolve_enabled_setting_names(args, peripherals=["rtl8125"])
 
         self.assertIn("rtl8125", names)
 
