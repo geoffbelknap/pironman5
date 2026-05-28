@@ -183,9 +183,11 @@ class SystemCliTest(unittest.TestCase):
 
         output = stdout.getvalue()
         self.assertIn("detect", output)
+        self.assertIn("dashboard", output)
         self.assertIn("start", output)
         self.assertIn("stop", output)
         self.assertIn("launch-browser", output)
+        self.assertNotIn("--remove-dashboard", output)
         self.assertNotIn("{hardware", output)
 
     def test_stop_does_not_rewrite_config_file(self):
@@ -226,7 +228,18 @@ class SystemCliTest(unittest.TestCase):
 
         self.assertNotIn("pkill", source)
 
-    def test_remove_dashboard_uses_service_venv_pip(self):
+    def test_dashboard_remove_uses_service_venv_pip(self):
+        from pironman5 import _cli
+
+        argv = ["pironman5", "dashboard", "remove"]
+        with mock.patch.object(sys, "argv", argv):
+            with mock.patch.object(_cli, "PERIPHERALS", []):
+                with mock.patch.object(_cli.subprocess, "run") as run:
+                    _cli.main()
+
+        run.assert_called_once_with(["/opt/pironman5-venv/bin/pip", "uninstall", "pm_dashboard", "-y"], check=False)
+
+    def test_legacy_remove_dashboard_flag_still_works(self):
         from pironman5 import _cli
 
         argv = ["pironman5", "--remove-dashboard"]

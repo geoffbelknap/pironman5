@@ -103,6 +103,12 @@ service environment only when the selected case profile needs it. The default
 history backend is SQLite. The old InfluxDB path is no longer installed by
 default.
 
+To remove the dashboard package from the service install:
+
+```bash
+sudo pironman5 dashboard remove
+```
+
 ## Auto launch dashboard on browser
 
 ```bash
