@@ -179,10 +179,8 @@ pipower5_settings = {
 }
 
 rtl8125_settings = {
-    # - Install from apt
-    'run_scripts_before_install': [
-        "setup_rtl8125.sh",
-    ],
+    # RTL8125 eFuse programming is intentionally manual-only.
+    # See scripts/setup_rtl8125.sh for the explicit write workflow.
 }
 
 def build_installer(variant_key=None):

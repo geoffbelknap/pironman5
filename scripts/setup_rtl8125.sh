@@ -7,6 +7,12 @@ if [ "$EUID" -ne 0 ]; then
   exit 1
 fi
 
+if [ $# -lt 1 ] || [ "$1" != "--write-efuse" ]; then
+  echo "This script writes RTL8125 eFuse data and is not part of normal install." >&2
+  echo "Run with --write-efuse only after confirming the NIC MAC is unset." >&2
+  exit 1
+fi
+
 # Function to run commands with cleanup on error
 run() {
   local cmd="$1"

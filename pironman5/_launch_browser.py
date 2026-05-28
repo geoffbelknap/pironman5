@@ -2,6 +2,7 @@
 import subprocess
 import sys
 import os
+import shutil
 from typing import List
 import json
 
@@ -48,17 +49,8 @@ def find_available_browsers() -> List[str]:
     
     available = []
     for browser in browsers:
-        # Use 'which' command to check if browser is installed
-        try:
-            subprocess.run(
-                ["which", browser],
-                check=True,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE
-            )
+        if shutil.which(browser):
             available.append(browser)
-        except subprocess.CalledProcessError:
-            continue
     
     return available
 
@@ -73,18 +65,29 @@ def get_url() -> str:
     url = f"{URL}/{dashboard_page}"
     return url
 
+def get_browser_profile_dir() -> str:
+    """
+    Create a private browser profile for dashboard launches.
+    """
+    base_dir = os.getenv("XDG_RUNTIME_DIR") or os.path.expanduser("~/.cache")
+    profile_dir = os.path.join(base_dir, "pironman5-browser")
+    os.makedirs(profile_dir, mode=0o700, exist_ok=True)
+    os.chmod(profile_dir, 0o700)
+    return profile_dir
+
 def get_browser_fullscreen_args(browser: str) -> List[str]:
     """
     Return fullscreen arguments corresponding to different browsers
     """
     url = get_url()
+    profile_dir = get_browser_profile_dir()
     
     # Chrome/Chromium fullscreen arguments
     if "chrome" in browser or "chromium" in browser:
         return [
             browser,
             "--start-fullscreen",                # Launch in fullscreen mode
-            "--password-store=basic",            # Use basic password store
+            f"--user-data-dir={profile_dir}",    # Keep dashboard browser state isolated
             # "--kiosk",                           # Kiosk mode (no address bar/menus)
             "--disable-session-crashed-bubble",  # Disable session crashed bubble
             "--no-session-restore",              # Disable session restore
@@ -98,7 +101,8 @@ def get_browser_fullscreen_args(browser: str) -> List[str]:
         return [
             browser,
             # "-kiosk",                       # Kiosk fullscreen mode
-            "--password-manager=disabled",  # Disable password manager
+            "--profile",
+            profile_dir,
             "-new-window",                  # Open in a new window
             url
         ]

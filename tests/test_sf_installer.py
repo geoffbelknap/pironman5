@@ -43,6 +43,39 @@ class InstallerMainArgumentTest(unittest.TestCase):
 
 
 class InstallerCommandConstructionTest(unittest.TestCase):
+    def test_run_command_executes_argument_lists_without_shell(self):
+        installer = SF_Installer("pironman5")
+
+        with unittest.mock.patch("tools.sf_installer.subprocess.run") as run:
+            run.return_value.returncode = 0
+            run.return_value.stdout = "ok"
+            run.return_value.stderr = ""
+
+            status, stdout, stderr = installer.run_command(["getent", "group", "pironman5"])
+
+        self.assertEqual((0, "ok", ""), (status, stdout, stderr))
+        run.assert_called_once_with(
+            ["getent", "group", "pironman5"],
+            stdout=unittest.mock.ANY,
+            stderr=unittest.mock.ANY,
+            text=True,
+            check=False,
+        )
+        self.assertNotIn("shell", run.call_args.kwargs)
+
+    def test_run_shell_command_is_explicit_for_shell_syntax(self):
+        installer = SF_Installer("pironman5")
+
+        with unittest.mock.patch("tools.sf_installer.subprocess.run") as run:
+            run.return_value.returncode = 0
+            run.return_value.stdout = ""
+            run.return_value.stderr = ""
+
+            installer.run_shell_command("printf %s value | tee /tmp/example > /dev/null")
+
+        self.assertTrue(run.call_args.kwargs["shell"])
+        self.assertEqual("/bin/bash", run.call_args.kwargs["executable"])
+
     def test_working_directory_commands_quote_paths(self):
         installer = SF_Installer(
             "pironman5",
@@ -630,6 +663,20 @@ class ServiceHardeningTest(unittest.TestCase):
 
         self.assertNotIn("email_templates", script)
         self.assertNotIn("/opt/pipower5", script)
+
+    def test_rtl8125_setup_is_not_run_by_installer(self):
+        import install
+
+        installer = install.build_installer_for_settings(["rtl8125"])
+
+        self.assertNotIn("setup_rtl8125.sh", installer.before_install_scripts)
+
+    def test_rtl8125_setup_requires_explicit_write_efuse_flag(self):
+        with open("scripts/setup_rtl8125.sh", "r", encoding="utf-8") as f:
+            script = f.read()
+
+        self.assertIn("--write-efuse", script)
+        self.assertIn("This script writes RTL8125 eFuse data", script)
 
 
 class InfluxDefaultPolicyTest(unittest.TestCase):
