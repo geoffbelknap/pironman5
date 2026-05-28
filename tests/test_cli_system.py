@@ -199,11 +199,11 @@ class SystemCliTest(unittest.TestCase):
             with mock.patch.object(sys, "argv", argv):
                 with mock.patch.object(_cli, "PERIPHERALS", []):
                     with mock.patch.object(_cli, "update_config_file") as update_config_file:
-                        with mock.patch.object(_cli.os, "system") as system:
+                        with mock.patch.object(_cli.subprocess, "run") as run:
                             _cli.main()
 
             update_config_file.assert_not_called()
-            system.assert_called_once_with("pkill -f pironman5")
+            run.assert_called_once_with(["pkill", "-f", "pironman5"], check=False)
 
     def test_stop_does_not_create_missing_config_file(self):
         from pironman5 import _cli
@@ -215,7 +215,7 @@ class SystemCliTest(unittest.TestCase):
             with mock.patch.object(sys, "argv", argv):
                 with mock.patch.object(_cli, "PERIPHERALS", []):
                     with mock.patch.object(_cli, "write_json_private") as write_json_private:
-                        with mock.patch.object(_cli.os, "system"):
+                        with mock.patch.object(_cli.subprocess, "run"):
                             _cli.main()
 
             write_json_private.assert_not_called()
@@ -423,6 +423,11 @@ class SystemCliTest(unittest.TestCase):
         source = Path("pironman5/_cli.py").read_text(encoding="utf-8")
 
         self.assertNotIn("current_config['system'][", source)
+
+    def test_cli_does_not_use_shell_string_system_calls(self):
+        source = Path("pironman5/_cli.py").read_text(encoding="utf-8")
+
+        self.assertNotIn("os.system", source)
 
     def test_setting_change_rewrites_config_file(self):
         from pironman5 import _cli
