@@ -75,6 +75,11 @@ class PackagingMetadataTest(unittest.TestCase):
         self.assertNotIn("os.system", source)
         self.assertNotIn("current_config['system']", source)
 
+    def test_version_identifies_geoffbelknap_fork(self):
+        from pironman5.version import __version__
+
+        self.assertIn("+geoffbelknap.", __version__)
+
 
 if __name__ == "__main__":
     unittest.main()
