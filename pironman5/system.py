@@ -363,10 +363,17 @@ def _doctor_lines(variant):
     checks.extend(overlay_dir / overlay for overlay in product.get("dt_overlays", []))
     lines = ["System setup doctor"]
     for path in checks:
-        state = "ok" if path.exists() else "missing"
+        state = _path_state(path)
         lines.append(f"- {state}: {path}")
     lines.extend(_doctor_status_lines())
     return lines
+
+
+def _path_state(path):
+    try:
+        return "ok" if path.exists() else "missing"
+    except OSError:
+        return "unreadable"
 
 
 def _command_output(args):

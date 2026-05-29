@@ -742,6 +742,12 @@ class SystemCliTest(unittest.TestCase):
         self.assertIn("install drift:", output)
         self.assertIn("legacy modules.conf i2c-dev entries:", output)
 
+    def test_system_doctor_marks_unreadable_setup_files(self):
+        from pironman5 import system
+
+        with mock.patch.object(system.Path, "exists", side_effect=PermissionError("denied")):
+            self.assertEqual("unreadable", system._path_state(Path("/opt/pironman5/.variant")))
+
     def test_system_upgrade_service_refreshes_service_environment(self):
         from pironman5 import _cli
 
