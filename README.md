@@ -139,6 +139,14 @@ Config writes are validated before they replace the saved file. When a change
 is saved successfully, the running service is signaled to reload the config
 without a full restart.
 
+Set the fan profile without remembering config integers:
+
+```bash
+pironman5 fan list
+pironman5 fan status
+sudo pironman5 fan set balanced
+```
+
 After upgrading the pipx/uv command, refresh the service environment:
 
 ```bash

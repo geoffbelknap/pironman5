@@ -683,6 +683,68 @@ class SystemCliTest(unittest.TestCase):
             reload_running_service.assert_not_called()
             self.assertIn("Would set debug_level: DEBUG", stdout.getvalue())
 
+    def test_fan_list_prints_named_profiles(self):
+        from pironman5 import _cli
+
+        stdout = io.StringIO()
+        with mock.patch.object(sys, "argv", ["pironman5", "fan", "list"]):
+            with contextlib.redirect_stdout(stdout):
+                _cli.main()
+
+        output = stdout.getvalue()
+        self.assertIn("balanced: 3", output)
+        self.assertIn("quiet: 4", output)
+
+    def test_fan_status_prints_current_named_profile(self):
+        from pironman5 import _cli
+
+        stdout = io.StringIO()
+        with tempfile.TemporaryDirectory() as tmpdir:
+            config_path = Path(tmpdir) / "config.json"
+            config_path.write_text(json.dumps({"system": {"gpio_fan_mode": 3}}), encoding="utf-8")
+            argv = ["pironman5", "--config-path", str(config_path), "fan", "status"]
+
+            with mock.patch.object(sys, "argv", argv):
+                with contextlib.redirect_stdout(stdout):
+                    _cli.main()
+
+        self.assertIn("Fan profile: balanced (3)", stdout.getvalue())
+
+    def test_fan_set_named_profile_updates_config_and_reloads(self):
+        from pironman5 import _cli
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            config_path = Path(tmpdir) / "config.json"
+            config_path.write_text(json.dumps({"system": {"gpio_fan_mode": 1}}), encoding="utf-8")
+            argv = ["pironman5", "--config-path", str(config_path), "fan", "set", "quiet"]
+
+            with mock.patch.object(sys, "argv", argv):
+                with mock.patch.object(_cli, "update_config_file") as update_config_file:
+                    with mock.patch.object(_cli, "reload_running_service") as reload_running_service:
+                        _cli.main()
+
+        update_config_file.assert_called_once_with({"system": {"gpio_fan_mode": 4}}, str(config_path))
+        reload_running_service.assert_called_once()
+
+    def test_fan_set_dry_run_does_not_write_or_reload(self):
+        from pironman5 import _cli
+
+        stdout = io.StringIO()
+        with tempfile.TemporaryDirectory() as tmpdir:
+            config_path = Path(tmpdir) / "config.json"
+            config_path.write_text(json.dumps({"system": {"gpio_fan_mode": 1}}), encoding="utf-8")
+            argv = ["pironman5", "--config-path", str(config_path), "fan", "set", "quiet", "--dry-run"]
+
+            with mock.patch.object(sys, "argv", argv):
+                with mock.patch.object(_cli, "update_config_file") as update_config_file:
+                    with mock.patch.object(_cli, "reload_running_service") as reload_running_service:
+                        with contextlib.redirect_stdout(stdout):
+                            _cli.main()
+
+        update_config_file.assert_not_called()
+        reload_running_service.assert_not_called()
+        self.assertIn("Would set fan profile: quiet (4)", stdout.getvalue())
+
     def test_cli_does_not_directly_index_system_config_for_queries(self):
         source = Path("pironman5/_cli.py").read_text(encoding="utf-8")
 
