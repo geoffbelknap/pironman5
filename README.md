@@ -131,6 +131,10 @@ pironman5 config get debug_level
 sudo pironman5 config set debug_level INFO
 ```
 
+Config writes are validated before they replace the saved file. When a change
+is saved successfully, the running service is signaled to reload the config
+without a full restart.
+
 After upgrading the pipx/uv command, refresh the service environment:
 
 ```bash

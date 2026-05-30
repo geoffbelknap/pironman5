@@ -3,6 +3,25 @@ import time
 from unittest import mock
 
 
+class PironmanServiceTest(unittest.TestCase):
+    def test_reload_config_applies_file_without_restarting_runtime(self):
+        with mock.patch("logging.handlers.RotatingFileHandler"):
+            from pironman5.pironman5 import Pironman5
+
+        service = Pironman5.__new__(Pironman5)
+        service.config_path = "/tmp/config.json"
+        service.config = {"system": {"debug_level": "INFO", "rgb_brightness": 20}}
+        service.upgrade_config = lambda config: config
+        service.update_config = mock.Mock()
+        service.log = mock.Mock()
+
+        with mock.patch("pironman5.pironman5.load_config_file", return_value={"system": {"debug_level": "DEBUG", "rgb_brightness": 40}}):
+            service.reload_config()
+
+        service.update_config.assert_called_once_with({"system": {"debug_level": "DEBUG", "rgb_brightness": 40}})
+        service.log.info.assert_any_call("Reloading config")
+
+
 class RuntimeTest(unittest.TestCase):
     def test_legacy_hardware_runtime_does_not_enable_local_modules(self):
         from pironman5.runtime import LegacyHardwareRuntime

@@ -53,6 +53,30 @@ class SystemCliTest(unittest.TestCase):
                 json.loads(config_path.read_text(encoding="utf-8")),
             )
 
+    def test_update_config_file_rejects_config_without_system_object(self):
+        from pironman5 import _cli
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            config_path = Path(tmpdir) / "config.json"
+            config_path.write_text(json.dumps({"system": "bad"}), encoding="utf-8")
+
+            with self.assertRaisesRegex(ValueError, "system must be an object"):
+                _cli.update_config_file({"system": {"debug_level": "DEBUG"}}, str(config_path))
+
+            self.assertEqual({"system": "bad"}, json.loads(config_path.read_text(encoding="utf-8")))
+
+    def test_update_config_file_rejects_non_object_config(self):
+        from pironman5 import _cli
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            config_path = Path(tmpdir) / "config.json"
+            config_path.write_text(json.dumps(["bad"]), encoding="utf-8")
+
+            with self.assertRaisesRegex(ValueError, "Config must be a JSON object"):
+                _cli.update_config_file({"system": {"debug_level": "DEBUG"}}, str(config_path))
+
+            self.assertEqual(["bad"], json.loads(config_path.read_text(encoding="utf-8")))
+
     def test_get_system_config_value_returns_default_for_missing_values(self):
         from pironman5 import _cli
 
@@ -635,6 +659,37 @@ class SystemCliTest(unittest.TestCase):
                         _cli.main()
 
             update_config_file.assert_called_once_with({"system": {"debug_level": "DEBUG"}}, str(config_path))
+
+    def test_setting_change_reloads_service_after_successful_write(self):
+        from pironman5 import _cli
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            config_path = Path(tmpdir) / "config.json"
+            config_path.write_text(json.dumps({"system": {"debug_level": "INFO"}}), encoding="utf-8")
+            argv = ["pironman5", "--config-path", str(config_path), "--debug-level", "debug"]
+
+            with mock.patch.object(sys, "argv", argv):
+                with mock.patch.object(_cli, "PERIPHERALS", []):
+                    with mock.patch.object(_cli, "reload_running_service") as reload_running_service:
+                        _cli.main()
+
+            reload_running_service.assert_called_once()
+
+    def test_setting_change_skips_reload_when_write_fails(self):
+        from pironman5 import _cli
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            config_path = Path(tmpdir) / "config.json"
+            config_path.write_text(json.dumps({"system": "bad"}), encoding="utf-8")
+            argv = ["pironman5", "--config-path", str(config_path), "--debug-level", "debug"]
+
+            with mock.patch.object(sys, "argv", argv):
+                with mock.patch.object(_cli, "PERIPHERALS", []):
+                    with mock.patch.object(_cli, "reload_running_service") as reload_running_service:
+                        with self.assertRaises(SystemExit):
+                            _cli.main()
+
+            reload_running_service.assert_not_called()
 
     def test_setting_change_creates_missing_config_file(self):
         from pironman5 import _cli

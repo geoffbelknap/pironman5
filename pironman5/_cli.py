@@ -7,6 +7,7 @@ import subprocess
 from importlib.resources import files as resource_files
 
 from ._launch_browser import run as launch_browser
+from .config import load_config_file, update_config_file
 from .variants import NAME, PERIPHERALS, SYSTEM_DEFAULT_CONFIG, detect_hardware_variant, detect_optional_hardware, get_product_definition
 from .version import __version__
 from .utils import is_included, constrain
@@ -128,34 +129,20 @@ Keywords=pironman5;browser;autostart;""")
         launch_browser()
 
 
-def update_config_file(config, config_path):
-    import json
-    current = {'system': {}}
-    if os.path.exists(config_path):
-        with open(config_path, 'r') as f:
-            try:
-                current = json.load(f)
-            except json.JSONDecodeError:
-                current = {'system': {}}
-    for key in config:
-        if key in current:
-            current[key].update(config[key])
-        else:
-            current[key] = config[key]
-    write_json_private(config_path, current)
-
-
-def load_config_file(config_path):
-    if not os.path.exists(config_path):
-        return {'system': {}}
-    with open(config_path, 'r') as f:
-        try:
-            content = f.read()
-            if content == '':
-                return {'system': {}}
-            return json.loads(content)
-        except json.JSONDecodeError as exc:
-            raise ValueError(f"Invalid config file: {config_path}") from exc
+def reload_running_service():
+    result = subprocess.run(
+        ("systemctl", "kill", "-s", "HUP", "pironman5.service"),
+        check=False,
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.PIPE,
+        text=True,
+    )
+    if result.returncode != 0:
+        message = (result.stderr or "").strip() or "service reload signal failed"
+        print(f"Config saved, but service reload was skipped: {message}", file=sys.stderr)
+        return False
+    print("Reloaded running service.")
+    return True
 
 
 def get_system_config_value(config, key, default=None):
@@ -231,8 +218,13 @@ def handle_config_command(args, current_config, config_path):
         return
     if args.config_action == 'set':
         value = parse_config_value(args.config_key, args.config_value)
-        update_config_file({'system': {args.config_key: value}}, config_path)
+        try:
+            update_config_file({'system': {args.config_key: value}}, config_path)
+        except ValueError as exc:
+            print(str(exc), file=sys.stderr)
+            raise SystemExit(1) from exc
         print(f"Set {args.config_key}: {format_config_value(value)}")
+        reload_running_service()
         return
     print("Invalid config command")
     quit()
@@ -986,4 +978,9 @@ def main():
     # Update settings
     # ----------------------------------------
     if new_sys_config:
-        update_config_file({'system': new_sys_config}, config_path)
+        try:
+            update_config_file({'system': new_sys_config}, config_path)
+        except ValueError as exc:
+            print(str(exc), file=sys.stderr)
+            raise SystemExit(1) from exc
+        reload_running_service()
