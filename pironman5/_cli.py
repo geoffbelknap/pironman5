@@ -47,6 +47,13 @@ OPTIONAL_HARDWARE_LABELS = {
     "gpio_chip": "GPIO chip",
     "pwm": "PWM chip",
 }
+FAN_PROFILES = {
+    "off": 0,
+    "performance": 1,
+    "cool": 2,
+    "balanced": 3,
+    "quiet": 4,
+}
 
 
 def available_oled_pages(peripherals):
@@ -256,6 +263,40 @@ def handle_config_command(args, current_config, config_path):
         reload_running_service()
         return
     print("Invalid config command")
+    quit()
+
+
+def _fan_profile_name(mode):
+    for name, value in FAN_PROFILES.items():
+        if value == mode:
+            return name
+    return "custom"
+
+
+def handle_fan_command(args, current_config, config_path):
+    if args.fan_action == "list":
+        for name, value in FAN_PROFILES.items():
+            print(f"{name}: {value}")
+        return
+    if args.fan_action == "status":
+        mode = get_system_config_value(current_config, "gpio_fan_mode", FAN_PROFILES["off"])
+        print(f"Fan profile: {_fan_profile_name(mode)} ({mode})")
+        return
+    if args.fan_action == "set":
+        mode = FAN_PROFILES[args.profile]
+        if args.dry_run:
+            print(f"Would set fan profile: {args.profile} ({mode})")
+            print("Would reload running service after saving.")
+            return
+        try:
+            update_config_file({"system": {"gpio_fan_mode": mode}}, config_path)
+        except ValueError as exc:
+            print(str(exc), file=sys.stderr)
+            raise SystemExit(1) from exc
+        print(f"Set fan profile: {args.profile} ({mode})")
+        reload_running_service()
+        return
+    print("Invalid fan command")
     quit()
 
 
@@ -539,6 +580,13 @@ def main():
         rgb_subparsers.add_parser("off", help="Turn RGB off")
     detect_parser = subparsers.add_parser("detect", help="Detect variant and optional hardware")
     detect_parser.add_argument("--json", action="store_true", help="Print detection results as JSON")
+    fan_parser = subparsers.add_parser("fan", help="Manage case fan profile")
+    fan_subparsers = fan_parser.add_subparsers(dest="fan_action")
+    fan_subparsers.add_parser("list", help="List fan profiles")
+    fan_subparsers.add_parser("status", help="Show current fan profile")
+    fan_set_parser = fan_subparsers.add_parser("set", help="Set fan profile")
+    fan_set_parser.add_argument("profile", choices=sorted(FAN_PROFILES), help="Fan profile")
+    fan_set_parser.add_argument("--dry-run", action="store_true", help="Preview the change without saving")
     subparsers.add_parser("setup", help="Apply privileged system integration")
     subparsers.add_parser("doctor", help="Check system integration")
     service_parser = subparsers.add_parser("service", help="Manage the systemd service install")
@@ -612,6 +660,9 @@ def main():
         return
     if args.subcommand == 'config':
         handle_config_command(args, current_config, config_path)
+        return
+    if args.subcommand == 'fan':
+        handle_fan_command(args, current_config, config_path)
         return
     if args.subcommand == 'rgb':
         handle_rgb_command(args, current_config, config_path)
