@@ -8,8 +8,12 @@ Quick Links:
   - [About Pironman5](#about-pironman5)
   - [Links](#links)
   - [Installation](#installation)
+  - [Hardware Detection](#hardware-detection)
+  - [Alternate Tool Installer](#alternate-tool-installer)
+  - [Service Management](#service-management)
   - [Auto launch dashboard on browser](#auto-launch-dashboard-on-browser)
-  - [Update](#update)
+  - [Troubleshooting](#troubleshooting)
+  - [Release Candidate Checklist](#release-candidate-checklist)
   - [Compatible Systems](#compatible-systems)
     - [Ubuntu 24.04 server eth0 and wifi not work](#ubuntu-2404-server-eth0-and-wifi-not-work)
     - [Debug](#debug)
@@ -35,6 +39,9 @@ privileged OS integration steps explicitly.
 
 System setup creates a root-owned service environment at `/opt/pironman5-venv`
 for systemd. This avoids running the service out of a user's home directory.
+Use the absolute command path when invoking setup with `sudo`; many systems
+intentionally reset `sudo`'s `PATH`, so `sudo pironman5 setup` may not find the
+pipx-installed command.
 
 ```bash
 sudo apt-get update
@@ -47,6 +54,13 @@ sudo "$PIRONMAN5_CLI" setup
 pironman5 doctor
 ```
 
+To install a specific branch, tag, or commit, append the Git ref to the install
+URL:
+
+```bash
+pipx install git+https://github.com/geoffbelknap/pironman5.git@main
+```
+
 Optional hardware is detected during system setup. The PiPower5 UPS HAT still
 depends on an unaudited upstream compatibility package, so its Python package is
 installed only when explicitly requested:
@@ -54,6 +68,24 @@ installed only when explicitly requested:
 ```bash
 sudo "$PIRONMAN5_CLI" setup --variant ups --with pipower5
 ```
+
+## Hardware Detection
+
+`pironman5 detect` reports the case variant inferred from HAT EEPROM data when
+available. `pironman5 setup` defaults to `--variant auto`; use `--variant` only
+when detection is unavailable or you intentionally want to override it.
+
+```bash
+pironman5 detect
+pironman5 detect --json
+pironman5 setup --variant max --dry-run
+sudo "$PIRONMAN5_CLI" setup --variant max
+```
+
+Supported variant keys are `pironman5`, `max`, `mini`, `nas`, `pro-max`, and
+`ups`.
+
+## Alternate Tool Installer
 
 `uv` is also supported for users who already have it installed:
 
@@ -64,6 +96,8 @@ pironman5 setup --dry-run
 sudo "$PIRONMAN5_CLI" setup
 pironman5 doctor
 ```
+
+## Service Management
 
 To rebuild the service install:
 
@@ -90,6 +124,14 @@ To also remove `/opt/pironman5` and logs, use:
 
 ```bash
 sudo "$PIRONMAN5_CLI" service uninstall --purge
+```
+
+`pironman5 doctor` can be run without sudo for a quick check. Some service-owned
+files are intentionally protected from the login user; if doctor reports
+`protected`, run the same command with sudo for service install details:
+
+```bash
+sudo "$PIRONMAN5_CLI" doctor
 ```
 
 The legacy `install.py` entry point now prints migration guidance by default.
@@ -120,6 +162,34 @@ pironman5 config get debug_level
 sudo pironman5 config set debug_level INFO
 ```
 
+## Troubleshooting
+
+If setup fails with `sudo: pironman5: command not found`, rerun it with the
+absolute pipx command path:
+
+```bash
+PIRONMAN5_CLI="$(command -v pironman5)"
+sudo "$PIRONMAN5_CLI" setup
+```
+
+If the service is not active after setup or refresh:
+
+```bash
+sudo "$PIRONMAN5_CLI" doctor
+sudo systemctl status pironman5.service --no-pager
+sudo journalctl -u pironman5.service -n 80 --no-pager
+```
+
+If the user-facing pipx command and the systemd service disagree after an
+upgrade, refresh the service environment:
+
+```bash
+pipx reinstall pironman5
+PIRONMAN5_CLI="$(command -v pironman5)"
+sudo "$PIRONMAN5_CLI" service refresh
+sudo "$PIRONMAN5_CLI" doctor
+```
+
 ## Auto launch dashboard on browser
 
 ```bash
@@ -133,9 +203,19 @@ You also want to change touchscreen mode to Multitouch instead of Mouse Emulatio
 3. Long press/right click on **DSI-2**, 
 4. Select **Touchscreen** >> **Mode** >> **Multitouch**.
 
-## Update
+## Release Candidate Checklist
 
-<https://github.com/sunfounder/pironman5/blob/main/CHANGELOG.md>
+Before tagging an RC from this fork:
+
+```bash
+python3 -m pytest
+python3 -m build
+PIRONMAN5_CLI="$(command -v pironman5)"
+pironman5 setup --variant max --dry-run
+sudo "$PIRONMAN5_CLI" service refresh
+sudo "$PIRONMAN5_CLI" doctor
+sudo systemctl status pironman5.service --no-pager
+```
 
 ## Compatible Systems
 
