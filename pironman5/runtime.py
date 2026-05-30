@@ -17,7 +17,7 @@ from .runtime_input import (
     find_input_device_path,
     parse_input_devices,
 )
-from .runtime_legacy import LegacyHardwareRuntime, LOCAL_PERIPHERALS, OLED_PAGE_PERIPHERALS
+from .runtime_bridge import OLED_PAGE_PERIPHERALS, OptionalBridgeRuntime
 from .runtime_oled import OLEDModule, SSD1306TextDisplay
 from .runtime_rgb import (
     RGB_AMBIENT_PROFILES,
@@ -74,7 +74,7 @@ class PironmanRuntime:
             if "oled" in peripherals
             else None
         )
-        self.hardware = LegacyHardwareRuntime(
+        self.hardware = OptionalBridgeRuntime(
             config=config,
             peripherals=peripherals,
             device_info=device_info,

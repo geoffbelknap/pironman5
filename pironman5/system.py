@@ -35,7 +35,7 @@ REMOVABLE_TREES = {
     WORK_DIR,
     LOG_DIR,
 }
-LEGACY_HARDWARE_MODULES = {
+PM_AUTO_BRIDGE_MODULES = {
     "pipower5",
     "sf_rgb_led",
 }
@@ -186,7 +186,7 @@ def _install_spec(extras=()):
 def _service_package_extras(product):
     extras = []
     modules = set(product.get("modules", []))
-    if modules & LEGACY_HARDWARE_MODULES:
+    if modules & PM_AUTO_BRIDGE_MODULES:
         extras.append(PM_AUTO_EXTRA)
     if "pipower5" in modules and "pipower5" in product.get("enabled_optional_hardware", ()):
         extras.append("ups")
@@ -528,7 +528,7 @@ def _variant_marker():
         return "unreadable"
 
 
-def _legacy_i2c_dev_count():
+def _stale_i2c_dev_count():
     modules_conf = Path("/etc/modules-load.d/modules.conf")
     if not modules_conf.exists():
         return 0
@@ -551,7 +551,7 @@ def _doctor_status_lines():
         f"- pipx/user source: {user_info['source']}",
         f"- service source: {service_info['source']}",
         f"- install drift: {_install_drift(user_info, service_info)}",
-        f"- legacy modules.conf i2c-dev entries: {_legacy_i2c_dev_count()}",
+        f"- stale modules.conf i2c-dev entries: {_stale_i2c_dev_count()}",
     ]
     lines.extend(_doctor_hardware_lines())
     return lines
