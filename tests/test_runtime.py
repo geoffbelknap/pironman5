@@ -43,6 +43,14 @@ class RuntimeStatusTest(unittest.TestCase):
         self.assertEqual("SystemStatusModule", SystemStatusModule.__name__)
 
 
+class RuntimeFanTest(unittest.TestCase):
+    def test_fan_modules_import_from_fan_module(self):
+        from pironman5.runtime_fan import GPIOFanModule, PWMFanModule
+
+        self.assertEqual("GPIOFanModule", GPIOFanModule.__name__)
+        self.assertEqual("PWMFanModule", PWMFanModule.__name__)
+
+
 class RuntimeTest(unittest.TestCase):
     def test_legacy_hardware_runtime_does_not_enable_local_modules(self):
         from pironman5.runtime import LegacyHardwareRuntime
@@ -226,7 +234,7 @@ class RuntimeTest(unittest.TestCase):
             pin_factory=lambda _pin: fan_pin,
         )
 
-        with mock.patch("pironman5.runtime.host.get_cpu_temperature", return_value=70):
+        with mock.patch("pironman5.runtime_fan.host.get_cpu_temperature", return_value=70):
             module.task_1s()
 
         fan_pin.set.assert_called_with(True)
@@ -247,7 +255,7 @@ class RuntimeTest(unittest.TestCase):
             pin_factory=lambda pin: pins.setdefault(pin, mock.Mock()),
         )
 
-        with mock.patch("pironman5.runtime.host.get_cpu_temperature", return_value=70):
+        with mock.patch("pironman5.runtime_fan.host.get_cpu_temperature", return_value=70):
             module.task_1s()
 
         pins[6].set.assert_called_with(True)
