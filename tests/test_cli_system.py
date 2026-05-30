@@ -83,71 +83,6 @@ class SystemCliTest(unittest.TestCase):
         self.assertEqual("INFO", _cli.get_system_config_value({"system": {}}, "debug_level", "INFO"))
         self.assertEqual("DEBUG", _cli.get_system_config_value({"system": {"debug_level": "DEBUG"}}, "debug_level", "INFO"))
 
-    def test_handle_debug_level_sets_normalized_value(self):
-        from pironman5 import _cli
-
-        args = types.SimpleNamespace(debug_level="debug")
-        patch = {}
-        stdout = io.StringIO()
-
-        with contextlib.redirect_stdout(stdout):
-            _cli.handle_debug_level(args, {"system": {}}, patch)
-
-        self.assertEqual({"debug_level": "DEBUG"}, patch)
-        self.assertIn("Set debug level: DEBUG", stdout.getvalue())
-
-    def test_handle_debug_level_queries_default_without_patch(self):
-        from pironman5 import _cli
-
-        args = types.SimpleNamespace(debug_level=None)
-        patch = {}
-        stdout = io.StringIO()
-
-        with contextlib.redirect_stdout(stdout):
-            _cli.handle_debug_level(args, {"system": {}}, patch)
-
-        self.assertEqual({}, patch)
-        self.assertIn("Debug level: INFO", stdout.getvalue())
-
-    def test_handle_database_retention_days_sets_integer_value(self):
-        from pironman5 import _cli
-
-        args = types.SimpleNamespace(database_retention_days="14")
-        patch = {}
-        stdout = io.StringIO()
-
-        with contextlib.redirect_stdout(stdout):
-            _cli.handle_database_retention_days(args, {"system": {}}, patch)
-
-        self.assertEqual({"database_retention_days": 14}, patch)
-        self.assertIn("Set database retention days: 14", stdout.getvalue())
-
-    def test_handle_enable_history_sets_boolean_value(self):
-        from pironman5 import _cli
-
-        args = types.SimpleNamespace(enable_history="off")
-        patch = {}
-        stdout = io.StringIO()
-
-        with contextlib.redirect_stdout(stdout):
-            _cli.handle_enable_history(args, {"system": {}}, patch)
-
-        self.assertEqual({"enable_history": False}, patch)
-        self.assertIn("Set enable history: False", stdout.getvalue())
-
-    def test_handle_temperature_unit_sets_value(self):
-        from pironman5 import _cli
-
-        args = types.SimpleNamespace(temperature_unit="F")
-        patch = {}
-        stdout = io.StringIO()
-
-        with contextlib.redirect_stdout(stdout):
-            _cli.handle_temperature_unit(args, {"system": {}}, patch)
-
-        self.assertEqual({"temperature_unit": "F"}, patch)
-        self.assertIn("Set Temperature unit: F", stdout.getvalue())
-
     def test_detect_prints_variant_and_optional_hardware(self):
         from pironman5 import _cli
 
@@ -248,11 +183,9 @@ class SystemCliTest(unittest.TestCase):
 
             with mock.patch.object(sys, "argv", argv):
                 with mock.patch.object(_cli, "PERIPHERALS", []):
-                    with mock.patch.object(_cli, "write_json_private") as write_json_private:
-                        with mock.patch.object(_cli.subprocess, "run"):
-                            _cli.main()
+                    with mock.patch.object(_cli.subprocess, "run"):
+                        _cli.main()
 
-            write_json_private.assert_not_called()
             self.assertFalse(config_path.exists())
 
     def test_stop_command_does_not_use_process_name_kill(self):
@@ -284,6 +217,49 @@ class SystemCliTest(unittest.TestCase):
         self.assertNotEqual(0, exit_context.exception.code)
         run.assert_not_called()
 
+    def test_hidden_top_level_config_flags_are_rejected(self):
+        from pironman5 import _cli
+
+        hidden_flags = [
+            "--database-retention-days",
+            "--debug-level",
+            "--enable-history",
+            "--temperature-unit",
+            "--rgb-enable",
+            "--rgb-style",
+            "--rgb-color",
+            "--rgb-brightness",
+            "--rgb-speed",
+            "--rgb-led-count",
+            "--gpio-fan-mode",
+            "--gpio-fan-pin",
+            "--gpio-fan-led",
+            "--gpio-fan-led-pin",
+            "--oled-enable",
+            "--oled-rotation",
+            "--oled-pages",
+            "--oled-sleep-timeout",
+        ]
+        for flag in hidden_flags:
+            with self.subTest(flag=flag):
+                with mock.patch.object(sys, "argv", ["pironman5", flag]):
+                    with mock.patch.object(
+                        _cli,
+                        "PERIPHERALS",
+                        [
+                            "ws2812",
+                            "temperature_unit",
+                            "gpio_fan_mode",
+                            "gpio_fan_led",
+                            "oled",
+                            "oled_sleep",
+                        ],
+                    ):
+                        with self.assertRaises(SystemExit) as exit_context:
+                            _cli.main()
+
+                self.assertNotEqual(0, exit_context.exception.code)
+
     def test_cli_does_not_reference_legacy_installer_venv(self):
         source = Path("pironman5/_cli.py").read_text(encoding="utf-8")
 
@@ -310,14 +286,12 @@ class SystemCliTest(unittest.TestCase):
 
             with mock.patch.object(sys, "argv", argv):
                 with mock.patch.object(_cli, "PERIPHERALS", []):
-                    with mock.patch.object(_cli, "write_json_private") as write_json_private:
-                        pironman5 = mock.Mock()
-                        fake_module = types.ModuleType("pironman5.pironman5")
-                        fake_module.Pironman5 = pironman5
-                        with mock.patch.dict(sys.modules, {"pironman5.pironman5": fake_module}):
-                            _cli.main()
+                    pironman5 = mock.Mock()
+                    fake_module = types.ModuleType("pironman5.pironman5")
+                    fake_module.Pironman5 = pironman5
+                    with mock.patch.dict(sys.modules, {"pironman5.pironman5": fake_module}):
+                        _cli.main()
 
-            write_json_private.assert_not_called()
             pironman5.assert_called_once_with(config_path=str(config_path))
             pironman5.return_value.start.assert_called_once_with()
             self.assertFalse(config_path.exists())
@@ -331,11 +305,9 @@ class SystemCliTest(unittest.TestCase):
 
             with mock.patch.object(sys, "argv", argv):
                 with mock.patch.object(_cli, "PERIPHERALS", []):
-                    with mock.patch.object(_cli, "write_json_private") as write_json_private:
-                        with mock.patch.object(_cli, "launch_browser") as launch_browser:
-                            _cli.main()
+                    with mock.patch.object(_cli, "launch_browser") as launch_browser:
+                        _cli.main()
 
-            write_json_private.assert_not_called()
             launch_browser.assert_called_once_with()
             self.assertFalse(config_path.exists())
 
@@ -349,11 +321,9 @@ class SystemCliTest(unittest.TestCase):
 
             with mock.patch.object(sys, "argv", argv):
                 with mock.patch.object(_cli, "PERIPHERALS", []):
-                    with mock.patch.object(_cli, "write_json_private") as write_json_private:
-                        with contextlib.redirect_stdout(stdout):
-                            _cli.main()
+                    with contextlib.redirect_stdout(stdout):
+                        _cli.main()
 
-            write_json_private.assert_not_called()
             self.assertFalse(config_path.exists())
 
         self.assertIn('"system": {}', stdout.getvalue())
@@ -368,11 +338,9 @@ class SystemCliTest(unittest.TestCase):
 
             with mock.patch.object(sys, "argv", argv):
                 with mock.patch.object(_cli, "PERIPHERALS", []):
-                    with mock.patch.object(_cli, "write_json_private") as write_json_private:
-                        with contextlib.redirect_stdout(stdout):
-                            _cli.main()
+                    with contextlib.redirect_stdout(stdout):
+                        _cli.main()
 
-            write_json_private.assert_not_called()
             self.assertFalse(config_path.exists())
 
         self.assertIn("database_retention_days: 30", stdout.getvalue())
@@ -431,73 +399,6 @@ class SystemCliTest(unittest.TestCase):
                 {"system": {"debug_level": "DEBUG"}},
                 json.loads(config_path.read_text(encoding="utf-8")),
             )
-
-    def test_debug_level_query_does_not_create_missing_config_file(self):
-        from pironman5 import _cli
-
-        stdout = io.StringIO()
-        with tempfile.TemporaryDirectory() as tmpdir:
-            config_path = Path(tmpdir) / "missing-config.json"
-            argv = ["pironman5", "--config-path", str(config_path), "--debug-level"]
-
-            with mock.patch.object(sys, "argv", argv):
-                with mock.patch.object(_cli, "PERIPHERALS", []):
-                    with mock.patch.object(_cli, "write_json_private") as write_json_private:
-                        with contextlib.redirect_stdout(stdout):
-                            _cli.main()
-
-            write_json_private.assert_not_called()
-            self.assertFalse(config_path.exists())
-
-        self.assertIn("Debug level: INFO", stdout.getvalue())
-
-    def test_database_retention_query_uses_default_when_config_key_missing(self):
-        from pironman5 import _cli
-
-        stdout = io.StringIO()
-        with tempfile.TemporaryDirectory() as tmpdir:
-            config_path = Path(tmpdir) / "config.json"
-            config_path.write_text(json.dumps({"system": {}}), encoding="utf-8")
-            argv = ["pironman5", "--config-path", str(config_path), "--database-retention-days"]
-
-            with mock.patch.object(sys, "argv", argv):
-                with mock.patch.object(_cli, "PERIPHERALS", []):
-                    with contextlib.redirect_stdout(stdout):
-                        _cli.main()
-
-        self.assertIn("Database retention days: 30", stdout.getvalue())
-
-    def test_temperature_unit_query_uses_default_when_config_key_missing(self):
-        from pironman5 import _cli
-
-        stdout = io.StringIO()
-        with tempfile.TemporaryDirectory() as tmpdir:
-            config_path = Path(tmpdir) / "config.json"
-            config_path.write_text(json.dumps({"system": {}}), encoding="utf-8")
-            argv = ["pironman5", "--config-path", str(config_path), "--temperature-unit"]
-
-            with mock.patch.object(sys, "argv", argv):
-                with mock.patch.object(_cli, "PERIPHERALS", ["temperature_unit"]):
-                    with contextlib.redirect_stdout(stdout):
-                        _cli.main()
-
-        self.assertIn("Temperature unit: C", stdout.getvalue())
-
-    def test_rgb_query_uses_default_when_config_key_missing(self):
-        from pironman5 import _cli
-
-        stdout = io.StringIO()
-        with tempfile.TemporaryDirectory() as tmpdir:
-            config_path = Path(tmpdir) / "config.json"
-            config_path.write_text(json.dumps({"system": {}}), encoding="utf-8")
-            argv = ["pironman5", "--config-path", str(config_path), "--rgb-brightness"]
-
-            with mock.patch.object(sys, "argv", argv):
-                with mock.patch.object(_cli, "PERIPHERALS", ["ws2812"]):
-                    with contextlib.redirect_stdout(stdout):
-                        _cli.main()
-
-        self.assertIn("RGB brightness: 100", stdout.getvalue())
 
     def test_rgb_list_prints_profiles_and_modes(self):
         from pironman5 import _cli
@@ -889,65 +790,6 @@ class SystemCliTest(unittest.TestCase):
         source = Path("pironman5/_cli.py").read_text(encoding="utf-8")
 
         self.assertNotIn("os.system", source)
-
-    def test_setting_change_rewrites_config_file(self):
-        from pironman5 import _cli
-
-        with tempfile.TemporaryDirectory() as tmpdir:
-            config_path = Path(tmpdir) / "config.json"
-            config_path.write_text(json.dumps({"system": {"debug_level": "INFO"}}), encoding="utf-8")
-            argv = ["pironman5", "--config-path", str(config_path), "--debug-level", "debug"]
-
-            with mock.patch.object(sys, "argv", argv):
-                with mock.patch.object(_cli, "PERIPHERALS", []):
-                    with mock.patch.object(_cli, "update_config_file") as update_config_file:
-                        _cli.main()
-
-            update_config_file.assert_called_once_with({"system": {"debug_level": "DEBUG"}}, str(config_path))
-
-    def test_setting_change_reloads_service_after_successful_write(self):
-        from pironman5 import _cli
-
-        with tempfile.TemporaryDirectory() as tmpdir:
-            config_path = Path(tmpdir) / "config.json"
-            config_path.write_text(json.dumps({"system": {"debug_level": "INFO"}}), encoding="utf-8")
-            argv = ["pironman5", "--config-path", str(config_path), "--debug-level", "debug"]
-
-            with mock.patch.object(sys, "argv", argv):
-                with mock.patch.object(_cli, "PERIPHERALS", []):
-                    with mock.patch.object(_cli, "reload_running_service") as reload_running_service:
-                        _cli.main()
-
-            reload_running_service.assert_called_once()
-
-    def test_setting_change_skips_reload_when_write_fails(self):
-        from pironman5 import _cli
-
-        with tempfile.TemporaryDirectory() as tmpdir:
-            config_path = Path(tmpdir) / "config.json"
-            config_path.write_text(json.dumps({"system": "bad"}), encoding="utf-8")
-            argv = ["pironman5", "--config-path", str(config_path), "--debug-level", "debug"]
-
-            with mock.patch.object(sys, "argv", argv):
-                with mock.patch.object(_cli, "PERIPHERALS", []):
-                    with mock.patch.object(_cli, "reload_running_service") as reload_running_service:
-                        with self.assertRaises(SystemExit):
-                            _cli.main()
-
-            reload_running_service.assert_not_called()
-
-    def test_setting_change_creates_missing_config_file(self):
-        from pironman5 import _cli
-
-        with tempfile.TemporaryDirectory() as tmpdir:
-            config_path = Path(tmpdir) / "missing-config.json"
-            argv = ["pironman5", "--config-path", str(config_path), "--debug-level", "debug"]
-
-            with mock.patch.object(sys, "argv", argv):
-                with mock.patch.object(_cli, "PERIPHERALS", []):
-                    _cli.main()
-
-            self.assertEqual({"system": {"debug_level": "DEBUG"}}, json.loads(config_path.read_text(encoding="utf-8")))
 
     def test_system_plan_does_not_require_runtime_hardware_dependencies(self):
         from pironman5 import _cli
