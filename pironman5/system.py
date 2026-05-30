@@ -477,7 +477,7 @@ def _legacy_i2c_dev_count():
 def _doctor_status_lines():
     user_info = _current_install_info()
     service_info = _service_install_info()
-    return [
+    lines = [
         f"- service active: {_command_output(('systemctl', 'is-active', SERVICE_NAME))}",
         f"- service enabled: {_command_output(('systemctl', 'is-enabled', SERVICE_NAME))}",
         f"- current variant: {_variant_marker()}",
@@ -489,6 +489,34 @@ def _doctor_status_lines():
         f"- install drift: {_install_drift(user_info, service_info)}",
         f"- legacy modules.conf i2c-dev entries: {_legacy_i2c_dev_count()}",
     ]
+    lines.extend(_doctor_hardware_lines())
+    return lines
+
+
+def _doctor_hardware_lines():
+    detected = detect_hardware_variant()
+    product = get_product_definition(detected["variant"])
+    product_name = product["name"] if product else detected["variant"]
+    source = detected["source"]
+    part_number = detected.get("part_number")
+    source_label = f"{source} {part_number}" if part_number else source
+    optional = detect_optional_hardware()
+    optional_summary = ", ".join(
+        f"{name}={'detected' if value else 'not detected'}"
+        for name, value in sorted(optional.items())
+    ) or "none"
+    device_checks = (
+        ("i2c device", Path("/dev/i2c-1")),
+        ("spi device", Path("/dev/spidev0.0")),
+        ("gpio chip", Path("/dev/gpiochip0")),
+        ("pwm chip", Path("/sys/class/pwm/pwmchip0")),
+    )
+    lines = [
+        f"- detected variant: {product_name} ({detected['variant']}, {source_label})",
+        f"- optional hardware: {optional_summary}",
+    ]
+    lines.extend(f"- {label}: {_path_state(path)} {path}" for label, path in device_checks)
+    return lines
 
 
 def _current_install_info():

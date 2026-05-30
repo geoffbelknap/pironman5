@@ -913,6 +913,37 @@ class SystemCliTest(unittest.TestCase):
         self.assertIn("service source:", output)
         self.assertIn("install drift:", output)
         self.assertIn("legacy modules.conf i2c-dev entries:", output)
+        self.assertIn("detected variant:", output)
+        self.assertIn("optional hardware:", output)
+        self.assertIn("i2c device:", output)
+        self.assertIn("spi device:", output)
+        self.assertIn("gpio chip:", output)
+        self.assertIn("pwm chip:", output)
+
+    def test_system_doctor_reports_detected_hardware_context(self):
+        from pironman5 import system
+
+        detected_variant = {
+            "variant": "max",
+            "source": "hat-eeprom",
+            "part_number": "0306V11",
+            "variant_id": "0306",
+            "version": "11",
+        }
+        stdout = io.StringIO()
+        with mock.patch.object(system, "detect_hardware_variant", return_value=detected_variant):
+            with mock.patch.object(system, "detect_optional_hardware", return_value={"pipower5": False, "rtl8125": True}):
+                with mock.patch.object(system, "_path_state", return_value="ok"):
+                    with contextlib.redirect_stdout(stdout):
+                        system.main(["doctor", "--variant", "max"])
+
+        output = stdout.getvalue()
+        self.assertIn("detected variant: Pironman 5 Max (max, hat-eeprom 0306V11)", output)
+        self.assertIn("optional hardware: pipower5=not detected, rtl8125=detected", output)
+        self.assertIn("i2c device: ok /dev/i2c-1", output)
+        self.assertIn("spi device: ok /dev/spidev0.0", output)
+        self.assertIn("gpio chip: ok /dev/gpiochip0", output)
+        self.assertIn("pwm chip: ok /sys/class/pwm/pwmchip0", output)
 
     def test_system_doctor_marks_unreadable_setup_files(self):
         from pironman5 import system
