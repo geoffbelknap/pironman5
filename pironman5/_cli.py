@@ -294,10 +294,10 @@ def remove_dashboard(pip_path):
     print("Dashboard removed, restart pironman5 to apply changes: sudo systemctl restart pironman5.service")
 
 
-def _run_system_command(argv):
+def _run_system_command(argv, prog="pironman5 system", update_command_name="update"):
     from .system import main as system_main
 
-    system_main(argv)
+    system_main(argv, prog=prog, update_command_name=update_command_name)
 
 
 def _route_system_command(argv):
@@ -308,16 +308,16 @@ def _route_system_command(argv):
         _run_system_command(argv[1:])
         return True
     if command in ("setup", "doctor"):
-        _run_system_command(argv)
+        _run_system_command(argv, prog="pironman5")
         return True
     if command == "service" and len(argv) > 1:
         service_command = argv[1]
         service_args = argv[2:]
         if service_command == "refresh":
-            _run_system_command(["update", *service_args])
+            _run_system_command(["refresh", *service_args], prog="pironman5 service", update_command_name="refresh")
             return True
         if service_command == "uninstall":
-            _run_system_command(["uninstall", *service_args])
+            _run_system_command(["uninstall", *service_args], prog="pironman5 service")
             return True
     return False
 

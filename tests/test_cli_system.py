@@ -602,6 +602,54 @@ class SystemCliTest(unittest.TestCase):
         self.assertIn("/opt/pironman5-venv", output)
         self.assertNotIn("/home/geoff/.local/pipx", output)
 
+    def test_service_help_shows_service_commands(self):
+        from pironman5 import _cli
+
+        stdout = io.StringIO()
+        argv = ["pironman5", "service", "--help"]
+        with mock.patch.object(sys, "argv", argv):
+            with contextlib.redirect_stdout(stdout):
+                with self.assertRaises(SystemExit) as exit_context:
+                    _cli.main()
+
+        self.assertEqual(0, exit_context.exception.code)
+        output = stdout.getvalue()
+        self.assertIn("refresh", output)
+        self.assertIn("uninstall", output)
+        self.assertNotIn("config", output)
+        self.assertNotIn("dashboard", output)
+
+    def test_service_refresh_help_shows_dry_run(self):
+        from pironman5 import _cli
+
+        stdout = io.StringIO()
+        argv = ["pironman5", "service", "refresh", "--help"]
+        with mock.patch.object(sys, "argv", argv):
+            with contextlib.redirect_stdout(stdout):
+                with self.assertRaises(SystemExit) as exit_context:
+                    _cli.main()
+
+        self.assertEqual(0, exit_context.exception.code)
+        output = stdout.getvalue()
+        self.assertIn("--dry-run", output)
+        self.assertIn("pironman5 service refresh", output)
+
+    def test_service_uninstall_help_shows_purge_and_dry_run(self):
+        from pironman5 import _cli
+
+        stdout = io.StringIO()
+        argv = ["pironman5", "service", "uninstall", "--help"]
+        with mock.patch.object(sys, "argv", argv):
+            with contextlib.redirect_stdout(stdout):
+                with self.assertRaises(SystemExit) as exit_context:
+                    _cli.main()
+
+        self.assertEqual(0, exit_context.exception.code)
+        output = stdout.getvalue()
+        self.assertIn("--purge", output)
+        self.assertIn("--dry-run", output)
+        self.assertIn("pironman5 service uninstall", output)
+
     def test_system_setup_default_venv_bootstrap_does_not_use_shell(self):
         from pironman5 import system
 

@@ -533,8 +533,8 @@ def _install_drift(user_info, service_info):
     return "none"
 
 
-def build_parser():
-    parser = argparse.ArgumentParser(prog="pironman5 system", description="Manage Pironman 5 system integration")
+def build_parser(prog="pironman5 system", update_command_name="update"):
+    parser = argparse.ArgumentParser(prog=prog, description="Manage Pironman 5 system integration")
     subparsers = parser.add_subparsers(dest="command", required=True, metavar="{plan,setup,doctor,uninstall,update}")
 
     variant_choices = ["auto", *sorted(PRODUCT_DEFINITIONS)]
@@ -553,13 +553,13 @@ def build_parser():
     uninstall.add_argument("--variant", choices=variant_choices, default="auto", type=normalize_variant_key)
     uninstall.add_argument("--purge", action="store_true", help="Also remove runtime state and logs")
     uninstall.add_argument("--dry-run", action="store_true", help="Print commands without changing the system")
-    upgrade = subparsers.add_parser("update", help="Refresh the service install and restart")
+    upgrade = subparsers.add_parser(update_command_name, help="Refresh the service install and restart")
     upgrade.add_argument("--dry-run", action="store_true", help="Print commands without changing the system")
     return parser
 
 
-def main(argv=None):
-    parser = build_parser()
+def main(argv=None, prog="pironman5 system", update_command_name="update"):
+    parser = build_parser(prog=prog, update_command_name=update_command_name)
     if argv is None:
         argv = sys.argv[1:]
     else:
@@ -567,6 +567,8 @@ def main(argv=None):
     if argv and argv[0] == "upgrade-service":
         argv[0] = "update"
     args = parser.parse_args(argv)
+    if update_command_name != "update" and args.command == update_command_name:
+        args.command = "update"
     if args.command == "plan":
         print("\n".join(_plan_lines(args.variant)))
     elif args.command == "setup":
