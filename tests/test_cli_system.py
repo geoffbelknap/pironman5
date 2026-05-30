@@ -260,6 +260,31 @@ class SystemCliTest(unittest.TestCase):
 
                 self.assertNotEqual(0, exit_context.exception.code)
 
+    def test_pipower5_passthrough_command_is_rejected(self):
+        from pironman5 import _cli
+
+        argv = ["pironman5", "pipower5", "--help"]
+        with mock.patch.object(sys, "argv", argv):
+            with mock.patch.object(_cli, "PERIPHERALS", ["pipower5"]):
+                with mock.patch.object(_cli.subprocess, "run") as run:
+                    with self.assertRaises(SystemExit) as exit_context:
+                        _cli.main()
+
+        self.assertNotEqual(0, exit_context.exception.code)
+        run.assert_not_called()
+
+    def test_pipower5_passthrough_command_is_not_in_help(self):
+        from pironman5 import _cli
+
+        stdout = io.StringIO()
+        with mock.patch.object(sys, "argv", ["pironman5", "--help"]):
+            with mock.patch.object(_cli, "PERIPHERALS", ["pipower5"]):
+                with self.assertRaises(SystemExit):
+                    with contextlib.redirect_stdout(stdout):
+                        _cli.main()
+
+        self.assertNotIn("pipower5", stdout.getvalue())
+
     def test_cli_does_not_reference_legacy_installer_venv(self):
         source = Path("pironman5/_cli.py").read_text(encoding="utf-8")
 
