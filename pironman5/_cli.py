@@ -541,13 +541,6 @@ def main():
         parser.add_argument("-rmc2", "--rgb-matrix-color2", nargs='?', default='', help='RGB color in hex format without # (e.g. 00aabb)')
         parser.add_argument("-rmp", "--rgb-matrix-speed", nargs='?', default='', help="RGB speed 0-100")
         parser.add_argument("-rmb", "--rgb-matrix-brightness", nargs='?', default='', help="RGB brightness 0-100")
-    # pipower5
-    if is_included(PERIPHERALS, "pipower5"):
-        # 定义pipower5子命令（用于调用独立的pipower5）
-        subparsers.add_parser(
-            "pipower5",
-            add_help=False  # 禁用子命令的-h处理，确保透传
-        )
     config_parser = subparsers.add_parser("config", help="Read or update config values")
     config_subparsers = config_parser.add_subparsers(dest="config_action")
     config_get_parser = config_subparsers.add_parser("get", help="Read a config value")
@@ -619,7 +612,7 @@ def main():
     # -----------------------------------------------------------
     # args = parser.parse_args()
     args, remaining_args = parser.parse_known_args()
-    if remaining_args and args.subcommand != "pipower5":
+    if remaining_args:
         parser.error(f"unrecognized arguments: {' '.join(remaining_args)}")
 
     # no args, show help
@@ -804,30 +797,6 @@ def main():
                     quit()
                 new_sys_config['rgb_matrix_color2'] = args.rgb_matrix_color2
                 print(f"Set RGB Matrix color2: #{args.rgb_matrix_color2} ({r}, {g}, {b})")
-
-    # # PiPower 5 settings
-    if is_included(PERIPHERALS, "pipower5"):
-        if args.subcommand == "pipower5":
-            cmd = [
-                "pipower5",
-                "-cp", CONFIG_PATH,
-                *remaining_args
-            ]
-            try:
-                result = subprocess.run(
-                    cmd,
-                    check=True,
-                    stdout=subprocess.PIPE,
-                    stderr=subprocess.PIPE,
-                    text=True
-                )
-                print(result.stdout)
-            except subprocess.CalledProcessError as e:
-                print(f"Error: {e.stderr}", file=sys.stderr)
-                sys.exit(1)
-            except FileNotFoundError:
-                print("Error: pipower5 command not found, please make sure it is installed and in the environment variables", file=sys.stderr)
-                sys.exit(1)
 
     # Update settings
     # ----------------------------------------
