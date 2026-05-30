@@ -102,7 +102,7 @@ class PackagingMetadataTest(unittest.TestCase):
     def test_version_matches_stable_release(self):
         from pironman5.version import __version__
 
-        self.assertEqual("1.0.1", __version__)
+        self.assertEqual("1.0.2", __version__)
 
     def test_release_check_accepts_current_fork_version(self):
         result = subprocess.run(
@@ -118,7 +118,7 @@ class PackagingMetadataTest(unittest.TestCase):
 
     def test_release_check_accepts_current_stable_version_and_tag(self):
         result = subprocess.run(
-            [sys.executable, "scripts/check_release_version.py", "--stable", "--tag", "v1.0.1"],
+            [sys.executable, "scripts/check_release_version.py", "--stable", "--tag", "v1.0.2"],
             check=False,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
@@ -126,12 +126,12 @@ class PackagingMetadataTest(unittest.TestCase):
         )
 
         self.assertEqual(0, result.returncode, result.stderr)
-        self.assertIn("version ok: 1.0.1", result.stdout)
+        self.assertIn("version ok: 1.0.2", result.stdout)
 
     def test_release_check_rejects_stable_local_version(self):
         with tempfile.TemporaryDirectory() as tmpdir:
             version_file = pathlib.Path(tmpdir) / "version.py"
-            version_file.write_text('__version__ = "1.0.1+local.1"\n', encoding="utf-8")
+            version_file.write_text('__version__ = "1.0.2+local.1"\n', encoding="utf-8")
             result = subprocess.run(
                 [sys.executable, "scripts/check_release_version.py", "--stable", "--version-file", str(version_file)],
                 check=False,
