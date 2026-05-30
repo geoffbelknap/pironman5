@@ -745,6 +745,77 @@ class SystemCliTest(unittest.TestCase):
         reload_running_service.assert_not_called()
         self.assertIn("Would set fan profile: quiet (4)", stdout.getvalue())
 
+    def test_oled_status_prints_current_settings(self):
+        from pironman5 import _cli
+
+        stdout = io.StringIO()
+        with tempfile.TemporaryDirectory() as tmpdir:
+            config_path = Path(tmpdir) / "config.json"
+            config_path.write_text(json.dumps({"system": {"oled_enable": True, "oled_pages": ["mix"], "oled_sleep_timeout": 60}}), encoding="utf-8")
+            argv = ["pironman5", "--config-path", str(config_path), "oled", "status"]
+
+            with mock.patch.object(sys, "argv", argv):
+                with mock.patch.object(_cli, "PERIPHERALS", ["oled_page_mix"]):
+                    with contextlib.redirect_stdout(stdout):
+                        _cli.main()
+
+        output = stdout.getvalue()
+        self.assertIn("OLED: on", output)
+        self.assertIn("Pages: mix", output)
+        self.assertIn("Sleep timeout: 60", output)
+
+    def test_oled_pages_set_updates_config_and_reloads(self):
+        from pironman5 import _cli
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            config_path = Path(tmpdir) / "config.json"
+            config_path.write_text(json.dumps({"system": {"oled_pages": ["mix"]}}), encoding="utf-8")
+            argv = ["pironman5", "--config-path", str(config_path), "oled", "pages", "set", "mix", "performance"]
+
+            with mock.patch.object(sys, "argv", argv):
+                with mock.patch.object(_cli, "PERIPHERALS", ["oled_page_mix", "oled_page_performance"]):
+                    with mock.patch.object(_cli, "update_config_file") as update_config_file:
+                        with mock.patch.object(_cli, "reload_running_service") as reload_running_service:
+                            _cli.main()
+
+        update_config_file.assert_called_once_with({"system": {"oled_pages": ["mix", "performance"]}}, str(config_path))
+        reload_running_service.assert_called_once()
+
+    def test_oled_off_updates_config_and_reloads(self):
+        from pironman5 import _cli
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            config_path = Path(tmpdir) / "config.json"
+            config_path.write_text(json.dumps({"system": {"oled_enable": True}}), encoding="utf-8")
+            argv = ["pironman5", "--config-path", str(config_path), "oled", "off"]
+
+            with mock.patch.object(sys, "argv", argv):
+                with mock.patch.object(_cli, "update_config_file") as update_config_file:
+                    with mock.patch.object(_cli, "reload_running_service") as reload_running_service:
+                        _cli.main()
+
+        update_config_file.assert_called_once_with({"system": {"oled_enable": False}}, str(config_path))
+        reload_running_service.assert_called_once()
+
+    def test_oled_sleep_dry_run_does_not_write_or_reload(self):
+        from pironman5 import _cli
+
+        stdout = io.StringIO()
+        with tempfile.TemporaryDirectory() as tmpdir:
+            config_path = Path(tmpdir) / "config.json"
+            config_path.write_text(json.dumps({"system": {}}), encoding="utf-8")
+            argv = ["pironman5", "--config-path", str(config_path), "oled", "sleep", "90", "--dry-run"]
+
+            with mock.patch.object(sys, "argv", argv):
+                with mock.patch.object(_cli, "update_config_file") as update_config_file:
+                    with mock.patch.object(_cli, "reload_running_service") as reload_running_service:
+                        with contextlib.redirect_stdout(stdout):
+                            _cli.main()
+
+        update_config_file.assert_not_called()
+        reload_running_service.assert_not_called()
+        self.assertIn("Would set OLED sleep timeout: 90", stdout.getvalue())
+
     def test_cli_does_not_directly_index_system_config_for_queries(self):
         source = Path("pironman5/_cli.py").read_text(encoding="utf-8")
 

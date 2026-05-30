@@ -147,6 +147,16 @@ pironman5 fan status
 sudo pironman5 fan set balanced
 ```
 
+Manage the OLED without editing JSON:
+
+```bash
+pironman5 oled status
+pironman5 oled pages list
+sudo pironman5 oled pages set mix performance
+sudo pironman5 oled sleep 60
+sudo pironman5 oled off
+```
+
 After upgrading the pipx/uv command, refresh the service environment:
 
 ```bash
