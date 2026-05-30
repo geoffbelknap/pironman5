@@ -1,11 +1,14 @@
 # Pironman 5
 
-Pironman 5 case
+Production-focused fork of the SunFounder Pironman 5 software for Raspberry Pi
+5 cases. This fork keeps the public CLI small, installs the long-running service
+into a root-owned system environment, and gates optional hardware packages on
+detected or explicitly requested hardware.
 
 Quick Links:
 
 - [Pironman 5](#pironman-5)
-  - [About Pironman5](#about-pironman5)
+  - [About This Fork](#about-this-fork)
   - [Links](#links)
   - [Installation](#installation)
   - [Hardware Detection](#hardware-detection)
@@ -13,19 +16,26 @@ Quick Links:
   - [Service Management](#service-management)
   - [Auto launch dashboard on browser](#auto-launch-dashboard-on-browser)
   - [Troubleshooting](#troubleshooting)
-  - [Release Candidate Checklist](#release-candidate-checklist)
+  - [Release Checklist](#release-checklist)
   - [Compatible Systems](#compatible-systems)
-    - [Ubuntu 24.04 server eth0 and wifi not work](#ubuntu-2404-server-eth0-and-wifi-not-work)
-    - [Debug](#debug)
-  - [About SunFounder](#about-sunfounder)
-  - [Contact us](#contact-us)
+  - [Development](#development)
 
-## About Pironman5
+## About This Fork
+
+This project is based on SunFounder's Pironman 5 package, but the install and
+service model has been reworked for this fork:
+
+- install the user-facing CLI with `pipx` or `uv`, without root
+- apply OS integration explicitly with `pironman5 setup`
+- run systemd from `/opt/pironman5-venv`, not a user's home directory
+- auto-detect Pironman 5 hardware when possible
+- keep dashboard, UPS, and legacy hardware dependencies optional
 
 ## Links
 
-- SunFounder Online Store &emsp; <https://www.sunfounder.com/>
-- Documentation &emsp; <https://docs.sunfounder.com/projects/pironman5/en/latest/>
+- Fork repository: <https://github.com/geoffbelknap/pironman5>
+- Latest stable release: <https://github.com/geoffbelknap/pironman5/releases/tag/v1.0.0>
+- Upstream hardware documentation: <https://docs.sunfounder.com/projects/pironman5/en/latest/>
 
 ## Installation
 
@@ -47,7 +57,7 @@ name may not find the pipx-installed command.
 sudo apt-get update
 sudo apt-get install pipx -y
 pipx ensurepath
-pipx install git+https://github.com/geoffbelknap/pironman5.git
+pipx install git+https://github.com/geoffbelknap/pironman5.git@v1.0.0
 PIRONMAN5_CLI="$(command -v pironman5)"
 pironman5 setup --dry-run
 sudo "$PIRONMAN5_CLI" setup
@@ -58,7 +68,7 @@ To install a specific branch, tag, or commit, append the Git ref to the install
 URL:
 
 ```bash
-pipx install git+https://github.com/geoffbelknap/pironman5.git@main
+pipx install git+https://github.com/geoffbelknap/pironman5.git@v1.0.0
 ```
 
 Optional hardware is detected during system setup. The PiPower5 UPS HAT still
@@ -90,7 +100,7 @@ Supported variant keys are `pironman5`, `max`, `mini`, `nas`, `pro-max`, and
 `uv` is also supported for users who already have it installed:
 
 ```bash
-uv tool install git+https://github.com/geoffbelknap/pironman5.git
+uv tool install git+https://github.com/geoffbelknap/pironman5.git@v1.0.0
 PIRONMAN5_CLI="$(command -v pironman5)"
 pironman5 setup --dry-run
 sudo "$PIRONMAN5_CLI" setup
@@ -152,14 +162,14 @@ default.
 To remove the dashboard package from the service install:
 
 ```bash
-sudo pironman5 dashboard remove
+sudo "$PIRONMAN5_CLI" dashboard remove
 ```
 
 Read or change settings through the config command:
 
 ```bash
 pironman5 config get debug_level
-sudo pironman5 config set debug_level INFO
+sudo "$PIRONMAN5_CLI" config set debug_level INFO
 ```
 
 ## Troubleshooting
@@ -203,9 +213,9 @@ You also want to change touchscreen mode to Multitouch instead of Mouse Emulatio
 3. Long press/right click on **DSI-2**, 
 4. Select **Touchscreen** >> **Mode** >> **Multitouch**.
 
-## Release Candidate Checklist
+## Release Checklist
 
-Before tagging an RC from this fork:
+Before tagging a release from this fork:
 
 ```bash
 python3 -m pytest
@@ -219,32 +229,18 @@ sudo systemctl status pironman5.service --no-pager
 
 ## Compatible Systems
 
-Operate Systems that passed the test on the Raspberry Pi 5:
+This fork is validated on Raspberry Pi OS Bookworm 64-bit with a Raspberry Pi 5
+and Pironman 5 Max hardware. The upstream project lists broader operating
+system compatibility, but this fork should treat those as unverified until they
+are tested through the setup/doctor flow.
 
-Operate System | Release Date | Compatible
-:---   | :---: | :---: 
-Raspberry Pi OS Desktop - bookworm (64 bit) | 2024-11-19 | &#x2705;
-Raspberry Pi OS Desktop - bookworm (32 bit) | 2024-11-19 |  &#x2705;
-Raspberry Pi OS Full - bookworm (64 bit) | 2024-11-19 |  &#x2705;
-Raspberry Pi OS Full - bookworm (32 bit) | 2024-11-19 |  &#x2705;
-Raspberry Pi OS lite - bookworm (64 bit) | 2024-11-19 |  &#x2705;
-Raspberry Pi OS lite - bookworm (64 bit) | 2024-11-19 |  &#x2705;
-Ubuntu Desktop 24.04.1 LTS (64 bit) | 2024-08-29 |  &#x2705;
-Ubuntu Server 24.04.1 LTS (64 bit) | 2024-10-10 |  &#x2705;
-Ubuntu Desktop 24.10 (64 bit) | 2024-10-10 |   &#x2705;
-Ubuntu Server 24.10 (64 bit) | 2024-08-29 |   &#x2705;
-Kali Linux | 2024-08-27 | &#x2705;
-Home Assistant OS 14.0 | 2024-12-03 | &#x2705;
-Homebridge bookworm (64 bit) | 2024-05-03 | &#x2705;
-Homebridge bookworm (64 bit) | 2024-05-03 | &#x2705;
-Batocera Linux | 2024-07-31 | &#x2705;
+Known-good release validation:
 
-### Ubuntu 24.04 server eth0 and wifi not work
+| System | Hardware | Status |
+| :--- | :--- | :--- |
+| Raspberry Pi OS Bookworm 64-bit | Raspberry Pi 5 + Pironman 5 Max | Validated |
 
-https://www.reddit.com/r/Ubuntu/comments/1d0s8v5/ubuntu_2404_server_on_my_raspberry_pi_5_and_eth0/
-
-
-### Debug
+## Development
 
 Clone the dependency you want to debug or edit. Treat SunFounder dependencies
 as unreviewed until pinned to an audited fork or exact commit.
@@ -279,15 +275,3 @@ sudo -u pironman5 /opt/pironman5-venv/bin/python
 journalctl -xefu pironman5.service
 sudo systemctl restart pironman5.service && journalctl -xefu pironman5.service
 ```
-
-## About SunFounder
-
-SunFounder is a company focused on STEAM education with products like open source robots, development boards, STEAM kit, modules, tools and other smart devices distributed globally. In SunFounder, we strive to help elementary and middle school students as well as hobbyists, through STEAM education, strengthen their hands-on practices and problem-solving abilities. In this way, we hope to disseminate knowledge and provide skill training in a full-of-joy way, thus fostering your interest in programming and making, and exposing you to a fascinating world of science and engineering. To embrace the future of artificial intelligence, it is urgent and meaningful to learn abundant STEAM knowledge.
-
-## Contact us
-
-website:
-    www.sunfounder.com
-
-E-mail:
-    service@sunfounder.com

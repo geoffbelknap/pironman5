@@ -68,6 +68,14 @@ class PackagingMetadataTest(unittest.TestCase):
 
         self.assertFalse(any("pm_dashboard" in dependency for dependency in dependencies))
 
+    def test_project_metadata_identifies_this_fork(self):
+        project = self.data["project"]
+
+        self.assertEqual(project["description"], "Pironman 5 Raspberry Pi case service and CLI")
+        self.assertIn({"name": "Geoff Belknap"}, project["maintainers"])
+        self.assertEqual(project["urls"]["Homepage"], "https://github.com/geoffbelknap/pironman5")
+        self.assertEqual(project["urls"]["Source"], "https://github.com/geoffbelknap/pironman5")
+
     def test_package_init_does_not_contain_legacy_cli(self):
         source = pathlib.Path("pironman5/__init__.py").read_text(encoding="utf-8")
 

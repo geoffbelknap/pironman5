@@ -1,9 +1,23 @@
-.vscode
-pironman5.egg-info*
+# Editor and local agent state
+.vscode/
+.codex/
+.agents/
+skill/
+
+# Python/build artifacts
+__pycache__/
 *__pycache__*
+*.py[cod]
+.pytest_cache/
+*.egg-info/
 build/
 dist/
-dev
+
+# Local scratch/vendor checkouts
+dev/
 docs/
+sf_rpi_status/
+
+# Transient files from local tooling
 =[0-9]*
 .lgd-nfy*

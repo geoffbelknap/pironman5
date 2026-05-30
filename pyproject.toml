@@ -7,7 +7,10 @@ name = "pironman5"
 authors = [
   { name="SunFounder", email="service@sunfounder.com" },
 ]
-description = "Library for monitoring Raspberry Pi system status"
+maintainers = [
+  { name="Geoff Belknap" },
+]
+description = "Pironman 5 Raspberry Pi case service and CLI"
 readme = "README.md"
 requires-python = ">=3.7"
 license = "GPL-2.0-only"
@@ -66,6 +69,7 @@ pironman5 = ["assets/bin/*", "assets/overlays/*"]
 [project.urls]
 "Homepage" = "https://github.com/geoffbelknap/pironman5"
 "Bug Tracker" = "https://github.com/geoffbelknap/pironman5/issues"
+"Source" = "https://github.com/geoffbelknap/pironman5"
 
 [tool.setuptools.dynamic]
 version = {attr = "pironman5.version.__version__"}
