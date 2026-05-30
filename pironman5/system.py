@@ -40,6 +40,7 @@ PM_AUTO_BRIDGE_MODULES = {
     "sf_rgb_led",
 }
 PM_AUTO_EXTRA = "pm-auto"
+WS2812_EXTRA = "ws2812"
 
 
 @dataclass(frozen=True)
@@ -186,6 +187,8 @@ def _install_spec(extras=()):
 def _service_package_extras(product):
     extras = []
     modules = set(product.get("modules", []))
+    if "ws2812" in modules:
+        extras.append(WS2812_EXTRA)
     if modules & PM_AUTO_BRIDGE_MODULES:
         extras.append(PM_AUTO_EXTRA)
     if "pipower5" in modules and "pipower5" in product.get("enabled_optional_hardware", ()):

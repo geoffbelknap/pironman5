@@ -26,6 +26,10 @@ dependencies = [
   "smbus2",
   "evdev",
   "rpi.lgpio",
+]
+
+[project.optional-dependencies]
+ws2812 = [
   "adafruit-circuitpython-neopixel-spi",
   "adafruit_platformdetect",
   "Adafruit-Blinka==8.59.0",
@@ -33,8 +37,6 @@ dependencies = [
   "Adafruit-PureIO>=1.1.7",
   "pyftdi>=0.40.0",
 ]
-
-[project.optional-dependencies]
 pm-auto = [
   "pm_auto @ git+https://github.com/geoffbelknap/pm_auto.git@b00dd490ce498e963c352876801b5cb4e59c4bd2",
 ]

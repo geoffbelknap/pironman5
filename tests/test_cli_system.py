@@ -1109,6 +1109,13 @@ class SystemCliTest(unittest.TestCase):
 
         self.assertEqual((), system._service_package_extras(product))
 
+    def test_system_setup_installs_ws2812_extra_for_rgb_profile(self):
+        from pironman5 import system
+
+        product = {"modules": ["ws2812"], "dt_overlays": [], "config_txt": {}}
+
+        self.assertEqual(("ws2812",), system._service_package_extras(product))
+
     def test_system_setup_skips_ups_extra_without_pipower5_hardware(self):
         from pironman5 import system
 
