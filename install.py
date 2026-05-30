@@ -373,7 +373,7 @@ def main(argv=None):
         print("Use the package CLI setup flow instead:")
         print("")
         print(f"  pironman5 setup --variant {variant_key} --dry-run")
-        print(f"  sudo \"$(command -v pironman5)\" setup --variant {variant_key}")
+        print(f"  sudo ~/.local/bin/pironman5 setup --variant {variant_key}")
         print("")
         print("To run the old compatibility path explicitly, pass --legacy-installer.")
         return 2
