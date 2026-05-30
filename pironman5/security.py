@@ -38,14 +38,23 @@ def write_json_private(path, data, mode=0o600):
     if directory:
         os.makedirs(directory, mode=0o750, exist_ok=True)
 
+    existing_stat = None
+    try:
+        existing_stat = os.stat(path)
+    except FileNotFoundError:
+        pass
+    target_mode = existing_stat.st_mode & 0o777 if existing_stat else mode
+
     fd, tmp_path = tempfile.mkstemp(prefix=".tmp-", dir=directory or None, text=True)
     try:
         with os.fdopen(fd, "w", encoding="utf-8") as f:
             json.dump(data, f, indent=4)
             f.write("\n")
-        os.chmod(tmp_path, mode)
+        if existing_stat:
+            os.chown(tmp_path, existing_stat.st_uid, existing_stat.st_gid)
+        os.chmod(tmp_path, target_mode)
         os.replace(tmp_path, path)
-        os.chmod(path, mode)
+        os.chmod(path, target_mode)
     except Exception:
         try:
             os.unlink(tmp_path)

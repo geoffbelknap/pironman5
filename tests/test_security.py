@@ -37,6 +37,23 @@ class SecretRedactionTest(unittest.TestCase):
             with open(path, "r", encoding="utf-8") as f:
                 self.assertEqual(json.load(f)["system"]["debug_level"], "INFO")
 
+    def test_write_json_private_preserves_existing_owner_group_and_mode(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            path = os.path.join(tmpdir, "config.json")
+            with open(path, "w", encoding="utf-8") as f:
+                json.dump({"system": {"debug_level": "INFO"}}, f)
+            os.chmod(path, 0o640)
+            original = os.stat(path)
+
+            write_json_private(path, {"system": {"debug_level": "DEBUG"}})
+
+            updated = os.stat(path)
+            self.assertEqual(original.st_uid, updated.st_uid)
+            self.assertEqual(original.st_gid, updated.st_gid)
+            self.assertEqual(0o640, stat.S_IMODE(updated.st_mode))
+            with open(path, "r", encoding="utf-8") as f:
+                self.assertEqual(json.load(f)["system"]["debug_level"], "DEBUG")
+
 
 class LoggingDefaultTest(unittest.TestCase):
     def test_default_debug_level_is_warning(self):
