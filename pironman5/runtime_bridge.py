@@ -17,7 +17,7 @@ OLED_PAGE_PERIPHERALS = {
     "oled_page_performance",
     "oled_page_rpi_power",
 }
-LOCAL_PERIPHERALS = {
+LOCAL_RUNTIME_PERIPHERALS = {
     "system",
     "storage",
     "cpu",
@@ -53,15 +53,15 @@ LOCAL_PERIPHERALS = {
 }
 
 
-class LegacyHardwareRuntime:
+class OptionalBridgeRuntime:
     def __init__(self, config, peripherals, device_info, event, log=None):
         self.log = log or logging.getLogger(__name__)
         self.event = event or EventBus(log=self.log)
-        self.peripherals = [peripheral for peripheral in peripherals if peripheral not in LOCAL_PERIPHERALS]
+        self.peripherals = [peripheral for peripheral in peripherals if peripheral not in LOCAL_RUNTIME_PERIPHERALS]
         self.addons = None
         if self.peripherals:
             if Addons is None:
-                raise RuntimeError("pm_auto is required for legacy hardware modules")
+                raise RuntimeError("pm_auto is required for optional bridge modules")
             self.addons = Addons(
                 peripherals=self.peripherals,
                 config=config,

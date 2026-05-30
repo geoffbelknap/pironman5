@@ -1421,7 +1421,7 @@ class SystemCliTest(unittest.TestCase):
         self.assertIn("pipx/user source:", output)
         self.assertIn("service source:", output)
         self.assertIn("install drift:", output)
-        self.assertIn("legacy modules.conf i2c-dev entries:", output)
+        self.assertIn("stale modules.conf i2c-dev entries:", output)
         self.assertIn("detected variant:", output)
         self.assertIn("optional hardware:", output)
         self.assertIn("i2c device:", output)
