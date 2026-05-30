@@ -51,6 +51,13 @@ class RuntimeFanTest(unittest.TestCase):
         self.assertEqual("PWMFanModule", PWMFanModule.__name__)
 
 
+class RuntimeOledTest(unittest.TestCase):
+    def test_oled_module_imports_from_oled_module(self):
+        from pironman5.runtime_oled import OLEDModule
+
+        self.assertEqual("OLEDModule", OLEDModule.__name__)
+
+
 class RuntimeTest(unittest.TestCase):
     def test_legacy_hardware_runtime_does_not_enable_local_modules(self):
         from pironman5.runtime import LegacyHardwareRuntime
