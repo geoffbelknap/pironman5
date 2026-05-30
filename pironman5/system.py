@@ -24,6 +24,7 @@ SERVICE_FILE = Path("/etc/systemd/system/pironman5.service")
 UDEV_RULES_FILE = Path("/etc/udev/rules.d/99-com.rules")
 WRAPPER_FILE = Path("/usr/local/bin/pironman5")
 WORK_DIR = Path("/opt/pironman5")
+CONFIG_FILE = WORK_DIR / "config.json"
 OPTIONAL_HARDWARE_FILE = WORK_DIR / ".enabled_optional_hardware"
 SERVICE_VENV = Path("/opt/pironman5-venv")
 LOG_DIR = Path("/var/log/pironman5")
@@ -71,6 +72,12 @@ class Command:
             ])
         if self.args[0] == "remove-tree":
             return f"rm -rf {shlex.quote(str(self.args[1]))}"
+        if self.args[0] == "chown-if-exists":
+            user, group, path = self.args[1:4]
+            return f"test ! -e {shlex.quote(str(path))} || chown {shlex.quote(str(user))}:{shlex.quote(str(group))} {shlex.quote(str(path))}"
+        if self.args[0] == "chmod-if-exists":
+            mode, path = self.args[1:3]
+            return f"test ! -e {shlex.quote(str(path))} || chmod {shlex.quote(str(mode))} {shlex.quote(str(path))}"
         return " ".join(shlex.quote(str(arg)) for arg in self.args)
 
 
@@ -235,6 +242,8 @@ def setup_commands(variant, refresh_venv=False, enabled_optional_hardware=None):
         Command("Create service group", ("ensure-group", SERVICE_USER)),
         Command("Create service user", ("ensure-user", SERVICE_USER, SERVICE_USER, str(WORK_DIR))),
         Command("Create service home", ("install", "-d", "-m", "0750", "-o", SERVICE_USER, "-g", SERVICE_USER, str(WORK_DIR))),
+        Command("Repair config owner", ("chown-if-exists", SERVICE_USER, SERVICE_USER, str(CONFIG_FILE))),
+        Command("Repair config mode", ("chmod-if-exists", "0640", str(CONFIG_FILE))),
         Command("Create log directory", ("install", "-d", "-m", "0750", "-o", SERVICE_USER, "-g", SERVICE_USER, str(LOG_DIR))),
     ]
     commands.extend(_create_or_refresh_venv_commands(refresh_venv, product))
@@ -324,6 +333,16 @@ def _run_internal_command(command):
         if path not in REMOVABLE_TREES:
             raise ValueError(f"Refusing to remove unapproved tree: {path}")
         shutil.rmtree(path, ignore_errors=True)
+        return True
+    if action == "chown-if-exists":
+        user, group, path = command.args[1:4]
+        if Path(path).exists():
+            shutil.chown(path, user=user, group=group)
+        return True
+    if action == "chmod-if-exists":
+        mode, path = command.args[1:3]
+        if Path(path).exists():
+            os.chmod(path, int(mode, 8))
         return True
     return False
 

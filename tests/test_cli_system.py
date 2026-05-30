@@ -712,6 +712,20 @@ class SystemCliTest(unittest.TestCase):
         self.assertTrue(any(command.args == ("remove-tree", str(system.SERVICE_VENV)) for command in commands))
         self.assertTrue(any(command.args == ("remove-tree", str(system.WORK_DIR)) for command in commands))
 
+    def test_system_setup_repairs_existing_config_permissions(self):
+        from pironman5 import system
+
+        _variant_key, commands = system.setup_commands("max")
+
+        self.assertIn(
+            ("chown-if-exists", system.SERVICE_USER, system.SERVICE_USER, str(system.CONFIG_FILE)),
+            [command.args for command in commands],
+        )
+        self.assertIn(
+            ("chmod-if-exists", "0640", str(system.CONFIG_FILE)),
+            [command.args for command in commands],
+        )
+
     def test_guarded_tree_removal_rejects_unapproved_paths(self):
         from pironman5 import system
 
@@ -719,6 +733,15 @@ class SystemCliTest(unittest.TestCase):
 
         with self.assertRaisesRegex(ValueError, "Refusing to remove unapproved tree"):
             system._run_internal_command(command)
+
+    def test_guarded_config_permission_repair_skips_missing_files(self):
+        from pironman5 import system
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            missing = Path(tmpdir) / "config.json"
+
+            self.assertTrue(system._run_internal_command(system.Command("Repair config owner", ("chown-if-exists", "nobody", "nogroup", str(missing)))))
+            self.assertTrue(system._run_internal_command(system.Command("Repair config mode", ("chmod-if-exists", "0640", str(missing)))))
 
     def test_system_doctor_reports_missing_setup_files(self):
         from pironman5 import system
