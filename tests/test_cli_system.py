@@ -1429,6 +1429,21 @@ class SystemCliTest(unittest.TestCase):
         self.assertIn("[pm-auto,ups]", install.args[-1])
         self.assertNotIn("[legacy-ups", install.args[-1])
 
+    def test_install_spec_uses_local_direct_url_for_non_editable_path_install(self):
+        from pironman5 import system
+
+        dist = mock.Mock()
+        dist.read_text.return_value = json.dumps({
+            "url": "file:///tmp/pironman-src",
+            "dir_info": {},
+        })
+
+        with mock.patch.object(system.metadata, "distribution", return_value=dist):
+            self.assertEqual(
+                "/tmp/pironman-src[ws2812]",
+                system._install_spec(("ws2812",)),
+            )
+
     def test_service_install_info_does_not_import_from_current_checkout(self):
         from pironman5 import system
 

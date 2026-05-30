@@ -10,6 +10,7 @@ from dataclasses import dataclass
 from importlib import metadata
 from importlib.resources import files as resource_files
 from pathlib import Path
+from urllib.parse import unquote, urlparse
 
 from .variants import PRODUCT_DEFINITIONS, detect_hardware_variant, detect_optional_hardware, get_product_definition, normalize_variant_key
 from .variants.hardware_policy import (
@@ -165,6 +166,13 @@ def _with_extras(install_spec, extras):
     return f"{install_spec}[{extras_spec}]"
 
 
+def _local_path_from_file_url(url):
+    parsed = urlparse(url)
+    if parsed.scheme != "file" or parsed.netloc not in ("", "localhost"):
+        return None
+    return unquote(parsed.path)
+
+
 def _install_spec(extras=()):
     try:
         direct_url = metadata.distribution("pironman5").read_text("direct_url.json")
@@ -179,8 +187,8 @@ def _install_spec(extras=()):
         if data.get("vcs_info", {}).get("vcs") == "git" and url and revision:
             install_spec = f"git+{url}@{revision}"
             return _with_extras(install_spec, extras)
-        if url and data.get("dir_info", {}).get("editable") is not None:
-            install_spec = url
+        if url and "dir_info" in data:
+            install_spec = _local_path_from_file_url(url) or url
     return _with_extras(install_spec, extras)
 
 
