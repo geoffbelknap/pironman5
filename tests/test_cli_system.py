@@ -183,6 +183,9 @@ class SystemCliTest(unittest.TestCase):
 
         output = stdout.getvalue()
         self.assertIn("detect", output)
+        self.assertIn("setup", output)
+        self.assertIn("doctor", output)
+        self.assertIn("service", output)
         self.assertIn("dashboard", output)
         self.assertIn("start", output)
         self.assertIn("stop", output)
@@ -541,8 +544,63 @@ class SystemCliTest(unittest.TestCase):
         self.assertIn("/opt/pironman5-venv", output)
         self.assertIn("systemctl enable pironman5.service", output)
         self.assertIn("systemctl restart pironman5.service", output)
+
+    def test_top_level_setup_routes_to_system_setup(self):
+        from pironman5 import _cli
+
+        stdout = io.StringIO()
+        argv = ["pironman5", "setup", "--variant", "max", "--dry-run"]
+        with mock.patch.object(sys, "argv", argv):
+            with contextlib.redirect_stdout(stdout):
+                _cli.main()
+
+        output = stdout.getvalue()
+        self.assertIn("DRY RUN", output)
+        self.assertIn("systemctl enable pironman5.service", output)
+        self.assertIn("systemctl restart pironman5.service", output)
+
+    def test_top_level_doctor_routes_to_system_doctor(self):
+        from pironman5 import _cli
+        from pironman5 import system
+
+        stdout = io.StringIO()
+        argv = ["pironman5", "doctor", "--variant", "max"]
+        with mock.patch.object(sys, "argv", argv):
+            with mock.patch.object(system.Path, "exists", return_value=False):
+                with contextlib.redirect_stdout(stdout):
+                    _cli.main()
+
+        output = stdout.getvalue()
+        self.assertIn("System setup doctor", output)
+        self.assertIn("service active:", output)
+
+    def test_service_refresh_routes_to_system_update(self):
+        from pironman5 import _cli
+
+        stdout = io.StringIO()
+        argv = ["pironman5", "service", "refresh", "--dry-run"]
+        with mock.patch.object(sys, "argv", argv):
+            with contextlib.redirect_stdout(stdout):
+                _cli.main()
+
+        output = stdout.getvalue()
+        self.assertIn("rm -rf /opt/pironman5-venv", output)
+        self.assertIn("systemctl restart pironman5.service", output)
+
+    def test_service_uninstall_routes_to_system_uninstall(self):
+        from pironman5 import _cli
+
+        stdout = io.StringIO()
+        argv = ["pironman5", "service", "uninstall", "--variant", "max", "--dry-run"]
+        with mock.patch.object(sys, "argv", argv):
+            with contextlib.redirect_stdout(stdout):
+                _cli.main()
+
+        output = stdout.getvalue()
+        self.assertIn("DRY RUN", output)
+        self.assertIn("systemctl disable pironman5.service", output)
+        self.assertIn("/opt/pironman5-venv", output)
         self.assertNotIn("/home/geoff/.local/pipx", output)
-        self.assertNotIn("rm -rf /opt/pironman5-venv", output)
 
     def test_system_setup_default_venv_bootstrap_does_not_use_shell(self):
         from pironman5 import system
@@ -923,7 +981,7 @@ class SystemCliTest(unittest.TestCase):
 
         self.assertIn("primary install path", readme)
         self.assertIn("/opt/pironman5-venv", readme)
-        self.assertIn("system update", readme)
+        self.assertIn("service refresh", readme)
         self.assertNotIn("system upgrade-service", readme)
         self.assertIn("pipx reinstall pironman5", readme)
         self.assertNotIn("moving toward a split install model", readme)

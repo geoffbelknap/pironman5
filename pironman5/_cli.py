@@ -294,12 +294,38 @@ def remove_dashboard(pip_path):
     print("Dashboard removed, restart pironman5 to apply changes: sudo systemctl restart pironman5.service")
 
 
+def _run_system_command(argv):
+    from .system import main as system_main
+
+    system_main(argv)
+
+
+def _route_system_command(argv):
+    if not argv:
+        return False
+    command = argv[0]
+    if command == "system":
+        _run_system_command(argv[1:])
+        return True
+    if command in ("setup", "doctor"):
+        _run_system_command(argv)
+        return True
+    if command == "service" and len(argv) > 1:
+        service_command = argv[1]
+        service_args = argv[2:]
+        if service_command == "refresh":
+            _run_system_command(["update", *service_args])
+            return True
+        if service_command == "uninstall":
+            _run_system_command(["uninstall", *service_args])
+            return True
+    return False
+
+
 def main():
     global AVAILABLE_PAGES, AVAILABLE_EMAIL_MODES
 
-    if len(sys.argv) > 1 and sys.argv[1] == "system":
-        from .system import main as system_main
-        system_main(sys.argv[2:])
+    if _route_system_command(sys.argv[1:]):
         return
     if len(sys.argv) > 1 and sys.argv[1] == "detect":
         detect_parser = argparse.ArgumentParser(prog="pironman5 detect")
@@ -386,6 +412,12 @@ def main():
     config_set_parser.add_argument("config_value", help="New value")
     detect_parser = subparsers.add_parser("detect", help="Detect variant and optional hardware")
     detect_parser.add_argument("--json", action="store_true", help="Print detection results as JSON")
+    subparsers.add_parser("setup", help="Apply privileged system integration")
+    subparsers.add_parser("doctor", help="Check system integration")
+    service_parser = subparsers.add_parser("service", help="Manage the systemd service install")
+    service_subparsers = service_parser.add_subparsers(dest="service_action")
+    service_subparsers.add_parser("refresh", help="Refresh the service install and restart")
+    service_subparsers.add_parser("uninstall", help="Remove privileged system integration")
     dashboard_parser = subparsers.add_parser("dashboard", help="Manage dashboard")
     dashboard_subparsers = dashboard_parser.add_subparsers(dest="dashboard_action")
     dashboard_subparsers.add_parser("remove", help="Remove dashboard package")
