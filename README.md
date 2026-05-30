@@ -314,10 +314,17 @@ sudo ~/.local/bin/pironman5 service refresh
 Before tagging a release from this fork:
 
 ```bash
+python3 scripts/check_release_version.py --tag v<version>
 python3 -m pytest
 python3 -m build
 pironman5 setup --variant max --dry-run
 sudo pironman5 service refresh
 sudo pironman5 doctor
 sudo systemctl status pironman5.service --no-pager
+```
+
+For a stable release, also run:
+
+```bash
+python3 scripts/check_release_version.py --stable --tag v<version>
 ```
