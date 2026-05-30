@@ -128,7 +128,10 @@ sudo pironman5 doctor
 Read or change settings:
 
 ```bash
+pironman5 config list
+pironman5 config explain debug_level
 pironman5 config get debug_level
+pironman5 config set debug_level INFO --dry-run
 sudo pironman5 config set debug_level INFO
 ```
 
