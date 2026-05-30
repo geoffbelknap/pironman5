@@ -395,7 +395,8 @@ class InstallSettingsPolicyTest(unittest.TestCase):
 
         self.assertEqual(2, result)
         self.assertIn("pironman5 setup", stdout.getvalue())
-        self.assertIn('sudo "$(command -v pironman5)" setup', stdout.getvalue())
+        self.assertIn("sudo ~/.local/bin/pironman5 setup", stdout.getvalue())
+        self.assertNotIn('sudo "$(command -v pironman5)" setup', stdout.getvalue())
         self.assertNotIn("pironman5 system setup", stdout.getvalue())
         installer_main.assert_not_called()
 

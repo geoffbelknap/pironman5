@@ -46,7 +46,9 @@ separate `setup` step applies the OS-level pieces the case needs: systemd,
 udev/group access, device tree overlays, and the service virtual environment.
 
 Use the absolute command path when running setup with `sudo`. Many systems reset
-`sudo`'s `PATH`, so a bare command name may not find the pipx command.
+`sudo`'s `PATH`, so a bare command name may not find the pipx command. The
+examples below use the default pipx/uv shim path; replace it with your real
+absolute path if you configured a different tool location.
 
 ```bash
 sudo apt-get update
@@ -54,9 +56,8 @@ sudo apt-get install pipx -y
 pipx ensurepath
 pipx install git+https://github.com/geoffbelknap/pironman5.git@v1.0.1
 
-PIRONMAN5_CLI="$(command -v pironman5)"
 pironman5 setup --dry-run
-sudo "$PIRONMAN5_CLI" setup
+sudo ~/.local/bin/pironman5 setup
 pironman5 doctor
 ```
 
@@ -71,9 +72,8 @@ pipx install git+https://github.com/geoffbelknap/pironman5.git@v1.0.1
 ```bash
 uv tool install git+https://github.com/geoffbelknap/pironman5.git@v1.0.1
 
-PIRONMAN5_CLI="$(command -v pironman5)"
 pironman5 setup --dry-run
-sudo "$PIRONMAN5_CLI" setup
+sudo ~/.local/bin/pironman5 setup
 pironman5 doctor
 ```
 
@@ -87,8 +87,7 @@ unavailable or you intentionally want to override it.
 pironman5 detect
 pironman5 detect --json
 pironman5 setup --variant max --dry-run
-PIRONMAN5_CLI="$(command -v pironman5)"
-sudo "$PIRONMAN5_CLI" setup --variant max
+sudo ~/.local/bin/pironman5 setup --variant max
 ```
 
 Supported variant keys are `pironman5`, `max`, `mini`, `nas`, `pro-max`, and
@@ -100,22 +99,21 @@ Check the install:
 
 ```bash
 pironman5 doctor
-sudo "$PIRONMAN5_CLI" doctor
+sudo ~/.local/bin/pironman5 doctor
 ```
 
 Read or change settings:
 
 ```bash
 pironman5 config get debug_level
-sudo "$PIRONMAN5_CLI" config set debug_level INFO
+sudo ~/.local/bin/pironman5 config set debug_level INFO
 ```
 
 After upgrading the pipx/uv command, refresh the service environment:
 
 ```bash
 pipx reinstall pironman5
-PIRONMAN5_CLI="$(command -v pironman5)"
-sudo "$PIRONMAN5_CLI" service refresh
+sudo ~/.local/bin/pironman5 service refresh
 pironman5 doctor
 ```
 
@@ -132,10 +130,10 @@ display. This fork treats them as simple case lighting with a few useful modes:
 
 ```bash
 pironman5 rgb list
-sudo "$PIRONMAN5_CLI" rgb set ambient breathing-blue
-sudo "$PIRONMAN5_CLI" rgb set status thermal
-sudo "$PIRONMAN5_CLI" rgb night --brightness 10 --from 22:00 --to 07:00
-sudo "$PIRONMAN5_CLI" rgb off
+sudo ~/.local/bin/pironman5 rgb set ambient breathing-blue
+sudo ~/.local/bin/pironman5 rgb set status thermal
+sudo ~/.local/bin/pironman5 rgb night --brightness 10 --from 22:00 --to 07:00
+sudo ~/.local/bin/pironman5 rgb off
 ```
 
 ## Optional Hardware
@@ -145,7 +143,7 @@ on an unaudited upstream compatibility package, so it is only installed when you
 ask for it:
 
 ```bash
-sudo "$PIRONMAN5_CLI" setup --variant ups --with pipower5
+sudo ~/.local/bin/pironman5 setup --variant ups --with pipower5
 ```
 
 Dashboard, graph history, and legacy hardware drivers are optional extras. The
@@ -154,7 +152,7 @@ default history backend is SQLite. InfluxDB is no longer installed by default.
 To remove the dashboard package from the service install:
 
 ```bash
-sudo "$PIRONMAN5_CLI" dashboard remove
+sudo ~/.local/bin/pironman5 dashboard remove
 ```
 
 To enable dashboard browser auto-start for the current desktop user:
@@ -168,19 +166,19 @@ pironman5 launch-browser --auto-start=on
 Rebuild the service install:
 
 ```bash
-sudo "$PIRONMAN5_CLI" service refresh
+sudo ~/.local/bin/pironman5 service refresh
 ```
 
 Remove system integration while keeping runtime config:
 
 ```bash
-sudo "$PIRONMAN5_CLI" service uninstall
+sudo ~/.local/bin/pironman5 service uninstall
 ```
 
 Remove system integration, `/opt/pironman5`, and logs:
 
 ```bash
-sudo "$PIRONMAN5_CLI" service uninstall --purge
+sudo ~/.local/bin/pironman5 service uninstall --purge
 ```
 
 The legacy `install.py` entry point now prints migration guidance by default.
@@ -198,14 +196,13 @@ If setup fails with `sudo: pironman5: command not found`, rerun it with the
 absolute pipx command path:
 
 ```bash
-PIRONMAN5_CLI="$(command -v pironman5)"
-sudo "$PIRONMAN5_CLI" setup
+sudo ~/.local/bin/pironman5 setup
 ```
 
 If the service is not active after setup or refresh:
 
 ```bash
-sudo "$PIRONMAN5_CLI" doctor
+sudo ~/.local/bin/pironman5 doctor
 sudo systemctl status pironman5.service --no-pager
 sudo journalctl -u pironman5.service -n 80 --no-pager
 ```
@@ -214,7 +211,7 @@ If `pironman5 doctor` reports `protected`, run it with sudo. Some service-owned
 files are intentionally not readable by the login user:
 
 ```bash
-sudo "$PIRONMAN5_CLI" doctor
+sudo ~/.local/bin/pironman5 doctor
 ```
 
 If the user-facing command and the systemd service disagree after an upgrade,
@@ -222,9 +219,8 @@ refresh the service environment:
 
 ```bash
 pipx reinstall pironman5
-PIRONMAN5_CLI="$(command -v pironman5)"
-sudo "$PIRONMAN5_CLI" service refresh
-sudo "$PIRONMAN5_CLI" doctor
+sudo ~/.local/bin/pironman5 service refresh
+sudo ~/.local/bin/pironman5 doctor
 ```
 
 ## Compatibility
@@ -268,9 +264,8 @@ Before tagging a release from this fork:
 ```bash
 python3 -m pytest
 python3 -m build
-PIRONMAN5_CLI="$(command -v pironman5)"
 pironman5 setup --variant max --dry-run
-sudo "$PIRONMAN5_CLI" service refresh
-sudo "$PIRONMAN5_CLI" doctor
+sudo ~/.local/bin/pironman5 service refresh
+sudo ~/.local/bin/pironman5 doctor
 sudo systemctl status pironman5.service --no-pager
 ```
