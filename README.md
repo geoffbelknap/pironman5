@@ -120,6 +120,7 @@ Supported variant keys are `pironman5`, `max`, `mini`, `nas`, `pro-max`, and
 Check the install:
 
 ```bash
+pironman5 status
 pironman5 doctor
 sudo pironman5 doctor
 ```
@@ -229,6 +230,7 @@ If the service is not active after setup or refresh:
 
 ```bash
 sudo pironman5 doctor
+pironman5 service logs
 sudo systemctl status pironman5.service --no-pager
 sudo journalctl -u pironman5.service -n 80 --no-pager
 ```

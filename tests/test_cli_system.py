@@ -784,6 +784,51 @@ class SystemCliTest(unittest.TestCase):
         self.assertIn("Pironman 5 service doctor", output)
         self.assertIn("service active:", output)
 
+    def test_top_level_status_routes_to_system_status(self):
+        from pironman5 import _cli
+        from pironman5 import system
+
+        stdout = io.StringIO()
+        with mock.patch.object(system, "status_lines", return_value=["Pironman 5 status", "- service: active"]):
+            with mock.patch.object(sys, "argv", ["pironman5", "status"]):
+                with contextlib.redirect_stdout(stdout):
+                    _cli.main()
+
+        output = stdout.getvalue()
+        self.assertIn("Pironman 5 status", output)
+        self.assertIn("- service: active", output)
+
+    def test_service_logs_routes_to_journalctl(self):
+        from pironman5 import _cli
+        from pironman5 import system
+
+        with mock.patch.object(system, "show_service_logs") as show_service_logs:
+            with mock.patch.object(sys, "argv", ["pironman5", "service", "logs", "-n", "40"]):
+                _cli.main()
+
+        show_service_logs.assert_called_once_with(lines=40, follow=False)
+
+    def test_service_logs_can_follow(self):
+        from pironman5 import _cli
+        from pironman5 import system
+
+        with mock.patch.object(system, "show_service_logs") as show_service_logs:
+            with mock.patch.object(sys, "argv", ["pironman5", "service", "logs", "--follow"]):
+                _cli.main()
+
+        show_service_logs.assert_called_once_with(lines=80, follow=True)
+
+    def test_show_service_logs_runs_journalctl_for_service(self):
+        from pironman5 import system
+
+        with mock.patch.object(system.subprocess, "run") as run:
+            system.show_service_logs(lines=25, follow=True)
+
+        run.assert_called_once_with(
+            ["journalctl", "-u", "pironman5.service", "-n", "25", "--no-pager", "-f"],
+            check=False,
+        )
+
     def test_service_refresh_routes_to_system_update(self):
         from pironman5 import _cli
 

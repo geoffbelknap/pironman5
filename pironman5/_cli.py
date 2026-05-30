@@ -380,7 +380,7 @@ def _route_system_command(argv):
     if command == "system":
         _run_system_command(argv[1:])
         return True
-    if command in ("setup", "doctor"):
+    if command in ("setup", "doctor", "status"):
         _run_system_command(argv, prog="pironman5")
         return True
     if command == "service" and len(argv) > 1:
@@ -391,6 +391,15 @@ def _route_system_command(argv):
             return True
         if service_command == "uninstall":
             _run_system_command(["uninstall", *service_args], prog="pironman5 service")
+            return True
+        if service_command == "logs":
+            from .system import show_service_logs
+
+            logs_parser = argparse.ArgumentParser(prog="pironman5 service logs")
+            logs_parser.add_argument("-n", "--lines", type=int, default=80, help="Number of log lines to show")
+            logs_parser.add_argument("-f", "--follow", action="store_true", help="Follow service logs")
+            logs_args = logs_parser.parse_args(service_args)
+            show_service_logs(lines=logs_args.lines, follow=logs_args.follow)
             return True
     return False
 
