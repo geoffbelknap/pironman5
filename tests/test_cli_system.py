@@ -945,11 +945,27 @@ class SystemCliTest(unittest.TestCase):
         self.assertIn("gpio chip: ok /dev/gpiochip0", output)
         self.assertIn("pwm chip: ok /sys/class/pwm/pwmchip0", output)
 
-    def test_system_doctor_marks_unreadable_setup_files(self):
+    def test_system_doctor_marks_protected_setup_files(self):
         from pironman5 import system
 
         with mock.patch.object(system.Path, "exists", side_effect=PermissionError("denied")):
-            self.assertEqual("unreadable", system._path_state(Path("/opt/pironman5/.variant")))
+            self.assertEqual("protected", system._path_state(Path("/opt/pironman5/.variant")))
+
+    def test_system_doctor_reports_sudo_hint_for_protected_details(self):
+        from pironman5 import system
+
+        with mock.patch.object(system, "_path_state", return_value="protected"):
+            with mock.patch.object(system, "_doctor_status_lines", return_value=["- current variant: protected"]):
+                output = "\n".join(system._doctor_lines("max"))
+
+        self.assertIn("run with sudo for protected service install details", output)
+
+    def test_variant_marker_reports_protected_file(self):
+        from pironman5 import system
+
+        with mock.patch.object(system.Path, "exists", return_value=True):
+            with mock.patch.object(system.Path, "read_text", side_effect=PermissionError("denied")):
+                self.assertEqual("protected", system._variant_marker())
 
     def test_system_upgrade_service_refreshes_service_environment(self):
         from pironman5 import _cli
@@ -1037,24 +1053,24 @@ class SystemCliTest(unittest.TestCase):
 
         self.assertEqual(run.call_args.kwargs["cwd"], "/")
 
-    def test_service_install_info_reports_unreadable_venv(self):
+    def test_service_install_info_reports_protected_venv(self):
         from pironman5 import system
 
         with mock.patch.object(system.Path, "exists", side_effect=PermissionError("denied")):
             self.assertEqual(
                 system._service_install_info(),
-                {"version": "unreadable", "source": "unreadable", "commit": None},
+                {"version": "protected", "source": "protected", "commit": None},
             )
 
-    def test_install_drift_reports_unreadable_service_info(self):
+    def test_install_drift_reports_protected_service_info(self):
         from pironman5 import system
 
         self.assertEqual(
             system._install_drift(
                 {"version": "1.3.7", "source": "user", "commit": None},
-                {"version": "unreadable", "source": "unreadable", "commit": None},
+                {"version": "protected", "source": "protected", "commit": None},
             ),
-            "unreadable",
+            "protected",
         )
 
     def test_system_uninstall_dry_run_prints_removed_files(self):
