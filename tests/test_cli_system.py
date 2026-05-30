@@ -876,6 +876,17 @@ class SystemCliTest(unittest.TestCase):
                 {"version": "unreadable", "source": "unreadable", "commit": None},
             )
 
+    def test_install_drift_reports_unreadable_service_info(self):
+        from pironman5 import system
+
+        self.assertEqual(
+            system._install_drift(
+                {"version": "1.3.7", "source": "user", "commit": None},
+                {"version": "unreadable", "source": "unreadable", "commit": None},
+            ),
+            "unreadable",
+        )
+
     def test_system_uninstall_dry_run_prints_removed_files(self):
         from pironman5 import _cli
 

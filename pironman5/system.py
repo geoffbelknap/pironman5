@@ -522,7 +522,7 @@ def _direct_url_info(direct_url):
 
 
 def _install_drift(user_info, service_info):
-    if service_info["version"] in ("missing", "unknown"):
+    if service_info["version"] in ("missing", "unknown", "unreadable"):
         return service_info["version"]
     if user_info["version"] != service_info["version"]:
         return "version mismatch"
