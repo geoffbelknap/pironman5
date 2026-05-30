@@ -121,6 +121,7 @@ Check the install:
 
 ```bash
 pironman5 status
+pironman5 status --json
 pironman5 doctor
 sudo pironman5 doctor
 ```
@@ -129,6 +130,7 @@ Read or change settings:
 
 ```bash
 pironman5 config list
+pironman5 config list --json
 pironman5 config explain debug_level
 pironman5 config get debug_level
 pironman5 config set debug_level INFO --dry-run
@@ -144,6 +146,7 @@ Set the fan profile without remembering config integers:
 ```bash
 pironman5 fan list
 pironman5 fan status
+pironman5 fan status --json
 sudo pironman5 fan set balanced
 ```
 
@@ -151,6 +154,7 @@ Manage the OLED without editing JSON:
 
 ```bash
 pironman5 oled status
+pironman5 oled status --json
 pironman5 oled pages list
 sudo pironman5 oled pages set mix performance
 sudo pironman5 oled sleep 60
@@ -163,6 +167,13 @@ After upgrading the pipx/uv command, refresh the service environment:
 pipx reinstall pironman5
 sudo pironman5 service refresh
 pironman5 doctor
+```
+
+If `pironman5 status` reports install drift, `service repair` is the same
+repair path with a clearer name:
+
+```bash
+sudo pironman5 service repair
 ```
 
 ## RGB Lights

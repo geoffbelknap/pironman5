@@ -225,6 +225,20 @@ def handle_config_command(args, current_config, config_path):
         return
     if args.config_action == 'list':
         defaults = get_config_defaults()
+        if args.json:
+            payload = {}
+            for field in iter_config_fields(defaults):
+                if field.key not in defaults and field.key not in current_config.get("system", {}):
+                    continue
+                payload[field.key] = {
+                    "description": field.description,
+                    "type": field.value_type,
+                    "reload": field.reload,
+                    "allowed": list(field.allowed),
+                    "default": defaults.get(field.key),
+                }
+            print(json.dumps(payload, indent=2, sort_keys=True))
+            return
         for field in iter_config_fields(defaults):
             if field.key not in defaults and field.key not in current_config.get("system", {}):
                 continue
@@ -280,6 +294,9 @@ def handle_fan_command(args, current_config, config_path):
         return
     if args.fan_action == "status":
         mode = get_system_config_value(current_config, "gpio_fan_mode", FAN_PROFILES["off"])
+        if args.json:
+            print(json.dumps({"profile": _fan_profile_name(mode), "mode": mode}, indent=2, sort_keys=True))
+            return
         print(f"Fan profile: {_fan_profile_name(mode)} ({mode})")
         return
     if args.fan_action == "set":
@@ -319,6 +336,9 @@ def handle_oled_command(args, current_config, config_path):
         enabled = bool(get_system_config_value(current_config, "oled_enable", True))
         pages = get_system_config_value(current_config, "oled_pages", [])
         timeout = get_system_config_value(current_config, "oled_sleep_timeout", 10)
+        if args.json:
+            print(json.dumps({"enabled": enabled, "pages": pages, "sleep_timeout": timeout}, indent=2, sort_keys=True))
+            return
         print(f"OLED: {'on' if enabled else 'off'}")
         print(f"Pages: {', '.join(pages) if pages else 'none'}")
         print(f"Sleep timeout: {timeout}")
@@ -526,6 +546,9 @@ def _route_system_command(argv):
         if service_command == "refresh":
             _run_system_command(["refresh", *service_args], prog="pironman5 service", update_command_name="refresh")
             return True
+        if service_command == "repair":
+            _run_system_command(["repair", *service_args], prog="pironman5 service", update_command_name="repair")
+            return True
         if service_command == "uninstall":
             _run_system_command(["uninstall", *service_args], prog="pironman5 service")
             return True
@@ -626,7 +649,8 @@ def main():
     config_subparsers = config_parser.add_subparsers(dest="config_action")
     config_get_parser = config_subparsers.add_parser("get", help="Read a config value")
     config_get_parser.add_argument("config_key", help="System config key")
-    config_subparsers.add_parser("list", help="List known config values")
+    config_list_parser = config_subparsers.add_parser("list", help="List known config values")
+    config_list_parser.add_argument("--json", action="store_true", help="Print config metadata as JSON")
     config_explain_parser = config_subparsers.add_parser("explain", help="Explain a config value")
     config_explain_parser.add_argument("config_key", help="System config key")
     config_set_parser = config_subparsers.add_parser("set", help="Update a config value")
@@ -650,13 +674,15 @@ def main():
     fan_parser = subparsers.add_parser("fan", help="Manage case fan profile")
     fan_subparsers = fan_parser.add_subparsers(dest="fan_action")
     fan_subparsers.add_parser("list", help="List fan profiles")
-    fan_subparsers.add_parser("status", help="Show current fan profile")
+    fan_status_parser = fan_subparsers.add_parser("status", help="Show current fan profile")
+    fan_status_parser.add_argument("--json", action="store_true", help="Print fan status as JSON")
     fan_set_parser = fan_subparsers.add_parser("set", help="Set fan profile")
     fan_set_parser.add_argument("profile", choices=sorted(FAN_PROFILES), help="Fan profile")
     fan_set_parser.add_argument("--dry-run", action="store_true", help="Preview the change without saving")
     oled_parser = subparsers.add_parser("oled", help="Manage OLED display")
     oled_subparsers = oled_parser.add_subparsers(dest="oled_action")
-    oled_subparsers.add_parser("status", help="Show OLED settings")
+    oled_status_parser = oled_subparsers.add_parser("status", help="Show OLED settings")
+    oled_status_parser.add_argument("--json", action="store_true", help="Print OLED status as JSON")
     oled_subparsers.add_parser("on", help="Enable OLED")
     oled_subparsers.add_parser("off", help="Disable OLED")
     oled_sleep_parser = oled_subparsers.add_parser("sleep", help="Set OLED sleep timeout in seconds")
@@ -673,6 +699,7 @@ def main():
     service_parser = subparsers.add_parser("service", help="Manage the systemd service install")
     service_subparsers = service_parser.add_subparsers(dest="service_action")
     service_subparsers.add_parser("refresh", help="Refresh the service install and restart")
+    service_subparsers.add_parser("repair", help="Repair install drift by refreshing the service install")
     service_subparsers.add_parser("uninstall", help="Remove privileged system integration")
     dashboard_parser = subparsers.add_parser("dashboard", help="Manage dashboard")
     dashboard_subparsers = dashboard_parser.add_subparsers(dest="dashboard_action")
@@ -706,7 +733,6 @@ def main():
             print(f"Config path: {config_path}")
         else:
             config_path = args.config_path
-            print(f"Set config path: {config_path}")
 
     if args.subcommand == 'start':
         from .pironman5 import Pironman5
