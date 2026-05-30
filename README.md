@@ -240,13 +240,13 @@ Remove system integration, `/opt/pironman5`, and logs:
 sudo pironman5 service uninstall --purge
 ```
 
-The legacy `install.py` entry point now prints migration guidance by default.
-Use it only if you explicitly need the old compatibility workflow:
+The legacy `install.py` entry point no longer runs a root installer. It only
+prints migration guidance:
 
 ```bash
 git clone https://github.com/geoffbelknap/pironman5.git
 cd pironman5
-sudo python3 install.py --legacy-installer
+python3 install.py
 ```
 
 ## Troubleshooting

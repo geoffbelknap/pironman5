@@ -218,7 +218,7 @@ def parse_install_args(argv=None, parser=None):
         help="Enable a legacy hardware module explicitly",
     )
     parser.add_argument("--enable-experimental-dependency", action="append", default=[], help="Enable a named experimental dependency")
-    parser.add_argument("--legacy-installer", action="store_true", help="Run the deprecated install.py workflow")
+    parser.add_argument("--legacy-installer", action="store_true", help="Show removed legacy installer guidance")
     parser.add_argument("--disable-dashboard", action="store_true", help=argparse.SUPPRESS)
     return parser.parse_args(argv)
 
@@ -367,23 +367,15 @@ def main(argv=None):
     print(variant_description)
     if args.print_variant:
         return
-    if not args.legacy_installer:
-        print("")
-        print("install.py is deprecated and no longer runs the legacy root installer by default.")
-        print("Use the package CLI setup flow instead:")
-        print("")
-        print(f"  pironman5 setup --variant {variant_key} --dry-run")
-        print(f"  sudo ~/.local/bin/pironman5 setup --variant {variant_key}")
-        print("")
-        print("To run the old compatibility path explicitly, pass --legacy-installer.")
-        return 2
-    installer_obj.friendly_name = get_product_definition(variant_key)["name"]
-    names = resolve_enabled_setting_names(args)
-    apply_settings_by_name(installer_obj, names)
-    apply_variant_install_settings(installer_obj, variant_key)
-    apply_optional_hardware_install_settings(installer_obj, args)
-    installer_obj.args = args
-    installer_obj.main()
+    print("")
+    print("install.py is deprecated and no longer runs the legacy root installer.")
+    if args.legacy_installer:
+        print("The legacy installer path has been removed from this fork.")
+    print("Use the package CLI setup flow instead:")
+    print("")
+    print(f"  pironman5 setup --variant {variant_key} --dry-run")
+    print(f"  sudo ~/.local/bin/pironman5 setup --variant {variant_key}")
+    return 2
 
 
 if __name__ == "__main__":
