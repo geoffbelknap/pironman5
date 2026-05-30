@@ -410,6 +410,22 @@ def _doctor_lines(variant):
 
 
 def status_lines(variant="auto"):
+    payload = status_payload(variant)
+    optional_detected = payload["optional_hardware_detected"]
+    return [
+        "Pironman 5 status",
+        f"- detected hardware: {payload['detected_hardware']['name']} ({payload['detected_hardware']['variant']}, {payload['detected_hardware']['source']})",
+        f"- installed variant: {payload['installed_variant']}",
+        f"- service: {payload['service']}",
+        f"- service enabled: {payload['service_enabled']}",
+        f"- user version: {payload['user_version']}",
+        f"- service version: {payload['service_version']}",
+        f"- install drift: {payload['install_drift']}",
+        f"- optional hardware: {', '.join(optional_detected) if optional_detected else 'none detected'}",
+    ]
+
+
+def status_payload(variant="auto"):
     user_info = _current_install_info()
     service_info = _service_install_info()
     detected = detect_hardware_variant()
@@ -420,17 +436,21 @@ def status_lines(variant="auto"):
         name for name, detected_state in sorted(optional.items())
         if detected_state
     ]
-    return [
-        "Pironman 5 status",
-        f"- detected hardware: {product_name} ({detected['variant']}, {detected['source']})",
-        f"- installed variant: {_variant_marker()}",
-        f"- service: {_command_output(('systemctl', 'is-active', SERVICE_NAME))}",
-        f"- service enabled: {_command_output(('systemctl', 'is-enabled', SERVICE_NAME))}",
-        f"- user version: {user_info['version']}",
-        f"- service version: {service_info['version']}",
-        f"- install drift: {_install_drift(user_info, service_info)}",
-        f"- optional hardware: {', '.join(optional_detected) if optional_detected else 'none detected'}",
-    ]
+    return {
+        "detected_hardware": {
+            "name": product_name,
+            "variant": detected["variant"],
+            "source": detected["source"],
+            "part_number": detected.get("part_number"),
+        },
+        "installed_variant": _variant_marker(),
+        "service": _command_output(("systemctl", "is-active", SERVICE_NAME)),
+        "service_enabled": _command_output(("systemctl", "is-enabled", SERVICE_NAME)),
+        "user_version": user_info["version"],
+        "service_version": service_info["version"],
+        "install_drift": _install_drift(user_info, service_info),
+        "optional_hardware_detected": optional_detected,
+    }
 
 
 def show_service_logs(lines=80, follow=False):
@@ -660,6 +680,7 @@ def build_parser(prog="pironman5 system", update_command_name="update"):
     doctor.add_argument("--variant", choices=variant_choices, default="auto", type=normalize_variant_key)
     status = subparsers.add_parser("status", help="Show a concise service and hardware summary")
     status.add_argument("--variant", choices=variant_choices, default="auto", type=normalize_variant_key)
+    status.add_argument("--json", action="store_true", help="Print status as JSON")
     uninstall = subparsers.add_parser("uninstall", help="Remove privileged system integration")
     uninstall.add_argument("--variant", choices=variant_choices, default="auto", type=normalize_variant_key)
     uninstall.add_argument("--purge", action="store_true", help="Also remove runtime state and logs")
@@ -706,7 +727,10 @@ def main(argv=None, prog="pironman5 system", update_command_name="update"):
     elif args.command == "doctor":
         print("\n".join(_doctor_lines(args.variant)))
     elif args.command == "status":
-        print("\n".join(status_lines(args.variant)))
+        if args.json:
+            print(json.dumps(status_payload(args.variant), indent=2, sort_keys=True))
+        else:
+            print("\n".join(status_lines(args.variant)))
     elif args.command == "uninstall":
         _run_commands(
             uninstall_commands(args.variant, purge=args.purge),

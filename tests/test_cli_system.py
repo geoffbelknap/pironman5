@@ -649,6 +649,19 @@ class SystemCliTest(unittest.TestCase):
         self.assertIn("live", output)
         self.assertIn("Fan profile", output)
 
+    def test_config_list_json_prints_schema_payload(self):
+        from pironman5 import _cli
+
+        stdout = io.StringIO()
+        with mock.patch.object(sys, "argv", ["pironman5", "config", "list", "--json"]):
+            with mock.patch.object(_cli, "PERIPHERALS", ["gpio_fan_mode"]):
+                with contextlib.redirect_stdout(stdout):
+                    _cli.main()
+
+        payload = json.loads(stdout.getvalue())
+        self.assertEqual("Fan profile.", payload["gpio_fan_mode"]["description"])
+        self.assertEqual("live", payload["gpio_fan_mode"]["reload"])
+
     def test_config_explain_prints_allowed_values(self):
         from pironman5 import _cli
 
@@ -710,6 +723,21 @@ class SystemCliTest(unittest.TestCase):
 
         self.assertIn("Fan profile: balanced (3)", stdout.getvalue())
 
+    def test_fan_status_json_prints_current_profile_payload(self):
+        from pironman5 import _cli
+
+        stdout = io.StringIO()
+        with tempfile.TemporaryDirectory() as tmpdir:
+            config_path = Path(tmpdir) / "config.json"
+            config_path.write_text(json.dumps({"system": {"gpio_fan_mode": 3}}), encoding="utf-8")
+            argv = ["pironman5", "--config-path", str(config_path), "fan", "status", "--json"]
+
+            with mock.patch.object(sys, "argv", argv):
+                with contextlib.redirect_stdout(stdout):
+                    _cli.main()
+
+        self.assertEqual({"profile": "balanced", "mode": 3}, json.loads(stdout.getvalue()))
+
     def test_fan_set_named_profile_updates_config_and_reloads(self):
         from pironman5 import _cli
 
@@ -763,6 +791,25 @@ class SystemCliTest(unittest.TestCase):
         self.assertIn("OLED: on", output)
         self.assertIn("Pages: mix", output)
         self.assertIn("Sleep timeout: 60", output)
+
+    def test_oled_status_json_prints_current_settings(self):
+        from pironman5 import _cli
+
+        stdout = io.StringIO()
+        with tempfile.TemporaryDirectory() as tmpdir:
+            config_path = Path(tmpdir) / "config.json"
+            config_path.write_text(json.dumps({"system": {"oled_enable": True, "oled_pages": ["mix"], "oled_sleep_timeout": 60}}), encoding="utf-8")
+            argv = ["pironman5", "--config-path", str(config_path), "oled", "status", "--json"]
+
+            with mock.patch.object(sys, "argv", argv):
+                with mock.patch.object(_cli, "PERIPHERALS", ["oled_page_mix"]):
+                    with contextlib.redirect_stdout(stdout):
+                        _cli.main()
+
+        self.assertEqual(
+            {"enabled": True, "pages": ["mix"], "sleep_timeout": 60},
+            json.loads(stdout.getvalue()),
+        )
 
     def test_oled_pages_set_updates_config_and_reloads(self):
         from pironman5 import _cli
@@ -979,6 +1026,18 @@ class SystemCliTest(unittest.TestCase):
         self.assertIn("Pironman 5 status", output)
         self.assertIn("- service: active", output)
 
+    def test_top_level_status_json_routes_to_system_status_json(self):
+        from pironman5 import _cli
+        from pironman5 import system
+
+        stdout = io.StringIO()
+        with mock.patch.object(system, "status_payload", return_value={"service": "active"}):
+            with mock.patch.object(sys, "argv", ["pironman5", "status", "--json"]):
+                with contextlib.redirect_stdout(stdout):
+                    _cli.main()
+
+        self.assertEqual({"service": "active"}, json.loads(stdout.getvalue()))
+
     def test_service_logs_routes_to_journalctl(self):
         from pironman5 import _cli
         from pironman5 import system
@@ -1015,6 +1074,19 @@ class SystemCliTest(unittest.TestCase):
 
         stdout = io.StringIO()
         argv = ["pironman5", "service", "refresh", "--dry-run"]
+        with mock.patch.object(sys, "argv", argv):
+            with contextlib.redirect_stdout(stdout):
+                _cli.main()
+
+        output = stdout.getvalue()
+        self.assertIn("rm -rf /opt/pironman5-venv", output)
+        self.assertIn("systemctl restart pironman5.service", output)
+
+    def test_service_repair_routes_to_system_update(self):
+        from pironman5 import _cli
+
+        stdout = io.StringIO()
+        argv = ["pironman5", "service", "repair", "--dry-run"]
         with mock.patch.object(sys, "argv", argv):
             with contextlib.redirect_stdout(stdout):
                 _cli.main()
