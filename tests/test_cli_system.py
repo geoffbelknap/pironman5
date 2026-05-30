@@ -1643,6 +1643,17 @@ class SystemCliTest(unittest.TestCase):
         self.assertIn("update", output)
         self.assertNotIn("upgrade-service", output)
 
+    def test_system_upgrade_service_alias_is_rejected(self):
+        from pironman5 import system
+
+        stderr = io.StringIO()
+        with contextlib.redirect_stderr(stderr):
+            with self.assertRaises(SystemExit) as exit_context:
+                system.main(["upgrade-service", "--dry-run"])
+
+        self.assertNotEqual(0, exit_context.exception.code)
+        self.assertIn("invalid choice", stderr.getvalue())
+
     def test_system_setup_help_uses_fresh_flag(self):
         from pironman5 import system
 
