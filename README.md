@@ -22,16 +22,35 @@ packages when the matching hardware is detected or explicitly requested.
 
 ## About This Fork
 
-This project started from SunFounder's Pironman 5 package. The hardware support
-is still for Pironman 5 family cases, but the install and service model has been
-reworked:
+This project started from SunFounder's Pironman 5 package. The goal is one
+clean package that should work across the Pironman 5 family instead of making
+users choose between separate branches or one-off install scripts.
 
-- install the user-facing `pironman5` command with `pipx` or `uv`
-- run privileged setup explicitly with `pironman5 setup`
-- run systemd from `/opt/pironman5-venv`, not a user's home directory
-- detect Pironman 5 hardware when possible
-- keep dashboard, UPS, and legacy hardware dependencies optional
-- use SQLite for local history instead of installing InfluxDB by default
+What this fork focuses on:
+
+- **Simplified install**: install with `pipx` or `uv`, then run one setup
+  command.
+- **Single package for Pironman 5 variants**: one CLI can detect and configure
+  supported Pironman 5 cases.
+- **Safer setup**: preview system changes with `--dry-run` before applying
+  them.
+- **More reliable service**: the background service runs from a dedicated
+  system environment, not a user folder.
+- **Easier upgrades**: update the CLI, then refresh the service with one
+  command.
+- **Less bloat**: optional dashboard, UPS, and legacy hardware packages are not
+  installed unless needed.
+- **Safer dependencies**: risky or poorly reviewed optional packages are gated
+  behind detection or explicit flags.
+- **SQLite history**: local history works without installing InfluxDB.
+- **Better diagnostics**: `doctor` checks service health, hardware detection,
+  permissions, devices, and install drift.
+- **Safer config writes**: changing settings with sudo should not break service
+  access to config files.
+- **Better RGB controls**: simple modes for ambient lighting, thermal status,
+  night dimming, and off.
+- **Clearer docs**: install, setup, common commands, troubleshooting, and
+  hardware options are documented in one place.
 
 Links:
 
