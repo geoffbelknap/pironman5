@@ -39,16 +39,16 @@ class RuntimeDependencyBoundaryTest(unittest.TestCase):
         self.assertIn("PM Auto not installed; optional bridge modules remain unavailable", source)
         self.assertNotIn("legacy hardware modules remain unavailable", source)
 
-    def test_ws2812_cli_uses_local_runtime_constants(self):
+    def test_ws2812_cli_does_not_import_addon_constants_for_argument_parsing(self):
         source = pathlib.Path("pironman5/_cli.py").read_text(encoding="utf-8")
 
-        self.assertIn("from .runtime import RGB_STYLES", source)
+        self.assertNotIn("from .runtime import RGB_STYLES", source)
         self.assertNotIn("from pm_auto.addons.ws2812 import RGB_STYLES", source)
 
-    def test_gpio_fan_cli_uses_local_runtime_constants(self):
+    def test_gpio_fan_cli_does_not_import_addon_constants_for_argument_parsing(self):
         source = pathlib.Path("pironman5/_cli.py").read_text(encoding="utf-8")
 
-        self.assertIn("from .runtime import GPIO_FAN_MODES", source)
+        self.assertNotIn("from .runtime import GPIO_FAN_MODES", source)
         self.assertNotIn("from pm_auto.addons.fan import GPIO_FAN_MODES", source)
 
     def test_cli_does_not_import_pm_auto_addons_for_argument_parsing(self):

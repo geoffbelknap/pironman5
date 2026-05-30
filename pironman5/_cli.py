@@ -4,20 +4,13 @@ import json
 import sys
 import os
 import subprocess
-from importlib.resources import files as resource_files
 
 from ._launch_browser import run as launch_browser
 from .config import config_field, iter_config_fields, load_config_file, update_config_file
 from .variants import NAME, PERIPHERALS, SYSTEM_DEFAULT_CONFIG, detect_hardware_variant, detect_optional_hardware, get_product_definition
 from .version import __version__
-from .utils import is_included, constrain
-from .security import write_json_private
+from .utils import is_included
 
-AVAILABLE_PAGES = []
-AVAILABLE_EMAIL_MODES = []
-OLED_SLEEP_TIMEOUT_MIN = 5
-OLED_SLEEP_TIMEOUT_MAX = 3600
-OLED_SLEEP_TIMEOUT_HELP = "OLED sleep timeout in seconds (set to 0 to disable timeout)"
 RGB_MATRIX_EFFECT_LIST = [
     "solid",
     "breathing",
@@ -28,10 +21,6 @@ RGB_MATRIX_EFFECT_LIST = [
 ]
 TRUE_LIST = ['true', 'True', 'TRUE', '1', 'on', 'On', 'ON']
 FALSE_LIST = ['false', 'False', 'FALSE', '0', 'off', 'Off', 'OFF']
-DEBUG_LEVELS = [
-    'DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL',
-    'debug', 'info', 'warning', 'error', 'critical',
-]
 RGB_TIME_RE = r"^\d{2}:\d{2}$"
 EXTRA_CONFIG_DEFAULTS = {
     'debug_level': 'INFO',
@@ -359,7 +348,10 @@ def handle_oled_command(args, current_config, config_path):
             dry_run=args.dry_run,
         )
         if not args.dry_run:
-            print(f"Set OLED sleep timeout: {args.seconds}")
+            if args.seconds == 0:
+                print("Set OLED sleep timeout: disabled")
+            else:
+                print(f"Set OLED sleep timeout: {args.seconds}")
         return
     if args.oled_action == "pages":
         if args.pages_action == "list":
@@ -462,57 +454,6 @@ def handle_rgb_command(args, _current_config, config_path):
     quit()
 
 
-def handle_debug_level(args, current_config, new_sys_config):
-    if args.debug_level == None:
-        print(f"Debug level: {get_system_config_value(current_config, 'debug_level', 'INFO')}")
-        return
-    if args.debug_level.lower() not in ['debug', 'info', 'warning', 'error', 'critical']:
-        print(f"Invalid debug level, it should be one of: debug, info, warning, error, critical")
-        quit()
-    debug_level = args.debug_level.upper()
-    new_sys_config['debug_level'] = debug_level
-    print(f"Set debug level: {debug_level}")
-
-
-def handle_database_retention_days(args, current_config, new_sys_config):
-    if args.database_retention_days == None:
-        print(f"Database retention days: {get_system_config_value(current_config, 'database_retention_days')}")
-        return
-    try:
-        database_retention_days = int(args.database_retention_days)
-    except ValueError:
-        print(f"Invalid value for database retention days, it should be a number")
-        quit()
-    new_sys_config['database_retention_days'] = database_retention_days
-    print(f"Set database retention days: {database_retention_days}")
-
-
-def handle_enable_history(args, current_config, new_sys_config):
-    if args.enable_history == None:
-        print(f"Enable history: {get_system_config_value(current_config, 'enable_history')}")
-        return
-    if args.enable_history in TRUE_LIST:
-        new_sys_config['enable_history'] = True
-        print(f"Set enable history: True")
-    elif args.enable_history in FALSE_LIST:
-        new_sys_config['enable_history'] = False
-        print(f"Set enable history: False")
-    else:
-        print(f"Invalid value for enable history, it should be True/true/on/On/1 or False/false/off/Off/0")
-        quit()
-
-
-def handle_temperature_unit(args, current_config, new_sys_config):
-    if args.temperature_unit == None:
-        print(f"Temperature unit: {get_system_config_value(current_config, 'temperature_unit')}")
-        return
-    if args.temperature_unit not in ['C', 'F']:
-        print(f"Invalid value for Temperature unit, it should be C or F")
-        quit()
-    new_sys_config['temperature_unit'] = args.temperature_unit
-    print(f"Set Temperature unit: {args.temperature_unit}")
-
-
 def remove_dashboard(pip_path):
     print("Remove Dashboard")
     try:
@@ -563,8 +504,6 @@ def _route_system_command(argv):
 
 
 def main():
-    global AVAILABLE_PAGES, AVAILABLE_EMAIL_MODES
-
     if _route_system_command(sys.argv[1:]):
         return
     if len(sys.argv) > 1 and sys.argv[1] == "detect":
@@ -578,7 +517,6 @@ def main():
     CONFIG_PATH = "/opt/pironman5/config.json"
     PIP_PATH = "/opt/pironman5-venv/bin/pip"
 
-    current_config = None
     new_sys_config = {}
     help_requested = any(arg in ("-h", "--help") for arg in sys.argv[1:])
 
@@ -589,39 +527,7 @@ def main():
 
     parser.add_argument("-v", "--version", action="store_true", help="Show version")
     parser.add_argument("-c", "--config", action="store_true", help="Show config")
-    parser.add_argument("-drd", "--database-retention-days", nargs='?', default='', help=argparse.SUPPRESS)
-    parser.add_argument("-dl", "--debug-level", nargs='?', default='', choices=DEBUG_LEVELS, help=argparse.SUPPRESS)
     parser.add_argument("-cp", "--config-path", nargs='?', default='', help="Config path")
-    parser.add_argument("-eh", "--enable-history", nargs='?', default='', help=argparse.SUPPRESS)
-    # ws2812
-    if is_included(PERIPHERALS, "ws2812"):
-        from .runtime import RGB_STYLES
-        parser.add_argument("-re", "--rgb-enable", nargs='?', default='', help=argparse.SUPPRESS)
-        parser.add_argument("-rs", "--rgb-style", nargs='?', default='', help=argparse.SUPPRESS)
-        parser.add_argument("-rc", "--rgb-color", nargs='?', default='', help=argparse.SUPPRESS)
-        parser.add_argument("-rb", "--rgb-brightness", nargs='?', default='', help=argparse.SUPPRESS)
-        parser.add_argument("-rp", "--rgb-speed", nargs='?', default='', help=argparse.SUPPRESS)
-        parser.add_argument("-rl", "--rgb-led-count", nargs='?', default='', help=argparse.SUPPRESS)
-    # temperature_unit
-    if is_included(PERIPHERALS, "temperature_unit"):
-        parser.add_argument("-u", "--temperature-unit", choices=["C", "F"], nargs='?', default='', help=argparse.SUPPRESS)
-    # gpio_fan_mode
-    if is_included(PERIPHERALS, "gpio_fan_mode"):
-        from .runtime import GPIO_FAN_MODES
-        parser.add_argument("-gm", "--gpio-fan-mode", nargs='?', default='', help=argparse.SUPPRESS)
-        parser.add_argument("-gp", "--gpio-fan-pin", nargs='?', default='', help=argparse.SUPPRESS)
-    if is_included(PERIPHERALS, "gpio_fan_led"):
-        parser.add_argument("-fl", "--gpio-fan-led", nargs='?', default='', help=argparse.SUPPRESS)
-        parser.add_argument("-fp", "--gpio-fan-led-pin", nargs='?', default='', help=argparse.SUPPRESS)
-    # oled
-    if is_included(PERIPHERALS, "oled"):
-        global AVAILABLE_PAGES
-        AVAILABLE_PAGES = [] if help_requested else available_oled_pages(PERIPHERALS)
-        parser.add_argument("-oe", "--oled-enable", nargs='?', default='', help=argparse.SUPPRESS)
-        parser.add_argument("-or", "--oled-rotation", nargs='?', default=-1, type=int, choices=[0, 180], help=argparse.SUPPRESS)
-        parser.add_argument("-op", "--oled-pages", nargs='?', default='', help=argparse.SUPPRESS)
-        if is_included(PERIPHERALS, "oled_sleep"):
-            parser.add_argument("-os", "--oled-sleep-timeout", nargs='?', default='', help=argparse.SUPPRESS)
     # vibration_switch
     if is_included(PERIPHERALS, "vibration_switch"):
         parser.add_argument("-vp", "--vibration-switch-pin", nargs='?', default='', help="Vibration switch pin")
@@ -638,7 +544,7 @@ def main():
     # pipower5
     if is_included(PERIPHERALS, "pipower5"):
         # 定义pipower5子命令（用于调用独立的pipower5）
-        pipower_parser = subparsers.add_parser(
+        subparsers.add_parser(
             "pipower5",
             add_help=False  # 禁用子命令的-h处理，确保透传
         )
@@ -682,7 +588,10 @@ def main():
     oled_status_parser.add_argument("--json", action="store_true", help="Print OLED status as JSON")
     oled_subparsers.add_parser("on", help="Enable OLED")
     oled_subparsers.add_parser("off", help="Disable OLED")
-    oled_sleep_parser = oled_subparsers.add_parser("sleep", help="Set OLED sleep timeout in seconds")
+    oled_sleep_parser = oled_subparsers.add_parser(
+        "sleep",
+        help="Set OLED sleep timeout in seconds (set to 0 to disable timeout)",
+    )
     oled_sleep_parser.add_argument("seconds", type=int, help="Sleep timeout in seconds")
     oled_sleep_parser.add_argument("--dry-run", action="store_true", help="Preview the change without saving")
     oled_pages_parser = oled_subparsers.add_parser("pages", help="Manage OLED pages")
@@ -701,8 +610,8 @@ def main():
     dashboard_parser = subparsers.add_parser("dashboard", help="Manage dashboard")
     dashboard_subparsers = dashboard_parser.add_subparsers(dest="dashboard_action")
     dashboard_subparsers.add_parser("remove", help="Remove dashboard package")
-    start_parser = subparsers.add_parser("start", help="Start Pironman5")
-    stop_parser = subparsers.add_parser("stop", help="Stop Pironman5")
+    subparsers.add_parser("start", help="Start Pironman5")
+    subparsers.add_parser("stop", help="Stop Pironman5")
     launch_browser_parser = subparsers.add_parser("launch-browser", help="Launch browser")
     launch_browser_parser.add_argument("-a", "--auto-start", nargs='?', default='', help="Auto start browser on boot")
 
@@ -776,257 +685,6 @@ def main():
     if args.subcommand == 'rgb':
         handle_rgb_command(args, current_config, config_path)
         return
-
-    # get or set debug level
-    # ----------------------------------------
-    if args.debug_level != '':
-        handle_debug_level(args, current_config, new_sys_config)
-
-    # Set database retention days
-    # ----------------------------------------
-    if args.database_retention_days != '':
-        handle_database_retention_days(args, current_config, new_sys_config)
-
-    # swtich history
-    if args.enable_history != '':
-        handle_enable_history(args, current_config, new_sys_config)
-
-    # ws2812 settings
-    # ----------------------------------------
-    if is_included(PERIPHERALS, "ws2812"):
-        # ws2812 rgb_color
-        if args.rgb_color != '':
-            if args.rgb_color == None:
-                hex = get_system_config_value(current_config, 'rgb_color')
-                if hex[0] == '#':
-                    hex = hex[1:]
-                r = int(hex[0:2], 16)
-                g = int(hex[2:4], 16)
-                b = int(hex[4:6], 16)
-                print(f"RGB color: #{hex} ({r}, {g}, {b})")
-            else:
-                if len(args.rgb_color) != 6:
-                    print(f'Invalid value for RGB color, it should be in hex format without # (e.g. 00aabb)')
-                    quit()
-                if len(args.rgb_color) == 6:
-                    try:
-                        r = int(args.rgb_color[0:2], 16)
-                        g = int(args.rgb_color[2:4], 16)
-                        b = int(args.rgb_color[4:6], 16)
-                    except ValueError:
-                        print(f'Invalid value for RGB color, it should be in hex format without # (e.g. 00aabb)')
-                        quit()
-                new_sys_config['rgb_color'] = args.rgb_color
-                print(f"Set RGB color: #{args.rgb_color} ({r}, {g}, {b})")
-        # ws2812 rgb_brightness
-        if args.rgb_brightness != '':
-            if args.rgb_brightness == None:
-                print(f"RGB brightness: {get_system_config_value(current_config, 'rgb_brightness')}")
-            else:
-                try:
-                    args.rgb_brightness = int(args.rgb_brightness)
-                except ValueError:
-                    print(f"Invalid value for RGB brightness, it should be an integer between 0 and 100")
-                    quit()
-                if args.rgb_brightness < 0 or args.rgb_brightness > 100:
-                    print(f"Invalid value for RGB brightness, it should be between 0 and 100")
-                    quit()
-                new_sys_config['rgb_brightness'] = args.rgb_brightness
-                print(f"Set RGB brightness: {args.rgb_brightness}")
-        # ws2812 rgb_style
-        if args.rgb_style != '':
-            if args.rgb_style == None:
-                print(f"RGB style: {get_system_config_value(current_config, 'rgb_style')}")
-            else:
-                if args.rgb_style not in RGB_STYLES:
-                    print(f"Invalid value for RGB style, it should be one of {RGB_STYLES}")
-                    quit()
-                new_sys_config['rgb_style'] = args.rgb_style
-                print(f"Set RGB style: {args.rgb_style}")
-        # ws2812 rgb_speed
-        if args.rgb_speed != '':
-            if args.rgb_speed == None:
-                print(f"RGB speed: {get_system_config_value(current_config, 'rgb_speed')}")
-            else:
-                try:
-                    args.rgb_speed = int(args.rgb_speed)
-                except ValueError:
-                    print(f"Invalid value for RGB speed, it should be an integer between 0 and 100")
-                    quit()
-                if args.rgb_speed < 0 or args.rgb_speed > 100:
-                    print(f"Invalid value for RGB speed, it should be between 0 and 100")
-                    quit()
-                new_sys_config['rgb_speed'] = args.rgb_speed
-                print(f"Set RGB speed: {args.rgb_speed}")
-        # ws2812 rgb_enable
-        if args.rgb_enable != '':
-            if args.rgb_enable == None:
-                print(f"RGB enable: {get_system_config_value(current_config, 'rgb_enable')}")
-            else:
-                if args.rgb_enable in TRUE_LIST:
-                    new_sys_config['rgb_enable'] = True
-                    print(f"Set RGB enable: True")
-                elif args.rgb_enable in FALSE_LIST:
-                    new_sys_config['rgb_enable'] = False
-                    print(f"Set RGB enable: False")
-                else:
-                    print(f"Invalid value for RGB enable, it should be True or False")
-                    quit()
-        # ws2812 rgb_led_count
-        if args.rgb_led_count != '':
-            if args.rgb_led_count == None:
-                print(f"RGB LED count: {get_system_config_value(current_config, 'rgb_led_count')}")
-            else:
-                try:
-                    args.rgb_led_count = int(args.rgb_led_count)
-                except ValueError:
-                    print(f"Invalid value for RGB LED count, it should be an integer greater than 0")
-                    quit()
-                if args.rgb_led_count < 1:
-                    print(f"Invalid value for RGB LED count, it should be greater than 0")
-                    quit()
-                new_sys_config['rgb_led_count'] = args.rgb_led_count
-                print(f"Set RGB LED count: {args.rgb_led_count}")
-
-    # temperature unit settings
-    # ----------------------------------------
-    if is_included(PERIPHERALS, "temperature_unit"):
-        if args.temperature_unit != '':
-            handle_temperature_unit(args, current_config, new_sys_config)
-
-    # GPIO fan settings
-    # ----------------------------------------
-    if is_included(PERIPHERALS, "gpio_fan_mode"):
-        # gpio_fan_mode
-        if args.gpio_fan_mode != '':
-            if args.gpio_fan_mode == None:
-                print(f"GPIO fan mode: {get_system_config_value(current_config, 'gpio_fan_mode')}")
-            else:
-                try:
-                    args.gpio_fan_mode = int(args.gpio_fan_mode)
-                except ValueError:
-                    print(f"Invalid value for GPIO fan mode, it should be an integer between 0 and {len(GPIO_FAN_MODES) - 1}, {', '.join([f'{i}: {mode}' for i, mode in enumerate(GPIO_FAN_MODES)])}")
-                    quit()
-                if args.gpio_fan_mode < 0 or args.gpio_fan_mode >= len(GPIO_FAN_MODES):
-                    print(f"Invalid value for GPIO fan mode, it should be between 0 and {len(GPIO_FAN_MODES) - 1}, {', '.join([f'{i}: {mode}' for i, mode in enumerate(GPIO_FAN_MODES)])}")
-                    quit()
-                new_sys_config['gpio_fan_mode'] = args.gpio_fan_mode
-                print(f"Set GPIO fan mode: {args.gpio_fan_mode}")
-        # gpio_fan_pin
-        if args.gpio_fan_pin != '':
-            if args.gpio_fan_pin == None:
-                print(f"GPIO fan pin: {get_system_config_value(current_config, 'gpio_fan_pin')}")
-            else:
-                try:
-                    args.gpio_fan_pin = int(args.gpio_fan_pin)
-                except ValueError:
-                    print(f"Invalid value for GPIO fan pin, it should be an integer")
-                    quit()
-                new_sys_config['gpio_fan_pin'] = args.gpio_fan_pin
-                print(f"Set GPIO fan pin: {args.gpio_fan_pin}")
-
-    # GPIO fan LED settings
-    # ----------------------------------------
-    if is_included(PERIPHERALS, "gpio_fan_led"):
-        if args.gpio_fan_led != '':
-            if args.gpio_fan_led == None:
-                print(f"GPIO fan LED state: {get_system_config_value(current_config, 'gpio_fan_led')}")
-            else:
-                state = args.gpio_fan_led.lower()
-                if state not in ['on', 'off', 'follow']:
-                    print(f"Invalid value for GPIO fan LED state, it should be on, off or follow")
-                    quit()
-                new_sys_config['gpio_fan_led'] = state
-                print(f"Set GPIO fan LED state: {args.gpio_fan_led}")
-        if args.gpio_fan_led_pin != '':
-            if args.gpio_fan_led_pin == None:
-                print(f"GPIO fan LED pin: {get_system_config_value(current_config, 'gpio_fan_led_pin')}")
-            else:
-                try:
-                    args.gpio_fan_led_pin = int(args.gpio_fan_led_pin)
-                except ValueError:
-                    print(f"Invalid value for GPIO fan LED pin, it should be an integer")
-                    quit()
-                new_sys_config['gpio_fan_led_pin'] = args.gpio_fan_led_pin
-                print(f"Set GPIO fan LED pin: {args.gpio_fan_led_pin}")
-
-    # OLED settings
-    # ----------------------------------------
-    if is_included(PERIPHERALS, "oled"):
-        # oled enable
-        if args.oled_enable != '':
-            if args.oled_enable == None:
-                print(f"OLED enable: {'enabled' if get_system_config_value(current_config, 'oled_enable') else 'disabled'}")
-            else:
-                if args.oled_enable in TRUE_LIST:                
-                    new_sys_config['oled_enable'] = True
-                    print(f"Set OLED enable: Enabled")
-                elif args.oled_enable in FALSE_LIST:
-                    new_sys_config['oled_enable'] = False
-                    print(f"Set OLED enable: Disabled")
-                else:
-                    print(f"Invalid value for OLED enable, it should be {', '.join(TRUE_LIST)} or {', '.join(FALSE_LIST)}")
-                    quit()
-
-        # oled rotation
-        if args.oled_rotation != -1:
-            if args.oled_rotation == None:
-                print(f"OLED rotation: {get_system_config_value(current_config, 'oled_rotation')}")
-            else:
-                try:
-                    args.oled_rotation = int(args.oled_rotation)
-                except ValueError:
-                    print(f"Invalid value for OLED rotation, it should be an integer of 0 or 180")
-                    quit()
-                if args.oled_rotation not in [0, 180]:
-                    print(f"Invalid value for OLED rotation, it should be 0 or 180")
-                    quit()
-                new_sys_config['oled_rotation'] = args.oled_rotation
-                print(f"SetOLED rotation: {args.oled_rotation}")
-        # oled_sleep_timeout
-        if args.oled_sleep_timeout != '':
-            if args.oled_sleep_timeout == None:
-                print(f"OLED sleep timeout: {get_system_config_value(current_config, 'oled_sleep_timeout')}")
-            else:
-                try:
-                    args.oled_sleep_timeout = int(args.oled_sleep_timeout)
-                except ValueError:
-                    print(f"Invalid value for OLED sleep timeout, it should be an integer")
-                    quit()
-                if args.oled_sleep_timeout < 0:
-                    print(f"Invalid value for OLED sleep timeout, it should be greater than or equal to 0")
-                    quit()
-                oled_sleep_timeout = args.oled_sleep_timeout
-                if args.oled_sleep_timeout != 0 and (
-                    args.oled_sleep_timeout < OLED_SLEEP_TIMEOUT_MIN
-                    or args.oled_sleep_timeout > OLED_SLEEP_TIMEOUT_MAX
-                ):
-                    print(f"[WARNING] OLED sleep timeout value should be between {OLED_SLEEP_TIMEOUT_MIN} and {OLED_SLEEP_TIMEOUT_MAX}")
-                    oled_sleep_timeout = constrain(oled_sleep_timeout, OLED_SLEEP_TIMEOUT_MIN, OLED_SLEEP_TIMEOUT_MAX)
-                new_sys_config['oled_sleep_timeout'] = oled_sleep_timeout
-                if oled_sleep_timeout == 0:
-                    print("Set OLED sleep timeout: disabled")
-                else:
-                    print(f"Set OLED sleep timeout: {oled_sleep_timeout}")
-        # oled_pages
-        if args.oled_pages != '':
-            if args.oled_pages == None:
-                pages = [f' - {page}' for page in get_system_config_value(current_config, 'oled_pages', [])]
-                pages = '\n'.join(pages)
-                print("OLED pages:")
-                print(pages)
-            else:
-                if ',' in args.oled_pages:
-                    pages = args.oled_pages.split(',')
-                else:
-                    pages = [args.oled_pages]
-                pages = [p.lower() for p in pages]
-                for page in pages:
-                    if page not in AVAILABLE_PAGES:
-                        print(f"Invalid value for OLED pages: '{page}', it should be split by ',' and be one of {','.join(AVAILABLE_PAGES)}")
-                        quit()
-                new_sys_config['oled_pages'] = pages
-                print(f"Set OLED pages: {pages}")
 
     # Vibration switch settings
     # ----------------------------------------
