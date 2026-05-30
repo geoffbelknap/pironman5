@@ -58,6 +58,13 @@ class RuntimeOledTest(unittest.TestCase):
         self.assertEqual("OLEDModule", OLEDModule.__name__)
 
 
+class RuntimeRgbTest(unittest.TestCase):
+    def test_ws2812_module_imports_from_rgb_module(self):
+        from pironman5.runtime_rgb import WS2812Module
+
+        self.assertEqual("WS2812Module", WS2812Module.__name__)
+
+
 class RuntimeTest(unittest.TestCase):
     def test_legacy_hardware_runtime_does_not_enable_local_modules(self):
         from pironman5.runtime import LegacyHardwareRuntime
