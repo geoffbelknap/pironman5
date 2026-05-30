@@ -22,6 +22,20 @@ class PironmanServiceTest(unittest.TestCase):
         service.log.info.assert_any_call("Reloading config")
 
 
+class RuntimeCoreTest(unittest.TestCase):
+    def test_event_bus_bridges_connected_events(self):
+        from pironman5.runtime_core import EventBus
+
+        event = EventBus()
+        received = []
+        event.subscribe("target", lambda value=None: received.append(value))
+        event.connect("source", "target")
+
+        event.publish("source", "ok")
+
+        self.assertEqual(["ok"], received)
+
+
 class RuntimeTest(unittest.TestCase):
     def test_legacy_hardware_runtime_does_not_enable_local_modules(self):
         from pironman5.runtime import LegacyHardwareRuntime
