@@ -12,6 +12,7 @@ from .version import __version__ as pironman5_version
 from .variants import NAME, ID, PRODUCT_VERSION, PERIPHERALS, SYSTEM_DEFAULT_CONFIG, EVENT_MAP
 from ._constants import CONFIG_PATH, APP_NAME, DEFAULT_DEBUG_LEVEL
 from .host import restart_service
+from .config import load_config_file
 from .runtime import PironmanRuntime
 
 log = Logger(APP_NAME)
@@ -177,6 +178,8 @@ class Pironman5:
         signal.signal(signal.SIGINT, self.signal_handler)
         signal.signal(signal.SIGTERM, self.signal_handler)
         signal.signal(signal.SIGABRT, self.signal_handler)
+        if hasattr(signal, "SIGHUP"):
+            signal.signal(signal.SIGHUP, self.reload_signal_handler)
         self.runtime.start()
         if self.pm_dashboard:
             self.pm_dashboard.start()
@@ -203,3 +206,14 @@ class Pironman5:
     def signal_handler(self, signum, frame):
         self.log.info(f'Received signal "{signal.strsignal(signum)}", cleaning up...')
         self.stop()
+
+    @log_error
+    def reload_config(self):
+        self.log.info("Reloading config")
+        config = self.upgrade_config(load_config_file(self.config_path))
+        self.update_config(config)
+
+    @log_error
+    def reload_signal_handler(self, signum, frame):
+        self.log.info(f'Received signal "{signal.strsignal(signum)}"')
+        self.reload_config()
