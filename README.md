@@ -1,121 +1,116 @@
 # Pironman 5
 
-Production-focused fork of the SunFounder Pironman 5 software for Raspberry Pi
-5 cases. This fork keeps the public CLI small, installs the long-running service
-into a root-owned system environment, and gates optional hardware packages on
-detected or explicitly requested hardware.
+A cleaner Pironman 5 software fork for Raspberry Pi 5 cases.
 
-Quick Links:
+This fork keeps the command-line tool easy to install, moves the long-running
+service into a dedicated system environment, and only installs optional hardware
+packages when the matching hardware is detected or explicitly requested.
 
-- [Pironman 5](#pironman-5)
-  - [About This Fork](#about-this-fork)
-  - [Links](#links)
-  - [Installation](#installation)
-  - [Hardware Detection](#hardware-detection)
-  - [Alternate Tool Installer](#alternate-tool-installer)
-  - [Service Management](#service-management)
-  - [Auto launch dashboard on browser](#auto-launch-dashboard-on-browser)
-  - [Troubleshooting](#troubleshooting)
-  - [Release Checklist](#release-checklist)
-  - [Compatible Systems](#compatible-systems)
-  - [Development](#development)
+## Contents
+
+- [About This Fork](#about-this-fork)
+- [Install](#install)
+- [Hardware Detection](#hardware-detection)
+- [Common Commands](#common-commands)
+- [RGB Lights](#rgb-lights)
+- [Optional Hardware](#optional-hardware)
+- [Service Administration](#service-administration)
+- [Troubleshooting](#troubleshooting)
+- [Compatibility](#compatibility)
+- [Development](#development)
+- [Release Checklist](#release-checklist)
 
 ## About This Fork
 
-This project is based on SunFounder's Pironman 5 package, but the install and
-service model has been reworked for this fork:
+This project started from SunFounder's Pironman 5 package. The hardware support
+is still for Pironman 5 family cases, but the install and service model has been
+reworked:
 
-- install the user-facing CLI with `pipx` or `uv`, without root
-- apply OS integration explicitly with `pironman5 setup`
+- install the user-facing `pironman5` command with `pipx` or `uv`
+- run privileged setup explicitly with `pironman5 setup`
 - run systemd from `/opt/pironman5-venv`, not a user's home directory
-- auto-detect Pironman 5 hardware when possible
+- detect Pironman 5 hardware when possible
 - keep dashboard, UPS, and legacy hardware dependencies optional
+- use SQLite for local history instead of installing InfluxDB by default
 
-## Links
+Links:
 
 - Fork repository: <https://github.com/geoffbelknap/pironman5>
-- Latest stable release: <https://github.com/geoffbelknap/pironman5/releases/tag/v1.0.0>
+- Latest stable release: <https://github.com/geoffbelknap/pironman5/releases/tag/v1.0.1>
 - Upstream hardware documentation: <https://docs.sunfounder.com/projects/pironman5/en/latest/>
 
-## Installation
+## Install
 
-`pipx` is the primary install path for this fork. It installs the user-facing
-CLI without root, and `pironman5 setup` performs the small set of
-privileged OS integration steps explicitly.
+`pipx` is the primary install path. It installs the CLI without root. The
+separate `setup` step applies the OS-level pieces the case needs: systemd,
+udev/group access, device tree overlays, and the service virtual environment.
 
-1. install the Python application without root with `pipx`
-2. review the privileged system changes
-3. run setup with `sudo`
-
-System setup creates a root-owned service environment at `/opt/pironman5-venv`
-for systemd. This avoids running the service out of a user's home directory.
-Use the absolute command path when invoking setup with `sudo`; many systems
-intentionally reset `sudo`'s `PATH`, so running setup through a bare command
-name may not find the pipx-installed command.
+Use the absolute command path when running setup with `sudo`. Many systems reset
+`sudo`'s `PATH`, so a bare command name may not find the pipx command.
 
 ```bash
 sudo apt-get update
 sudo apt-get install pipx -y
 pipx ensurepath
-pipx install git+https://github.com/geoffbelknap/pironman5.git@v1.0.0
+pipx install git+https://github.com/geoffbelknap/pironman5.git@v1.0.1
+
 PIRONMAN5_CLI="$(command -v pironman5)"
 pironman5 setup --dry-run
 sudo "$PIRONMAN5_CLI" setup
 pironman5 doctor
 ```
 
-To install a specific branch, tag, or commit, append the Git ref to the install
-URL:
+To install a specific branch, tag, or commit, append the Git ref:
 
 ```bash
-pipx install git+https://github.com/geoffbelknap/pironman5.git@v1.0.0
+pipx install git+https://github.com/geoffbelknap/pironman5.git@v1.0.1
 ```
 
-Optional hardware is detected during system setup. The PiPower5 UPS HAT still
-depends on an unaudited upstream compatibility package, so its Python package is
-installed only when explicitly requested:
+`uv` works too if you already use it:
 
 ```bash
-sudo "$PIRONMAN5_CLI" setup --variant ups --with pipower5
+uv tool install git+https://github.com/geoffbelknap/pironman5.git@v1.0.1
+
+PIRONMAN5_CLI="$(command -v pironman5)"
+pironman5 setup --dry-run
+sudo "$PIRONMAN5_CLI" setup
+pironman5 doctor
 ```
 
 ## Hardware Detection
 
-`pironman5 detect` reports the case variant inferred from HAT EEPROM data when
-available. `pironman5 setup` defaults to `--variant auto`; use `--variant` only
-when detection is unavailable or you intentionally want to override it.
+`pironman5 detect` reports the case variant and optional hardware the tool can
+see. Setup defaults to `--variant auto`; pass `--variant` only when detection is
+unavailable or you intentionally want to override it.
 
 ```bash
 pironman5 detect
 pironman5 detect --json
 pironman5 setup --variant max --dry-run
+PIRONMAN5_CLI="$(command -v pironman5)"
 sudo "$PIRONMAN5_CLI" setup --variant max
 ```
 
 Supported variant keys are `pironman5`, `max`, `mini`, `nas`, `pro-max`, and
 `ups`.
 
-## Alternate Tool Installer
+## Common Commands
 
-`uv` is also supported for users who already have it installed:
+Check the install:
 
 ```bash
-uv tool install git+https://github.com/geoffbelknap/pironman5.git@v1.0.0
-PIRONMAN5_CLI="$(command -v pironman5)"
-pironman5 setup --dry-run
-sudo "$PIRONMAN5_CLI" setup
 pironman5 doctor
+sudo "$PIRONMAN5_CLI" doctor
 ```
 
-## Service Management
-
-To rebuild the service install:
+Read or change settings:
 
 ```bash
-sudo "$PIRONMAN5_CLI" service refresh
+pironman5 config get debug_level
+sudo "$PIRONMAN5_CLI" config set debug_level INFO
 ```
 
-After upgrading the user-facing command, refresh the service environment too:
+After upgrading the pipx/uv command, refresh the service environment:
 
 ```bash
 pipx reinstall pironman5
@@ -124,24 +119,68 @@ sudo "$PIRONMAN5_CLI" service refresh
 pironman5 doctor
 ```
 
-To remove system integration while keeping runtime config, use:
+## RGB Lights
+
+Some Pironman 5 variants have a few internal RGB accent lights, not a full
+display. This fork treats them as simple case lighting with a few useful modes:
+
+- `ambient`: decorative profiles such as breathing blue, solid white, rainbow,
+  and flow
+- `status thermal`: whole-case color as a simple temperature signal
+- `night`: an overlay that dims the current mode during configured hours
+- `off`: disables the lights
+
+```bash
+pironman5 rgb list
+sudo "$PIRONMAN5_CLI" rgb set ambient breathing-blue
+sudo "$PIRONMAN5_CLI" rgb set status thermal
+sudo "$PIRONMAN5_CLI" rgb night --brightness 10 --from 22:00 --to 07:00
+sudo "$PIRONMAN5_CLI" rgb off
+```
+
+## Optional Hardware
+
+Optional hardware is detected during setup. The PiPower5 UPS path still depends
+on an unaudited upstream compatibility package, so it is only installed when you
+ask for it:
+
+```bash
+sudo "$PIRONMAN5_CLI" setup --variant ups --with pipower5
+```
+
+Dashboard, graph history, and legacy hardware drivers are optional extras. The
+default history backend is SQLite. InfluxDB is no longer installed by default.
+
+To remove the dashboard package from the service install:
+
+```bash
+sudo "$PIRONMAN5_CLI" dashboard remove
+```
+
+To enable dashboard browser auto-start for the current desktop user:
+
+```bash
+pironman5 launch-browser --auto-start=on
+```
+
+## Service Administration
+
+Rebuild the service install:
+
+```bash
+sudo "$PIRONMAN5_CLI" service refresh
+```
+
+Remove system integration while keeping runtime config:
 
 ```bash
 sudo "$PIRONMAN5_CLI" service uninstall
 ```
 
-To also remove `/opt/pironman5` and logs, use:
+Remove system integration, `/opt/pironman5`, and logs:
 
 ```bash
 sudo "$PIRONMAN5_CLI" service uninstall --purge
-```
-
-`pironman5 doctor` can be run without sudo for a quick check. Some service-owned
-files are intentionally protected from the login user; if doctor reports
-`protected`, run the same command with sudo for service install details:
-
-```bash
-sudo "$PIRONMAN5_CLI" doctor
 ```
 
 The legacy `install.py` entry point now prints migration guidance by default.
@@ -152,39 +191,6 @@ git clone https://github.com/geoffbelknap/pironman5.git
 cd pironman5
 sudo python3 install.py --legacy-installer
 ```
-
-Dashboard, graph history, and legacy hardware drivers are optional package
-extras. `pironman5 setup` installs the legacy hardware extra into the
-service environment only when the selected case profile needs it. The default
-history backend is SQLite. The old InfluxDB path is no longer installed by
-default.
-
-To remove the dashboard package from the service install:
-
-```bash
-sudo "$PIRONMAN5_CLI" dashboard remove
-```
-
-Read or change settings through the config command:
-
-```bash
-pironman5 config get debug_level
-sudo "$PIRONMAN5_CLI" config set debug_level INFO
-```
-
-Manage the internal RGB case lights through the RGB command:
-
-```bash
-pironman5 rgb list
-sudo "$PIRONMAN5_CLI" rgb set ambient breathing-blue
-sudo "$PIRONMAN5_CLI" rgb set status thermal
-sudo "$PIRONMAN5_CLI" rgb night --brightness 10 --from 22:00 --to 07:00
-sudo "$PIRONMAN5_CLI" rgb off
-```
-
-`ambient` profiles are decorative. `status thermal` uses the whole case color
-as a simple temperature indicator. The night schedule is an overlay that dims
-the current mode during the configured hours.
 
 ## Troubleshooting
 
@@ -204,8 +210,15 @@ sudo systemctl status pironman5.service --no-pager
 sudo journalctl -u pironman5.service -n 80 --no-pager
 ```
 
-If the user-facing pipx command and the systemd service disagree after an
-upgrade, refresh the service environment:
+If `pironman5 doctor` reports `protected`, run it with sudo. Some service-owned
+files are intentionally not readable by the login user:
+
+```bash
+sudo "$PIRONMAN5_CLI" doctor
+```
+
+If the user-facing command and the systemd service disagree after an upgrade,
+refresh the service environment:
 
 ```bash
 pipx reinstall pironman5
@@ -214,39 +227,11 @@ sudo "$PIRONMAN5_CLI" service refresh
 sudo "$PIRONMAN5_CLI" doctor
 ```
 
-## Auto launch dashboard on browser
-
-```bash
-pironman5 launch-browser --auto-start=on
-```
-
-You also want to change touchscreen mode to Multitouch instead of Mouse Emulation.
-
-1. **Raspberry Pi Icon** >> **Preferences** >> **Control Centre**.
-2. Select **Screen** tab.
-3. Long press/right click on **DSI-2**, 
-4. Select **Touchscreen** >> **Mode** >> **Multitouch**.
-
-## Release Checklist
-
-Before tagging a release from this fork:
-
-```bash
-python3 -m pytest
-python3 -m build
-PIRONMAN5_CLI="$(command -v pironman5)"
-pironman5 setup --variant max --dry-run
-sudo "$PIRONMAN5_CLI" service refresh
-sudo "$PIRONMAN5_CLI" doctor
-sudo systemctl status pironman5.service --no-pager
-```
-
-## Compatible Systems
+## Compatibility
 
 This fork is validated on Raspberry Pi OS Bookworm 64-bit with a Raspberry Pi 5
-and Pironman 5 Max hardware. The upstream project lists broader operating
-system compatibility, but this fork should treat those as unverified until they
-are tested through the setup/doctor flow.
+and Pironman 5 Max hardware. Upstream lists broader OS compatibility; treat that
+as unverified for this fork until it passes the setup and doctor flow.
 
 Known-good release validation:
 
@@ -265,11 +250,10 @@ git clone https://github.com/geoffbelknap/pm_dashboard.git
 git clone https://github.com/geoffbelknap/pm_auto.git  # legacy UPS only
 ```
 
-Make adjustments, then manually install from local folders. Avoid floating Git
-installs in hardened deployments.
+Make adjustments, then install from local folders. Avoid floating Git installs
+in hardened deployments.
 
 ```bash
-# install from folder
 sudo /opt/pironman5-venv/bin/pip uninstall pironman5 -y
 sudo /opt/pironman5-venv/bin/pip install "$HOME/pironman5[legacy-ups]" --no-build-isolation
 
@@ -277,15 +261,16 @@ sudo /opt/pironman5-venv/bin/pip uninstall pm_auto -y
 sudo /opt/pironman5-venv/bin/pip install ~/pm_auto --no-build-isolation
 ```
 
+## Release Checklist
 
-Start/stop the service for debug
+Before tagging a release from this fork:
 
 ```bash
-sudo systemctl stop pironman5.service
-sudo systemctl start pironman5.service
-sudo systemctl restart pironman5.service
-sudo -u pironman5 /opt/pironman5-venv/bin/python
-
-journalctl -xefu pironman5.service
-sudo systemctl restart pironman5.service && journalctl -xefu pironman5.service
+python3 -m pytest
+python3 -m build
+PIRONMAN5_CLI="$(command -v pironman5)"
+pironman5 setup --variant max --dry-run
+sudo "$PIRONMAN5_CLI" service refresh
+sudo "$PIRONMAN5_CLI" doctor
+sudo systemctl status pironman5.service --no-pager
 ```
