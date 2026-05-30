@@ -635,6 +635,54 @@ class SystemCliTest(unittest.TestCase):
                 str(config_path),
             )
 
+    def test_config_list_prints_schema_metadata(self):
+        from pironman5 import _cli
+
+        stdout = io.StringIO()
+        with mock.patch.object(sys, "argv", ["pironman5", "config", "list"]):
+            with mock.patch.object(_cli, "PERIPHERALS", ["gpio_fan_mode"]):
+                with contextlib.redirect_stdout(stdout):
+                    _cli.main()
+
+        output = stdout.getvalue()
+        self.assertIn("gpio_fan_mode", output)
+        self.assertIn("live", output)
+        self.assertIn("Fan profile", output)
+
+    def test_config_explain_prints_allowed_values(self):
+        from pironman5 import _cli
+
+        stdout = io.StringIO()
+        with mock.patch.object(sys, "argv", ["pironman5", "config", "explain", "temperature_unit"]):
+            with mock.patch.object(_cli, "PERIPHERALS", []):
+                with contextlib.redirect_stdout(stdout):
+                    _cli.main()
+
+        output = stdout.getvalue()
+        self.assertIn("temperature_unit", output)
+        self.assertIn("Allowed: C, F", output)
+        self.assertIn("Reload: live", output)
+
+    def test_config_set_dry_run_does_not_write_or_reload(self):
+        from pironman5 import _cli
+
+        stdout = io.StringIO()
+        with tempfile.TemporaryDirectory() as tmpdir:
+            config_path = Path(tmpdir) / "config.json"
+            config_path.write_text(json.dumps({"system": {"debug_level": "INFO"}}), encoding="utf-8")
+            argv = ["pironman5", "--config-path", str(config_path), "config", "set", "debug_level", "debug", "--dry-run"]
+
+            with mock.patch.object(sys, "argv", argv):
+                with mock.patch.object(_cli, "PERIPHERALS", []):
+                    with mock.patch.object(_cli, "update_config_file") as update_config_file:
+                        with mock.patch.object(_cli, "reload_running_service") as reload_running_service:
+                            with contextlib.redirect_stdout(stdout):
+                                _cli.main()
+
+            update_config_file.assert_not_called()
+            reload_running_service.assert_not_called()
+            self.assertIn("Would set debug_level: DEBUG", stdout.getvalue())
+
     def test_cli_does_not_directly_index_system_config_for_queries(self):
         source = Path("pironman5/_cli.py").read_text(encoding="utf-8")
 

@@ -7,7 +7,7 @@ import subprocess
 from importlib.resources import files as resource_files
 
 from ._launch_browser import run as launch_browser
-from .config import load_config_file, update_config_file
+from .config import config_field, iter_config_fields, load_config_file, update_config_file
 from .variants import NAME, PERIPHERALS, SYSTEM_DEFAULT_CONFIG, detect_hardware_variant, detect_optional_hardware, get_product_definition
 from .version import __version__
 from .utils import is_included, constrain
@@ -216,8 +216,37 @@ def handle_config_command(args, current_config, config_path):
         value = get_system_config_value(current_config, args.config_key, default)
         print(f"{args.config_key}: {format_config_value(value)}")
         return
+    if args.config_action == 'list':
+        defaults = get_config_defaults()
+        for field in iter_config_fields(defaults):
+            if field.key not in defaults and field.key not in current_config.get("system", {}):
+                continue
+            default = defaults.get(field.key)
+            default_text = f", default={format_config_value(default)}" if default is not None else ""
+            print(f"{field.key}: {field.description} ({field.value_type}, {field.reload}{default_text})")
+        return
+    if args.config_action == 'explain':
+        default = ensure_known_config_key(args.config_key)
+        field = config_field(args.config_key)
+        print(args.config_key)
+        if field is None:
+            print("Description: Undocumented config value.")
+            print(f"Type: {type(default).__name__}")
+            print("Reload: live")
+        else:
+            print(f"Description: {field.description}")
+            print(f"Type: {field.value_type}")
+            if field.allowed:
+                print(f"Allowed: {', '.join(str(value) for value in field.allowed)}")
+            print(f"Reload: {field.reload}")
+        print(f"Default: {format_config_value(default)}")
+        return
     if args.config_action == 'set':
         value = parse_config_value(args.config_key, args.config_value)
+        if args.dry_run:
+            print(f"Would set {args.config_key}: {format_config_value(value)}")
+            print("Would reload running service after saving.")
+            return
         try:
             update_config_file({'system': {args.config_key: value}}, config_path)
         except ValueError as exc:
@@ -489,9 +518,13 @@ def main():
     config_subparsers = config_parser.add_subparsers(dest="config_action")
     config_get_parser = config_subparsers.add_parser("get", help="Read a config value")
     config_get_parser.add_argument("config_key", help="System config key")
+    config_subparsers.add_parser("list", help="List known config values")
+    config_explain_parser = config_subparsers.add_parser("explain", help="Explain a config value")
+    config_explain_parser.add_argument("config_key", help="System config key")
     config_set_parser = config_subparsers.add_parser("set", help="Update a config value")
     config_set_parser.add_argument("config_key", help="System config key")
     config_set_parser.add_argument("config_value", help="New value")
+    config_set_parser.add_argument("--dry-run", action="store_true", help="Preview the parsed value without saving")
     if is_included(PERIPHERALS, "ws2812"):
         rgb_parser = subparsers.add_parser("rgb", help="Manage case RGB lights")
         rgb_subparsers = rgb_parser.add_subparsers(dest="rgb_action")
