@@ -415,7 +415,7 @@ def handle_rgb_command(args, _current_config, config_path):
         return
 
     if args.rgb_action == "off":
-        update_config_file({"system": {"rgb_enable": False, "rgb_mode": "off"}}, config_path)
+        _write_config_patch({"rgb_enable": False, "rgb_mode": "off"}, config_path)
         print("Set RGB mode: off")
         return
 
@@ -433,7 +433,7 @@ def handle_rgb_command(args, _current_config, config_path):
         else:
             print("Invalid RGB mode, it should be ambient or status")
             quit()
-        update_config_file({"system": patch}, config_path)
+        _write_config_patch(patch, config_path)
         print(f"Set RGB mode: {args.rgb_mode} ({args.rgb_profile})")
         return
 
@@ -447,13 +447,11 @@ def handle_rgb_command(args, _current_config, config_path):
         except ValueError as exc:
             print(str(exc))
             quit()
-        update_config_file(
+        _write_config_patch(
             {
-                "system": {
-                    "rgb_night_brightness": args.brightness,
-                    "rgb_night_start": args.from_time,
-                    "rgb_night_end": args.to_time,
-                }
+                "rgb_night_brightness": args.brightness,
+                "rgb_night_start": args.from_time,
+                "rgb_night_end": args.to_time,
             },
             config_path,
         )

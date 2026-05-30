@@ -581,6 +581,22 @@ class SystemCliTest(unittest.TestCase):
                 str(config_path),
             )
 
+    def test_rgb_off_reloads_service_after_successful_write(self):
+        from pironman5 import _cli
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            config_path = Path(tmpdir) / "config.json"
+            config_path.write_text(json.dumps({"system": {}}), encoding="utf-8")
+            argv = ["pironman5", "--config-path", str(config_path), "rgb", "off"]
+
+            with mock.patch.object(sys, "argv", argv):
+                with mock.patch.object(_cli, "PERIPHERALS", ["ws2812"]):
+                    with mock.patch.object(_cli, "update_config_file"):
+                        with mock.patch.object(_cli, "reload_running_service") as reload_running_service:
+                            _cli.main()
+
+            reload_running_service.assert_called_once()
+
     def test_rgb_night_sets_schedule_overlay(self):
         from pironman5 import _cli
 
