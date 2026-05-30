@@ -65,6 +65,15 @@ class RuntimeRgbTest(unittest.TestCase):
         self.assertEqual("WS2812Module", WS2812Module.__name__)
 
 
+class RuntimeInputTest(unittest.TestCase):
+    def test_input_modules_import_from_input_module(self):
+        from pironman5.runtime_input import Pi5PowerButtonModule, PironmanMcuModule, VibrationSwitchModule
+
+        self.assertEqual("Pi5PowerButtonModule", Pi5PowerButtonModule.__name__)
+        self.assertEqual("PironmanMcuModule", PironmanMcuModule.__name__)
+        self.assertEqual("VibrationSwitchModule", VibrationSwitchModule.__name__)
+
+
 class RuntimeTest(unittest.TestCase):
     def test_legacy_hardware_runtime_does_not_enable_local_modules(self):
         from pironman5.runtime import LegacyHardwareRuntime
