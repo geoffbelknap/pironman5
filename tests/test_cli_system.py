@@ -1667,6 +1667,28 @@ class SystemCliTest(unittest.TestCase):
         self.assertIn("--fresh", output)
         self.assertNotIn("--refresh-venv", output)
 
+    def test_system_setup_refresh_venv_alias_is_rejected(self):
+        from pironman5 import system
+
+        stderr = io.StringIO()
+        with contextlib.redirect_stderr(stderr):
+            with self.assertRaises(SystemExit) as exit_context:
+                system.main(["setup", "--refresh-venv"])
+
+        self.assertNotEqual(0, exit_context.exception.code)
+        self.assertIn("unrecognized arguments", stderr.getvalue())
+
+    def test_system_setup_enable_optional_hardware_alias_is_rejected(self):
+        from pironman5 import system
+
+        stderr = io.StringIO()
+        with contextlib.redirect_stderr(stderr):
+            with self.assertRaises(SystemExit) as exit_context:
+                system.main(["setup", "--enable-optional-hardware", "pipower5"])
+
+        self.assertNotEqual(0, exit_context.exception.code)
+        self.assertIn("unrecognized arguments", stderr.getvalue())
+
 
 if __name__ == "__main__":
     unittest.main()
