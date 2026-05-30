@@ -24,6 +24,19 @@ class PackagingMetadataTest(unittest.TestCase):
             "smbus2",
             "evdev",
             "rpi.lgpio",
+        }
+
+        self.assertTrue(expected.issubset(dependencies))
+        self.assertFalse(any("adafruit" in dependency.lower() for dependency in dependencies))
+        self.assertFalse(any("pyftdi" in dependency.lower() for dependency in dependencies))
+        self.assertFalse(any("sf_rpi_status" in dependency for dependency in dependencies))
+        self.assertFalse(any("pm_auto" in dependency for dependency in dependencies))
+
+    def test_ws2812_dependencies_are_optional(self):
+        dependencies = set(self.data["project"]["dependencies"])
+        optional = self.data["project"]["optional-dependencies"]
+
+        ws2812_dependencies = {
             "adafruit-circuitpython-neopixel-spi",
             "adafruit_platformdetect",
             "Adafruit-Blinka==8.59.0",
@@ -32,9 +45,9 @@ class PackagingMetadataTest(unittest.TestCase):
             "pyftdi>=0.40.0",
         }
 
-        self.assertTrue(expected.issubset(dependencies))
-        self.assertFalse(any("sf_rpi_status" in dependency for dependency in dependencies))
-        self.assertFalse(any("pm_auto" in dependency for dependency in dependencies))
+        self.assertIn("ws2812", optional)
+        self.assertTrue(ws2812_dependencies.issubset(set(optional["ws2812"])))
+        self.assertTrue(ws2812_dependencies.isdisjoint(dependencies))
 
     def test_optional_dependency_extras_are_declared(self):
         optional = self.data["project"]["optional-dependencies"]
