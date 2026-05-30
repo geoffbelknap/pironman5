@@ -2,7 +2,6 @@
 
 import argparse
 
-from pironman5.version import __version__
 from pironman5.variants import (
     NAME,
     PERIPHERALS,
@@ -179,19 +178,75 @@ rtl8125_settings = {
     # See scripts/setup_rtl8125.sh for the explicit write workflow.
 }
 
-def build_installer(variant_key=None):
-    from tools.sf_installer import SF_Installer
 
+class InstallPlan:
+    def __init__(self, name, friendly_name=None, description=None):
+        self.name = name
+        self.friendly_name = friendly_name or name
+        self.description = description or f"Installer for {self.friendly_name}"
+        self.groups = set()
+        self.build_dependencies = set()
+        self.preflight_actions = []
+        self.before_install_scripts = set()
+        self.custom_apt_dependencies = set()
+        self.custom_uninstall_pip_dependencies = set()
+        self.custom_pip_dependencies = set()
+        self.python_source = {}
+        self.symlinks = set()
+        self.config_txt = {}
+        self.modules = set()
+        self.service_files = set()
+        self.bin_files = set()
+        self.dtoverlays = set()
+        self.after_install_scripts = set()
+        self.venv_options = set()
+        self.work_files = {}
+        self.parser = argparse.ArgumentParser(description=self.description)
+
+    def update_settings(self, settings):
+        if 'groups' in settings:
+            self.groups.update(settings['groups'])
+        if 'build_dependencies' in settings:
+            self.build_dependencies.update(settings['build_dependencies'])
+        if 'preflight_actions' in settings:
+            for action in settings['preflight_actions']:
+                if action not in self.preflight_actions:
+                    self.preflight_actions.append(action)
+        if 'run_scripts_before_install' in settings:
+            self.before_install_scripts.update(settings['run_scripts_before_install'])
+        if 'apt_dependencies' in settings:
+            self.custom_apt_dependencies.update(settings['apt_dependencies'])
+        if 'uninstall_pip_dependencies' in settings:
+            self.custom_uninstall_pip_dependencies.update(settings['uninstall_pip_dependencies'])
+        if 'pip_dependencies' in settings:
+            self.custom_pip_dependencies.update(settings['pip_dependencies'])
+        if 'python_source' in settings:
+            self.python_source.update(settings['python_source'])
+        if 'symlinks' in settings:
+            self.symlinks.update(settings['symlinks'])
+        if 'config_txt' in settings:
+            self.config_txt.update(settings['config_txt'])
+        if 'modules' in settings:
+            self.modules.update(settings['modules'])
+        if 'service_files' in settings:
+            self.service_files.update(settings['service_files'])
+        if 'bin_files' in settings:
+            self.bin_files.update(settings['bin_files'])
+        if 'dtoverlays' in settings:
+            self.dtoverlays.update(settings['dtoverlays'])
+        if 'run_scripts_after_install' in settings:
+            self.after_install_scripts.update(settings['run_scripts_after_install'])
+        if 'venv_options' in settings:
+            self.venv_options.update(settings['venv_options'])
+        if 'work_files' in settings:
+            self.work_files.update(settings['work_files'])
+
+
+def build_installer(variant_key=None):
     product = get_product_definition(variant_key) if variant_key else None
-    return SF_Installer(
+    return InstallPlan(
         name='pironman5',
         friendly_name=product["name"] if product else NAME,
-        # - Setup install command description if needed, default to "Installer for {friendly_name}""
-        # description='Installer for Pironman 5',
-        # - Setup Work Dir if needed, default to /opt/{name}
-        # work_dir='/opt/pironman5',
-        # - Setup log dir if needed, default to /var/log/{name}
-        # log_dir='/var/log/pironman5',
     )
 
 
