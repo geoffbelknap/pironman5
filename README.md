@@ -41,8 +41,9 @@ sudo apt-get update
 sudo apt-get install pipx -y
 pipx ensurepath
 pipx install git+https://github.com/geoffbelknap/pironman5.git
+PIRONMAN5_CLI="$(command -v pironman5)"
 pironman5 setup --dry-run
-sudo pironman5 setup
+sudo "$PIRONMAN5_CLI" setup
 pironman5 doctor
 ```
 
@@ -51,42 +52,44 @@ depends on an unaudited upstream compatibility package, so its Python package is
 installed only when explicitly requested:
 
 ```bash
-sudo pironman5 setup --variant ups --with pipower5
+sudo "$PIRONMAN5_CLI" setup --variant ups --with pipower5
 ```
 
 `uv` is also supported for users who already have it installed:
 
 ```bash
 uv tool install git+https://github.com/geoffbelknap/pironman5.git
+PIRONMAN5_CLI="$(command -v pironman5)"
 pironman5 setup --dry-run
-sudo pironman5 setup
+sudo "$PIRONMAN5_CLI" setup
 pironman5 doctor
 ```
 
 To rebuild the service install:
 
 ```bash
-sudo pironman5 service refresh
+sudo "$PIRONMAN5_CLI" service refresh
 ```
 
 After upgrading the user-facing command, refresh the service environment too:
 
 ```bash
 pipx reinstall pironman5
-sudo pironman5 service refresh
+PIRONMAN5_CLI="$(command -v pironman5)"
+sudo "$PIRONMAN5_CLI" service refresh
 pironman5 doctor
 ```
 
 To remove system integration while keeping runtime config, use:
 
 ```bash
-sudo pironman5 service uninstall
+sudo "$PIRONMAN5_CLI" service uninstall
 ```
 
 To also remove `/opt/pironman5` and logs, use:
 
 ```bash
-sudo pironman5 service uninstall --purge
+sudo "$PIRONMAN5_CLI" service uninstall --purge
 ```
 
 The legacy `install.py` entry point now prints migration guidance by default.
