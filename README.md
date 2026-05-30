@@ -40,8 +40,8 @@ privileged OS integration steps explicitly.
 System setup creates a root-owned service environment at `/opt/pironman5-venv`
 for systemd. This avoids running the service out of a user's home directory.
 Use the absolute command path when invoking setup with `sudo`; many systems
-intentionally reset `sudo`'s `PATH`, so `sudo pironman5 setup` may not find the
-pipx-installed command.
+intentionally reset `sudo`'s `PATH`, so running setup through a bare command
+name may not find the pipx-installed command.
 
 ```bash
 sudo apt-get update
