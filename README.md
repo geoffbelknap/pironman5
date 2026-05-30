@@ -288,24 +288,25 @@ Known-good release validation:
 
 ## Development
 
-Clone the dependency you want to debug or edit. Treat SunFounder dependencies
-as unreviewed until pinned to an audited fork or exact commit.
+Clone this repository and install it in editable mode for CLI and service
+development. Optional bridge and dashboard packages are pinned in
+`pyproject.toml`; update those pins deliberately instead of editing live
+service environments by hand.
 
 ```bash
 git clone https://github.com/geoffbelknap/pironman5.git
-git clone https://github.com/geoffbelknap/pm_dashboard.git
-git clone https://github.com/geoffbelknap/pm_auto.git  # optional compatibility bridge
+cd pironman5
+python3 -m venv .venv
+. .venv/bin/activate
+python3 -m pip install -e .
 ```
 
-Make adjustments, then install from local folders. Avoid floating Git installs
-in hardened deployments.
+After changing service code, refresh the system service install in
+`/opt/pironman5-venv` from your current checkout:
 
 ```bash
-sudo /opt/pironman5-venv/bin/pip uninstall pironman5 -y
-sudo /opt/pironman5-venv/bin/pip install "$HOME/pironman5[pm-auto]" --no-build-isolation
-
-sudo /opt/pironman5-venv/bin/pip uninstall pm_auto -y
-sudo /opt/pironman5-venv/bin/pip install ~/pm_auto --no-build-isolation
+python3 -m pytest
+sudo ~/.local/bin/pironman5 service refresh
 ```
 
 ## Release Checklist

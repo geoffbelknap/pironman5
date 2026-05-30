@@ -1634,6 +1634,9 @@ class SystemCliTest(unittest.TestCase):
         self.assertNotIn("moving toward a split install model", readme)
         self.assertNotIn("legacy-ups", readme)
         self.assertNotIn("legacy hardware", readme.lower())
+        self.assertNotIn("git clone https://github.com/geoffbelknap/pm_auto.git", readme)
+        self.assertNotIn("git clone https://github.com/geoffbelknap/pm_dashboard.git", readme)
+        self.assertNotIn("pip install ~/pm_auto", readme)
 
     def test_system_help_uses_update_command(self):
         from pironman5 import system
