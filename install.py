@@ -370,9 +370,10 @@ def main(argv=None):
     if not args.legacy_installer:
         print("")
         print("install.py is deprecated and no longer runs the legacy root installer by default.")
-        print("Use the package CLI system setup flow instead:")
+        print("Use the package CLI setup flow instead:")
         print("")
-        print(f"  sudo pironman5 system setup --variant {variant_key}")
+        print(f"  pironman5 setup --variant {variant_key} --dry-run")
+        print(f"  sudo pironman5 setup --variant {variant_key}")
         print("")
         print("To run the old compatibility path explicitly, pass --legacy-installer.")
         return 2

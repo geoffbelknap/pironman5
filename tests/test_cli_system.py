@@ -545,6 +545,24 @@ class SystemCliTest(unittest.TestCase):
         self.assertIn("systemctl enable pironman5.service", output)
         self.assertIn("systemctl restart pironman5.service", output)
 
+    def test_setup_dry_run_explains_review_context_before_commands(self):
+        from pironman5 import _cli
+
+        stdout = io.StringIO()
+        argv = ["pironman5", "setup", "--variant", "max", "--dry-run"]
+        with mock.patch.object(sys, "argv", argv):
+            with contextlib.redirect_stdout(stdout):
+                _cli.main()
+
+        output = stdout.getvalue()
+        self.assertIn("Pironman 5 setup dry run", output)
+        self.assertIn("Variant: Pironman 5 Max (max", output)
+        self.assertIn("Privileged changes:", output)
+        self.assertIn("- Create or update the pironman5 service user and group", output)
+        self.assertIn("- Install and enable pironman5.service", output)
+        self.assertIn("Commands:", output)
+        self.assertLess(output.index("Privileged changes:"), output.index("Commands:"))
+
     def test_top_level_setup_routes_to_system_setup(self):
         from pironman5 import _cli
 
@@ -571,7 +589,7 @@ class SystemCliTest(unittest.TestCase):
                     _cli.main()
 
         output = stdout.getvalue()
-        self.assertIn("System setup doctor", output)
+        self.assertIn("Pironman 5 service doctor", output)
         self.assertIn("service active:", output)
 
     def test_service_refresh_routes_to_system_update(self):
@@ -601,6 +619,21 @@ class SystemCliTest(unittest.TestCase):
         self.assertIn("systemctl disable pironman5.service", output)
         self.assertIn("/opt/pironman5-venv", output)
         self.assertNotIn("/home/geoff/.local/pipx", output)
+
+    def test_setup_non_root_error_uses_public_command_language(self):
+        from pironman5 import _cli
+
+        stderr = io.StringIO()
+        argv = ["pironman5", "setup", "--variant", "max"]
+        with mock.patch.object(sys, "argv", argv):
+            with mock.patch.object(_cli.os, "geteuid", return_value=1000):
+                with contextlib.redirect_stderr(stderr):
+                    with self.assertRaises(SystemExit) as exit_context:
+                        _cli.main()
+
+        self.assertEqual(1, exit_context.exception.code)
+        self.assertIn("pironman5 setup must be run as root; use sudo.", stderr.getvalue())
+        self.assertNotIn("system setup", stderr.getvalue())
 
     def test_service_help_shows_service_commands(self):
         from pironman5 import _cli
@@ -868,7 +901,7 @@ class SystemCliTest(unittest.TestCase):
                 system.main(["doctor", "--variant", "max"])
 
         output = stdout.getvalue()
-        self.assertIn("System setup doctor", output)
+        self.assertIn("Pironman 5 service doctor", output)
         self.assertIn("missing", output)
         self.assertIn("/etc/modules-load.d/pironman5.conf", output)
         self.assertIn("service active:", output)

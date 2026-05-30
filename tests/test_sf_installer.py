@@ -394,7 +394,8 @@ class InstallSettingsPolicyTest(unittest.TestCase):
             result = install.main([])
 
         self.assertEqual(2, result)
-        self.assertIn("pironman5 system setup", stdout.getvalue())
+        self.assertIn("pironman5 setup", stdout.getvalue())
+        self.assertNotIn("pironman5 system setup", stdout.getvalue())
         installer_main.assert_not_called()
 
     def test_install_py_legacy_flag_runs_legacy_installer(self):

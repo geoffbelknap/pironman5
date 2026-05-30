@@ -350,15 +350,31 @@ def _run_internal_command(command):
     return False
 
 
-def _run_commands(commands, dry_run, stdin_by_description=None):
+def _run_commands(
+    commands,
+    dry_run,
+    stdin_by_description=None,
+    dry_run_header=None,
+    dry_run_summary=None,
+    root_command="pironman5 system setup",
+):
     stdin_by_description = stdin_by_description or {}
     if dry_run:
+        if dry_run_header:
+            print(dry_run_header)
+            print("")
         print("DRY RUN: no changes made.")
+        if dry_run_summary:
+            print("")
+            for line in dry_run_summary:
+                print(line)
+        print("")
+        print("Commands:")
         for command in commands:
             print(command.shell())
         return
     if os.geteuid() != 0:
-        print("pironman5 system setup must be run as root; use sudo.", file=sys.stderr)
+        print(f"{root_command} must be run as root; use sudo.", file=sys.stderr)
         raise SystemExit(1)
     for command in commands:
         if _run_internal_command(command):
@@ -383,11 +399,30 @@ def _doctor_lines(variant):
         WORK_DIR / ".variant",
     ]
     checks.extend(overlay_dir / overlay for overlay in product.get("dt_overlays", []))
-    lines = ["System setup doctor"]
+    lines = ["Pironman 5 service doctor"]
     for path in checks:
         state = _path_state(path)
         lines.append(f"- {state}: {path}")
     lines.extend(_doctor_status_lines())
+    return lines
+
+
+def _setup_dry_run_summary(variant_key, source, product):
+    lines = [
+        f"Variant: {product['name']} ({variant_key}, {source})",
+        "",
+        "Privileged changes:",
+        "- Create or update the pironman5 service user and group",
+        "- Create /opt/pironman5, /opt/pironman5-venv, and /var/log/pironman5",
+        "- Install the service package into the root-owned service venv",
+        "- Install the pironman5 CLI wrapper, udev rules, module config, and overlays",
+        "- Install and enable pironman5.service",
+        "- Add the service user to hardware access groups when available",
+        "- Restart pironman5.service",
+    ]
+    if product.get("enabled_optional_hardware"):
+        enabled = ", ".join(sorted(product["enabled_optional_hardware"]))
+        lines.insert(1, f"Enabled optional hardware: {enabled}")
     return lines
 
 
@@ -573,6 +608,7 @@ def main(argv=None, prog="pironman5 system", update_command_name="update"):
         print("\n".join(_plan_lines(args.variant)))
     elif args.command == "setup":
         enabled_optional_hardware = normalize_enabled_optional_hardware(args.enabled_hardware)
+        variant_key, source, product = _setup_product(args.variant, enabled_optional_hardware)
         variant_key, commands = setup_commands(
             args.variant,
             refresh_venv=args.refresh_venv,
@@ -587,14 +623,22 @@ def main(argv=None, prog="pironman5 system", update_command_name="update"):
                 "Install CLI wrapper": _wrapper_source(),
                 "Write module load config": "i2c-dev\n",
             },
+            dry_run_header="Pironman 5 setup dry run",
+            dry_run_summary=_setup_dry_run_summary(variant_key, source, product),
+            root_command=f"{prog} setup",
         )
     elif args.command == "doctor":
         print("\n".join(_doctor_lines(args.variant)))
     elif args.command == "uninstall":
-        _run_commands(uninstall_commands(args.variant, purge=args.purge), args.dry_run)
+        _run_commands(
+            uninstall_commands(args.variant, purge=args.purge),
+            args.dry_run,
+            root_command=f"{prog} uninstall",
+        )
     elif args.command == "update":
         _run_commands(
             upgrade_service_commands(),
             args.dry_run,
             {"Install CLI wrapper": _wrapper_source()},
+            root_command=f"{prog} {update_command_name}",
         )
