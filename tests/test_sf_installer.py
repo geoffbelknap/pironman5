@@ -400,23 +400,19 @@ class InstallSettingsPolicyTest(unittest.TestCase):
         self.assertNotIn("pironman5 system setup", stdout.getvalue())
         installer_main.assert_not_called()
 
-    def test_install_py_legacy_flag_runs_legacy_installer(self):
+    def test_install_py_legacy_flag_is_no_longer_executable(self):
         import install
 
         fake_installer = unittest.mock.Mock()
         fake_installer.parser = argparse.ArgumentParser()
         with unittest.mock.patch.object(install, "build_installer", return_value=fake_installer), \
              unittest.mock.patch.object(install, "describe_variant_selection", return_value=("mini", "Selected variant")), \
-             unittest.mock.patch.object(install, "resolve_enabled_setting_names", return_value=["base"]), \
-             unittest.mock.patch.object(install, "apply_settings_by_name"), \
-             unittest.mock.patch.object(install, "apply_variant_install_settings"), \
-             unittest.mock.patch.object(install, "apply_optional_hardware_install_settings"), \
-             unittest.mock.patch.object(install, "get_product_definition", return_value={"name": "Pironman 5 Mini"}), \
-             unittest.mock.patch("sys.stdout", new=io.StringIO()):
+             unittest.mock.patch("sys.stdout", new=io.StringIO()) as stdout:
             result = install.main(["--legacy-installer"])
 
-        self.assertIsNone(result)
-        fake_installer.main.assert_called_once_with()
+        self.assertEqual(2, result)
+        self.assertIn("legacy installer path has been removed", stdout.getvalue())
+        fake_installer.main.assert_not_called()
 
     def test_dashboard_settings_are_disabled_by_default(self):
         import install
