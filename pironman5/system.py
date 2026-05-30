@@ -404,6 +404,8 @@ def _doctor_lines(variant):
         state = _path_state(path)
         lines.append(f"- {state}: {path}")
     lines.extend(_doctor_status_lines())
+    if any("protected" in line for line in lines):
+        lines.append("- note: run with sudo for protected service install details")
     return lines
 
 
@@ -429,6 +431,8 @@ def _setup_dry_run_summary(variant_key, source, product):
 def _path_state(path):
     try:
         return "ok" if path.exists() else "missing"
+    except PermissionError:
+        return "protected"
     except OSError:
         return "unreadable"
 
@@ -460,6 +464,8 @@ def _variant_marker():
         if not variant_path.exists():
             return "missing"
         return variant_path.read_text(encoding="utf-8").strip() or "empty"
+    except PermissionError:
+        return "protected"
     except OSError:
         return "unreadable"
 
@@ -528,6 +534,8 @@ def _service_install_info():
     try:
         if not python.exists():
             return {"version": "missing", "source": "missing", "commit": None}
+    except PermissionError:
+        return {"version": "protected", "source": "protected", "commit": None}
     except OSError:
         return {"version": "unreadable", "source": "unreadable", "commit": None}
     script = (
@@ -585,7 +593,7 @@ def _direct_url_info(direct_url):
 
 
 def _install_drift(user_info, service_info):
-    if service_info["version"] in ("missing", "unknown", "unreadable"):
+    if service_info["version"] in ("missing", "unknown", "protected", "unreadable"):
         return service_info["version"]
     if user_info["version"] != service_info["version"]:
         return "version mismatch"
