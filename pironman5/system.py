@@ -409,6 +409,44 @@ def _doctor_lines(variant):
     return lines
 
 
+def status_lines(variant="auto"):
+    user_info = _current_install_info()
+    service_info = _service_install_info()
+    detected = detect_hardware_variant()
+    product = get_product_definition(detected["variant"])
+    product_name = product["name"] if product else detected["variant"]
+    optional = detect_optional_hardware()
+    optional_detected = [
+        name for name, detected_state in sorted(optional.items())
+        if detected_state
+    ]
+    return [
+        "Pironman 5 status",
+        f"- detected hardware: {product_name} ({detected['variant']}, {detected['source']})",
+        f"- installed variant: {_variant_marker()}",
+        f"- service: {_command_output(('systemctl', 'is-active', SERVICE_NAME))}",
+        f"- service enabled: {_command_output(('systemctl', 'is-enabled', SERVICE_NAME))}",
+        f"- user version: {user_info['version']}",
+        f"- service version: {service_info['version']}",
+        f"- install drift: {_install_drift(user_info, service_info)}",
+        f"- optional hardware: {', '.join(optional_detected) if optional_detected else 'none detected'}",
+    ]
+
+
+def show_service_logs(lines=80, follow=False):
+    args = [
+        "journalctl",
+        "-u",
+        SERVICE_NAME,
+        "-n",
+        str(lines),
+        "--no-pager",
+    ]
+    if follow:
+        args.append("-f")
+    subprocess.run(args, check=False)
+
+
 def _setup_dry_run_summary(variant_key, source, product):
     lines = [
         f"Variant: {product['name']} ({variant_key}, {source})",
@@ -606,7 +644,7 @@ def _install_drift(user_info, service_info):
 
 def build_parser(prog="pironman5 system", update_command_name="update"):
     parser = argparse.ArgumentParser(prog=prog, description="Manage Pironman 5 system integration")
-    subparsers = parser.add_subparsers(dest="command", required=True, metavar="{plan,setup,doctor,uninstall,update}")
+    subparsers = parser.add_subparsers(dest="command", required=True, metavar="{plan,setup,doctor,status,uninstall,update}")
 
     variant_choices = ["auto", *sorted(PRODUCT_DEFINITIONS)]
     plan = subparsers.add_parser("plan", help="Show privileged setup actions without changing the system")
@@ -620,6 +658,8 @@ def build_parser(prog="pironman5 system", update_command_name="update"):
     setup.add_argument("--dry-run", action="store_true", help="Print commands without changing the system")
     doctor = subparsers.add_parser("doctor", help="Check privileged system integration")
     doctor.add_argument("--variant", choices=variant_choices, default="auto", type=normalize_variant_key)
+    status = subparsers.add_parser("status", help="Show a concise service and hardware summary")
+    status.add_argument("--variant", choices=variant_choices, default="auto", type=normalize_variant_key)
     uninstall = subparsers.add_parser("uninstall", help="Remove privileged system integration")
     uninstall.add_argument("--variant", choices=variant_choices, default="auto", type=normalize_variant_key)
     uninstall.add_argument("--purge", action="store_true", help="Also remove runtime state and logs")
@@ -665,6 +705,8 @@ def main(argv=None, prog="pironman5 system", update_command_name="update"):
         )
     elif args.command == "doctor":
         print("\n".join(_doctor_lines(args.variant)))
+    elif args.command == "status":
+        print("\n".join(status_lines(args.variant)))
     elif args.command == "uninstall":
         _run_commands(
             uninstall_commands(args.variant, purge=args.purge),
