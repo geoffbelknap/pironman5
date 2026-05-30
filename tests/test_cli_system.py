@@ -867,6 +867,15 @@ class SystemCliTest(unittest.TestCase):
 
         self.assertEqual(run.call_args.kwargs["cwd"], "/")
 
+    def test_service_install_info_reports_unreadable_venv(self):
+        from pironman5 import system
+
+        with mock.patch.object(system.Path, "exists", side_effect=PermissionError("denied")):
+            self.assertEqual(
+                system._service_install_info(),
+                {"version": "unreadable", "source": "unreadable", "commit": None},
+            )
+
     def test_system_uninstall_dry_run_prints_removed_files(self):
         from pironman5 import _cli
 

@@ -462,8 +462,11 @@ def _current_install_info():
 
 def _service_install_info():
     python = SERVICE_VENV / "bin" / "python"
-    if not python.exists():
-        return {"version": "missing", "source": "missing", "commit": None}
+    try:
+        if not python.exists():
+            return {"version": "missing", "source": "missing", "commit": None}
+    except OSError:
+        return {"version": "unreadable", "source": "unreadable", "commit": None}
     script = (
         "from pironman5.system import _distribution_info; "
         "import json; "
