@@ -50,6 +50,9 @@ Use the absolute command path when running setup with `sudo`. Many systems reset
 examples below use the default pipx/uv shim path; replace it with your real
 absolute path if you configured a different tool location.
 
+After setup completes, it creates `/usr/local/bin/pironman5`. At that point,
+normal privileged commands can use `sudo pironman5 ...`.
+
 ```bash
 sudo apt-get update
 sudo apt-get install pipx -y
@@ -99,21 +102,21 @@ Check the install:
 
 ```bash
 pironman5 doctor
-sudo ~/.local/bin/pironman5 doctor
+sudo pironman5 doctor
 ```
 
 Read or change settings:
 
 ```bash
 pironman5 config get debug_level
-sudo ~/.local/bin/pironman5 config set debug_level INFO
+sudo pironman5 config set debug_level INFO
 ```
 
 After upgrading the pipx/uv command, refresh the service environment:
 
 ```bash
 pipx reinstall pironman5
-sudo ~/.local/bin/pironman5 service refresh
+sudo pironman5 service refresh
 pironman5 doctor
 ```
 
@@ -130,10 +133,10 @@ display. This fork treats them as simple case lighting with a few useful modes:
 
 ```bash
 pironman5 rgb list
-sudo ~/.local/bin/pironman5 rgb set ambient breathing-blue
-sudo ~/.local/bin/pironman5 rgb set status thermal
-sudo ~/.local/bin/pironman5 rgb night --brightness 10 --from 22:00 --to 07:00
-sudo ~/.local/bin/pironman5 rgb off
+sudo pironman5 rgb set ambient breathing-blue
+sudo pironman5 rgb set status thermal
+sudo pironman5 rgb night --brightness 10 --from 22:00 --to 07:00
+sudo pironman5 rgb off
 ```
 
 ## Optional Hardware
@@ -152,7 +155,7 @@ default history backend is SQLite. InfluxDB is no longer installed by default.
 To remove the dashboard package from the service install:
 
 ```bash
-sudo ~/.local/bin/pironman5 dashboard remove
+sudo pironman5 dashboard remove
 ```
 
 To enable dashboard browser auto-start for the current desktop user:
@@ -166,19 +169,19 @@ pironman5 launch-browser --auto-start=on
 Rebuild the service install:
 
 ```bash
-sudo ~/.local/bin/pironman5 service refresh
+sudo pironman5 service refresh
 ```
 
 Remove system integration while keeping runtime config:
 
 ```bash
-sudo ~/.local/bin/pironman5 service uninstall
+sudo pironman5 service uninstall
 ```
 
 Remove system integration, `/opt/pironman5`, and logs:
 
 ```bash
-sudo ~/.local/bin/pironman5 service uninstall --purge
+sudo pironman5 service uninstall --purge
 ```
 
 The legacy `install.py` entry point now prints migration guidance by default.
@@ -202,7 +205,7 @@ sudo ~/.local/bin/pironman5 setup
 If the service is not active after setup or refresh:
 
 ```bash
-sudo ~/.local/bin/pironman5 doctor
+sudo pironman5 doctor
 sudo systemctl status pironman5.service --no-pager
 sudo journalctl -u pironman5.service -n 80 --no-pager
 ```
@@ -211,7 +214,7 @@ If `pironman5 doctor` reports `protected`, run it with sudo. Some service-owned
 files are intentionally not readable by the login user:
 
 ```bash
-sudo ~/.local/bin/pironman5 doctor
+sudo pironman5 doctor
 ```
 
 If the user-facing command and the systemd service disagree after an upgrade,
@@ -219,8 +222,8 @@ refresh the service environment:
 
 ```bash
 pipx reinstall pironman5
-sudo ~/.local/bin/pironman5 service refresh
-sudo ~/.local/bin/pironman5 doctor
+sudo pironman5 service refresh
+sudo pironman5 doctor
 ```
 
 ## Compatibility
@@ -265,7 +268,7 @@ Before tagging a release from this fork:
 python3 -m pytest
 python3 -m build
 pironman5 setup --variant max --dry-run
-sudo ~/.local/bin/pironman5 service refresh
-sudo ~/.local/bin/pironman5 doctor
+sudo pironman5 service refresh
+sudo pironman5 doctor
 sudo systemctl status pironman5.service --no-pager
 ```

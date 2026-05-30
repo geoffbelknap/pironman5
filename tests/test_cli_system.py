@@ -1246,7 +1246,10 @@ class SystemCliTest(unittest.TestCase):
 
         self.assertIn("primary install path", readme)
         self.assertIn("/opt/pironman5-venv", readme)
+        self.assertIn("/usr/local/bin/pironman5", readme)
         self.assertIn("sudo ~/.local/bin/pironman5 setup", readme)
+        self.assertIn("sudo pironman5 doctor", readme)
+        self.assertIn("sudo pironman5 service refresh", readme)
         self.assertNotIn("command -v pironman5", readme)
         self.assertNotIn("PIRONMAN5_CLI", readme)
         self.assertNotIn('sudo "$PIRONMAN5_CLI"', readme)
