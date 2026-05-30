@@ -172,6 +172,20 @@ pironman5 config get debug_level
 sudo "$PIRONMAN5_CLI" config set debug_level INFO
 ```
 
+Manage the internal RGB case lights through the RGB command:
+
+```bash
+pironman5 rgb list
+sudo "$PIRONMAN5_CLI" rgb set ambient breathing-blue
+sudo "$PIRONMAN5_CLI" rgb set status thermal
+sudo "$PIRONMAN5_CLI" rgb night --brightness 10 --from 22:00 --to 07:00
+sudo "$PIRONMAN5_CLI" rgb off
+```
+
+`ambient` profiles are decorative. `status thermal` uses the whole case color
+as a simple temperature indicator. The night schedule is an overlay that dims
+the current mode during the configured hours.
+
 ## Troubleshooting
 
 If setup fails with `sudo: pironman5: command not found`, rerun it with the

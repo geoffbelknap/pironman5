@@ -474,6 +474,143 @@ class SystemCliTest(unittest.TestCase):
 
         self.assertIn("RGB brightness: 100", stdout.getvalue())
 
+    def test_rgb_list_prints_profiles_and_modes(self):
+        from pironman5 import _cli
+
+        stdout = io.StringIO()
+        with tempfile.TemporaryDirectory() as tmpdir:
+            config_path = Path(tmpdir) / "config.json"
+            config_path.write_text(json.dumps({"system": {}}), encoding="utf-8")
+            argv = ["pironman5", "--config-path", str(config_path), "rgb", "list"]
+
+            with mock.patch.object(sys, "argv", argv):
+                with mock.patch.object(_cli, "PERIPHERALS", ["ws2812"]):
+                    with contextlib.redirect_stdout(stdout):
+                        _cli.main()
+
+        output = stdout.getvalue()
+        self.assertIn("Modes: ambient, status, off", output)
+        self.assertIn("Ambient profiles: breathing-blue", output)
+        self.assertIn("Status profiles: thermal", output)
+
+    def test_rgb_set_ambient_profile_updates_low_level_rgb_keys(self):
+        from pironman5 import _cli
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            config_path = Path(tmpdir) / "config.json"
+            config_path.write_text(json.dumps({"system": {}}), encoding="utf-8")
+            argv = ["pironman5", "--config-path", str(config_path), "rgb", "set", "ambient", "breathing-blue"]
+
+            with mock.patch.object(sys, "argv", argv):
+                with mock.patch.object(_cli, "PERIPHERALS", ["ws2812"]):
+                    with mock.patch.object(_cli, "update_config_file") as update_config_file:
+                        _cli.main()
+
+            update_config_file.assert_called_once_with(
+                {
+                    "system": {
+                        "rgb_enable": True,
+                        "rgb_mode": "ambient",
+                        "rgb_profile": "breathing-blue",
+                        "rgb_color": "0a1aff",
+                        "rgb_style": "breathing",
+                        "rgb_brightness": 40,
+                        "rgb_speed": 50,
+                    }
+                },
+                str(config_path),
+            )
+
+    def test_rgb_set_status_profile_updates_mode_without_dashboard_semantics(self):
+        from pironman5 import _cli
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            config_path = Path(tmpdir) / "config.json"
+            config_path.write_text(json.dumps({"system": {}}), encoding="utf-8")
+            argv = ["pironman5", "--config-path", str(config_path), "rgb", "set", "status", "thermal"]
+
+            with mock.patch.object(sys, "argv", argv):
+                with mock.patch.object(_cli, "PERIPHERALS", ["ws2812"]):
+                    with mock.patch.object(_cli, "update_config_file") as update_config_file:
+                        _cli.main()
+
+            update_config_file.assert_called_once_with(
+                {"system": {"rgb_enable": True, "rgb_mode": "status", "rgb_profile": "thermal"}},
+                str(config_path),
+            )
+
+    def test_rgb_off_disables_rgb(self):
+        from pironman5 import _cli
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            config_path = Path(tmpdir) / "config.json"
+            config_path.write_text(json.dumps({"system": {}}), encoding="utf-8")
+            argv = ["pironman5", "--config-path", str(config_path), "rgb", "off"]
+
+            with mock.patch.object(sys, "argv", argv):
+                with mock.patch.object(_cli, "PERIPHERALS", ["ws2812"]):
+                    with mock.patch.object(_cli, "update_config_file") as update_config_file:
+                        _cli.main()
+
+            update_config_file.assert_called_once_with(
+                {"system": {"rgb_enable": False, "rgb_mode": "off"}},
+                str(config_path),
+            )
+
+    def test_rgb_night_sets_schedule_overlay(self):
+        from pironman5 import _cli
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            config_path = Path(tmpdir) / "config.json"
+            config_path.write_text(json.dumps({"system": {}}), encoding="utf-8")
+            argv = [
+                "pironman5",
+                "--config-path",
+                str(config_path),
+                "rgb",
+                "night",
+                "--brightness",
+                "10",
+                "--from",
+                "22:00",
+                "--to",
+                "07:00",
+            ]
+
+            with mock.patch.object(sys, "argv", argv):
+                with mock.patch.object(_cli, "PERIPHERALS", ["ws2812"]):
+                    with mock.patch.object(_cli, "update_config_file") as update_config_file:
+                        _cli.main()
+
+            update_config_file.assert_called_once_with(
+                {
+                    "system": {
+                        "rgb_night_brightness": 10,
+                        "rgb_night_start": "22:00",
+                        "rgb_night_end": "07:00",
+                    }
+                },
+                str(config_path),
+            )
+
+    def test_config_set_rgb_night_brightness_parses_integer(self):
+        from pironman5 import _cli
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            config_path = Path(tmpdir) / "config.json"
+            config_path.write_text(json.dumps({"system": {}}), encoding="utf-8")
+            argv = ["pironman5", "--config-path", str(config_path), "config", "set", "rgb_night_brightness", "10"]
+
+            with mock.patch.object(sys, "argv", argv):
+                with mock.patch.object(_cli, "PERIPHERALS", ["ws2812"]):
+                    with mock.patch.object(_cli, "update_config_file") as update_config_file:
+                        _cli.main()
+
+            update_config_file.assert_called_once_with(
+                {"system": {"rgb_night_brightness": 10}},
+                str(config_path),
+            )
+
     def test_cli_does_not_directly_index_system_config_for_queries(self):
         source = Path("pironman5/_cli.py").read_text(encoding="utf-8")
 

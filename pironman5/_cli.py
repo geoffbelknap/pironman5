@@ -31,8 +31,12 @@ DEBUG_LEVELS = [
     'DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL',
     'debug', 'info', 'warning', 'error', 'critical',
 ]
+RGB_TIME_RE = r"^\d{2}:\d{2}$"
 EXTRA_CONFIG_DEFAULTS = {
     'debug_level': 'INFO',
+}
+INT_CONFIG_KEYS = {
+    "rgb_night_brightness",
 }
 OPTIONAL_HARDWARE_LABELS = {
     "pipower5": "PiPower5 UPS",
@@ -200,7 +204,7 @@ def parse_config_value(key, raw_value):
             return False
         print(f"Invalid value for {key}, it should be True/true/on/On/1 or False/false/off/Off/0")
         quit()
-    if isinstance(default, int):
+    if isinstance(default, int) or key in INT_CONFIG_KEYS:
         try:
             return int(raw_value)
         except ValueError:
@@ -231,6 +235,83 @@ def handle_config_command(args, current_config, config_path):
         print(f"Set {args.config_key}: {format_config_value(value)}")
         return
     print("Invalid config command")
+    quit()
+
+
+def _validate_rgb_time(value, label):
+    import re
+    from datetime import datetime
+
+    if not re.match(RGB_TIME_RE, value):
+        raise ValueError(f"{label} must use HH:MM format")
+    try:
+        datetime.strptime(value, "%H:%M")
+    except ValueError as exc:
+        raise ValueError(f"{label} must use a valid 24-hour HH:MM time") from exc
+
+
+def _print_rgb_list():
+    from .runtime import RGB_AMBIENT_PROFILES, RGB_MODES, RGB_STATUS_PROFILES
+
+    print(f"Modes: {', '.join(RGB_MODES)}")
+    print(f"Ambient profiles: {', '.join(RGB_AMBIENT_PROFILES)}")
+    print(f"Status profiles: {', '.join(RGB_STATUS_PROFILES)}")
+
+
+def handle_rgb_command(args, _current_config, config_path):
+    from .runtime import RGB_AMBIENT_PROFILES, RGB_STATUS_PROFILES
+
+    if args.rgb_action == "list":
+        _print_rgb_list()
+        return
+
+    if args.rgb_action == "off":
+        update_config_file({"system": {"rgb_enable": False, "rgb_mode": "off"}}, config_path)
+        print("Set RGB mode: off")
+        return
+
+    if args.rgb_action == "set":
+        patch = {"rgb_enable": True, "rgb_mode": args.rgb_mode, "rgb_profile": args.rgb_profile}
+        if args.rgb_mode == "ambient":
+            if args.rgb_profile not in RGB_AMBIENT_PROFILES:
+                print(f"Invalid ambient RGB profile: {args.rgb_profile}")
+                quit()
+            patch.update(RGB_AMBIENT_PROFILES[args.rgb_profile])
+        elif args.rgb_mode == "status":
+            if args.rgb_profile not in RGB_STATUS_PROFILES:
+                print(f"Invalid status RGB profile: {args.rgb_profile}")
+                quit()
+        else:
+            print("Invalid RGB mode, it should be ambient or status")
+            quit()
+        update_config_file({"system": patch}, config_path)
+        print(f"Set RGB mode: {args.rgb_mode} ({args.rgb_profile})")
+        return
+
+    if args.rgb_action == "night":
+        if args.brightness < 0 or args.brightness > 100:
+            print("Invalid RGB night brightness, it should be between 0 and 100")
+            quit()
+        try:
+            _validate_rgb_time(args.from_time, "RGB night start")
+            _validate_rgb_time(args.to_time, "RGB night end")
+        except ValueError as exc:
+            print(str(exc))
+            quit()
+        update_config_file(
+            {
+                "system": {
+                    "rgb_night_brightness": args.brightness,
+                    "rgb_night_start": args.from_time,
+                    "rgb_night_end": args.to_time,
+                }
+            },
+            config_path,
+        )
+        print(f"Set RGB night brightness: {args.brightness} from {args.from_time} to {args.to_time}")
+        return
+
+    print("Invalid RGB command")
     quit()
 
 
@@ -410,6 +491,18 @@ def main():
     config_set_parser = config_subparsers.add_parser("set", help="Update a config value")
     config_set_parser.add_argument("config_key", help="System config key")
     config_set_parser.add_argument("config_value", help="New value")
+    if is_included(PERIPHERALS, "ws2812"):
+        rgb_parser = subparsers.add_parser("rgb", help="Manage case RGB lights")
+        rgb_subparsers = rgb_parser.add_subparsers(dest="rgb_action")
+        rgb_subparsers.add_parser("list", help="List RGB modes and profiles")
+        rgb_set_parser = rgb_subparsers.add_parser("set", help="Set RGB mode and profile")
+        rgb_set_parser.add_argument("rgb_mode", choices=["ambient", "status"], help="RGB behavior mode")
+        rgb_set_parser.add_argument("rgb_profile", help="RGB profile name")
+        rgb_night_parser = rgb_subparsers.add_parser("night", help="Set RGB night brightness schedule")
+        rgb_night_parser.add_argument("--brightness", type=int, required=True, help="Night brightness 0-100")
+        rgb_night_parser.add_argument("--from", dest="from_time", required=True, help="Night schedule start HH:MM")
+        rgb_night_parser.add_argument("--to", dest="to_time", required=True, help="Night schedule end HH:MM")
+        rgb_subparsers.add_parser("off", help="Turn RGB off")
     detect_parser = subparsers.add_parser("detect", help="Detect variant and optional hardware")
     detect_parser.add_argument("--json", action="store_true", help="Print detection results as JSON")
     subparsers.add_parser("setup", help="Apply privileged system integration")
@@ -485,6 +578,9 @@ def main():
         return
     if args.subcommand == 'config':
         handle_config_command(args, current_config, config_path)
+        return
+    if args.subcommand == 'rgb':
+        handle_rgb_command(args, current_config, config_path)
         return
 
     # get or set debug level
