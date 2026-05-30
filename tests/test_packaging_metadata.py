@@ -1,4 +1,5 @@
 import pathlib
+import subprocess
 import sys
 import unittest
 
@@ -101,6 +102,30 @@ class PackagingMetadataTest(unittest.TestCase):
         from pironman5.version import __version__
 
         self.assertIn("+geoffbelknap.", __version__)
+
+    def test_release_check_accepts_current_fork_version(self):
+        result = subprocess.run(
+            [sys.executable, "scripts/check_release_version.py"],
+            check=False,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+        )
+
+        self.assertEqual(0, result.returncode, result.stderr)
+        self.assertIn("version ok:", result.stdout)
+
+    def test_release_check_rejects_stable_local_version(self):
+        result = subprocess.run(
+            [sys.executable, "scripts/check_release_version.py", "--stable"],
+            check=False,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+        )
+
+        self.assertNotEqual(0, result.returncode)
+        self.assertIn("stable releases must not use local version metadata", result.stderr)
 
 
 if __name__ == "__main__":
