@@ -271,17 +271,18 @@ class SystemCliTest(unittest.TestCase):
 
         run.assert_called_once_with(["/opt/pironman5-venv/bin/pip", "uninstall", "pm_dashboard", "-y"], check=False)
 
-    def test_legacy_remove_dashboard_flag_still_works(self):
+    def test_legacy_remove_dashboard_flag_is_rejected(self):
         from pironman5 import _cli
 
         argv = ["pironman5", "--remove-dashboard"]
         with mock.patch.object(sys, "argv", argv):
             with mock.patch.object(_cli, "PERIPHERALS", []):
                 with mock.patch.object(_cli.subprocess, "run") as run:
-                    with self.assertRaises(SystemExit):
+                    with self.assertRaises(SystemExit) as exit_context:
                         _cli.main()
 
-        run.assert_called_once_with(["/opt/pironman5-venv/bin/pip", "uninstall", "pm_dashboard", "-y"], check=False)
+        self.assertNotEqual(0, exit_context.exception.code)
+        run.assert_not_called()
 
     def test_cli_does_not_reference_legacy_installer_venv(self):
         source = Path("pironman5/_cli.py").read_text(encoding="utf-8")

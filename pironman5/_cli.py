@@ -591,7 +591,6 @@ def main():
     parser.add_argument("-c", "--config", action="store_true", help="Show config")
     parser.add_argument("-drd", "--database-retention-days", nargs='?', default='', help=argparse.SUPPRESS)
     parser.add_argument("-dl", "--debug-level", nargs='?', default='', choices=DEBUG_LEVELS, help=argparse.SUPPRESS)
-    parser.add_argument("-rd", "--remove-dashboard", action="store_true", help=argparse.SUPPRESS)
     parser.add_argument("-cp", "--config-path", nargs='?', default='', help="Config path")
     parser.add_argument("-eh", "--enable-history", nargs='?', default='', help=argparse.SUPPRESS)
     # ws2812
@@ -711,6 +710,8 @@ def main():
     # -----------------------------------------------------------
     # args = parser.parse_args()
     args, remaining_args = parser.parse_known_args()
+    if remaining_args and args.subcommand != "pipower5":
+        parser.error(f"unrecognized arguments: {' '.join(remaining_args)}")
 
     # no args, show help
     if not (len(sys.argv) > 1):
@@ -785,12 +786,6 @@ def main():
     # ----------------------------------------
     if args.database_retention_days != '':
         handle_database_retention_days(args, current_config, new_sys_config)
-
-    # remove dashboard
-    # ----------------------------------------    
-    if args.remove_dashboard:
-        remove_dashboard(PIP_PATH)
-        quit()
 
     # swtich history
     if args.enable_history != '':
