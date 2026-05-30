@@ -74,11 +74,18 @@ class RuntimeInputTest(unittest.TestCase):
         self.assertEqual("VibrationSwitchModule", VibrationSwitchModule.__name__)
 
 
+class RuntimeLegacyTest(unittest.TestCase):
+    def test_legacy_runtime_imports_from_legacy_module(self):
+        from pironman5.runtime_legacy import LegacyHardwareRuntime
+
+        self.assertEqual("LegacyHardwareRuntime", LegacyHardwareRuntime.__name__)
+
+
 class RuntimeTest(unittest.TestCase):
     def test_legacy_hardware_runtime_does_not_enable_local_modules(self):
         from pironman5.runtime import LegacyHardwareRuntime
 
-        with mock.patch("pironman5.runtime.Addons") as addons:
+        with mock.patch("pironman5.runtime_legacy.Addons") as addons:
             LegacyHardwareRuntime(
                 config={},
                 peripherals=[
@@ -117,7 +124,7 @@ class RuntimeTest(unittest.TestCase):
     def test_legacy_hardware_runtime_allows_local_modules_without_pm_auto(self):
         from pironman5.runtime import LegacyHardwareRuntime
 
-        with mock.patch("pironman5.runtime.Addons", None):
+        with mock.patch("pironman5.runtime_legacy.Addons", None):
             runtime = LegacyHardwareRuntime(
                 config={},
                 peripherals=[
@@ -156,7 +163,7 @@ class RuntimeTest(unittest.TestCase):
     def test_legacy_hardware_runtime_treats_rtl8125_as_local_setup_only(self):
         from pironman5.runtime import LegacyHardwareRuntime
 
-        with mock.patch("pironman5.runtime.Addons", None):
+        with mock.patch("pironman5.runtime_legacy.Addons", None):
             runtime = LegacyHardwareRuntime(
                 config={},
                 peripherals=["rtl8125"],
@@ -170,7 +177,7 @@ class RuntimeTest(unittest.TestCase):
     def test_legacy_hardware_runtime_treats_vibration_switch_as_local(self):
         from pironman5.runtime import LegacyHardwareRuntime
 
-        with mock.patch("pironman5.runtime.Addons", None):
+        with mock.patch("pironman5.runtime_legacy.Addons", None):
             runtime = LegacyHardwareRuntime(
                 config={},
                 peripherals=["vibration_switch"],
@@ -184,7 +191,7 @@ class RuntimeTest(unittest.TestCase):
     def test_legacy_hardware_runtime_treats_oled_as_local(self):
         from pironman5.runtime import LegacyHardwareRuntime
 
-        with mock.patch("pironman5.runtime.Addons", None):
+        with mock.patch("pironman5.runtime_legacy.Addons", None):
             runtime = LegacyHardwareRuntime(
                 config={},
                 peripherals=["oled", "oled_sleep", "oled_page_mix", "oled_page_performance"],
@@ -198,7 +205,7 @@ class RuntimeTest(unittest.TestCase):
     def test_legacy_hardware_runtime_treats_pironman_mcu_as_local(self):
         from pironman5.runtime import LegacyHardwareRuntime
 
-        with mock.patch("pironman5.runtime.Addons", None):
+        with mock.patch("pironman5.runtime_legacy.Addons", None):
             runtime = LegacyHardwareRuntime(
                 config={},
                 peripherals=["pironman_mcu"],
