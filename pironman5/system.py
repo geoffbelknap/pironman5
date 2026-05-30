@@ -696,8 +696,6 @@ def main(argv=None, prog="pironman5 system", update_command_name="update"):
         argv = sys.argv[1:]
     else:
         argv = list(argv)
-    if argv and argv[0] == "upgrade-service":
-        argv[0] = "update"
     args = parser.parse_args(argv)
     if update_command_name != "update" and args.command == update_command_name:
         args.command = "update"
