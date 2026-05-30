@@ -111,7 +111,7 @@ class Pironman5:
             self.log.info(line)
 
         if pm_auto_version is None:
-            self.log.info('PM Auto not installed; legacy hardware modules remain unavailable')
+            self.log.info('PM Auto not installed; optional bridge modules remain unavailable')
         else:
             self.log.info(f"PM_Auto version: {pm_auto_version}")
         if PMDashboard is not None:
