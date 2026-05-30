@@ -240,15 +240,6 @@ Remove system integration, `/opt/pironman5`, and logs:
 sudo pironman5 service uninstall --purge
 ```
 
-The legacy `install.py` entry point no longer runs a root installer. It only
-prints migration guidance:
-
-```bash
-git clone https://github.com/geoffbelknap/pironman5.git
-cd pironman5
-python3 install.py
-```
-
 ## Troubleshooting
 
 If setup fails with `sudo: pironman5: command not found`, rerun it with the
