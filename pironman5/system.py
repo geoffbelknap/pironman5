@@ -68,7 +68,8 @@ class Command:
                 f"python3 -m venv {shlex.quote(str(SERVICE_VENV))}",
                 f"{shlex.quote(str(SERVICE_VENV / 'bin' / 'pip'))} install --upgrade pip",
                 f"{shlex.quote(str(SERVICE_VENV / 'bin' / 'pip'))} install --upgrade {shlex.quote(str(install_spec))}",
-                f"chmod -R go-w {shlex.quote(str(SERVICE_VENV))}",
+                f"chgrp -R {shlex.quote(SERVICE_USER)} {shlex.quote(str(SERVICE_VENV))}",
+                f"chmod -R g+rX,o-rwx {shlex.quote(str(SERVICE_VENV))}",
             ])
         if self.args[0] == "remove-tree":
             return f"rm -rf {shlex.quote(str(self.args[1]))}"
@@ -218,7 +219,8 @@ def _create_or_refresh_venv_commands(refresh_venv, product=None):
             Command("Create service application venv", ("python3", "-m", "venv", str(SERVICE_VENV))),
             Command("Upgrade service application installer", (str(SERVICE_VENV / "bin" / "pip"), "install", "--upgrade", "pip")),
             Command("Install service application package", (str(SERVICE_VENV / "bin" / "pip"), "install", "--upgrade", install_spec)),
-            Command("Make service application venv non-writable by group/other", ("chmod", "-R", "go-w", str(SERVICE_VENV))),
+            Command("Set service application venv group", ("chgrp", "-R", SERVICE_USER, str(SERVICE_VENV))),
+            Command("Make service application venv readable by service group", ("chmod", "-R", "g+rX,o-rwx", str(SERVICE_VENV))),
         ]
 
     return [
@@ -298,7 +300,8 @@ def _run_service_venv_bootstrap(install_spec):
     subprocess.run(("python3", "-m", "venv", str(SERVICE_VENV)), text=True, check=True)
     subprocess.run((str(SERVICE_VENV / "bin" / "pip"), "install", "--upgrade", "pip"), text=True, check=True)
     subprocess.run((str(SERVICE_VENV / "bin" / "pip"), "install", "--upgrade", install_spec), text=True, check=True)
-    subprocess.run(("chmod", "-R", "go-w", str(SERVICE_VENV)), text=True, check=True)
+    subprocess.run(("chgrp", "-R", SERVICE_USER, str(SERVICE_VENV)), text=True, check=True)
+    subprocess.run(("chmod", "-R", "g+rX,o-rwx", str(SERVICE_VENV)), text=True, check=True)
 
 
 def _run_internal_command(command):

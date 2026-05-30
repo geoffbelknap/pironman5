@@ -726,6 +726,16 @@ class SystemCliTest(unittest.TestCase):
             [command.args for command in commands],
         )
 
+    def test_system_setup_keeps_service_venv_accessible_to_service_user(self):
+        from pironman5 import system
+
+        _variant_key, commands = system.setup_commands("max", refresh_venv=True)
+        command_args = [command.args for command in commands]
+
+        self.assertIn(("chgrp", "-R", system.SERVICE_USER, str(system.SERVICE_VENV)), command_args)
+        self.assertIn(("chmod", "-R", "g+rX,o-rwx", str(system.SERVICE_VENV)), command_args)
+        self.assertNotIn(("chmod", "-R", "go-w", str(system.SERVICE_VENV)), command_args)
+
     def test_guarded_tree_removal_rejects_unapproved_paths(self):
         from pironman5 import system
 
