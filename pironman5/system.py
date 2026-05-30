@@ -373,8 +373,10 @@ def _run_commands(
                 print(line)
         print("")
         print("Commands:")
-        for command in commands:
-            print(command.shell())
+        for index, command in enumerate(commands, start=1):
+            print(f"{index}. {command.description}")
+            for line in command.shell().splitlines():
+                print(f"  {line}")
         return
     if os.geteuid() != 0:
         print(f"{root_command} must be run as root; use sudo.", file=sys.stderr)
