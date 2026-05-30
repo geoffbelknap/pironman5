@@ -294,7 +294,7 @@ as unreviewed until pinned to an audited fork or exact commit.
 ```bash
 git clone https://github.com/geoffbelknap/pironman5.git
 git clone https://github.com/geoffbelknap/pm_dashboard.git
-git clone https://github.com/geoffbelknap/pm_auto.git  # legacy UPS only
+git clone https://github.com/geoffbelknap/pm_auto.git  # optional compatibility bridge
 ```
 
 Make adjustments, then install from local folders. Avoid floating Git installs
@@ -302,7 +302,7 @@ in hardened deployments.
 
 ```bash
 sudo /opt/pironman5-venv/bin/pip uninstall pironman5 -y
-sudo /opt/pironman5-venv/bin/pip install "$HOME/pironman5[legacy-ups]" --no-build-isolation
+sudo /opt/pironman5-venv/bin/pip install "$HOME/pironman5[pm-auto]" --no-build-isolation
 
 sudo /opt/pironman5-venv/bin/pip uninstall pm_auto -y
 sudo /opt/pironman5-venv/bin/pip install ~/pm_auto --no-build-isolation

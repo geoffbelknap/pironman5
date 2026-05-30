@@ -39,7 +39,7 @@ LEGACY_HARDWARE_MODULES = {
     "pipower5",
     "sf_rgb_led",
 }
-LEGACY_UPS_EXTRA = "legacy-ups"
+PM_AUTO_EXTRA = "pm-auto"
 
 
 @dataclass(frozen=True)
@@ -187,7 +187,7 @@ def _service_package_extras(product):
     extras = []
     modules = set(product.get("modules", []))
     if modules & LEGACY_HARDWARE_MODULES:
-        extras.append(LEGACY_UPS_EXTRA)
+        extras.append(PM_AUTO_EXTRA)
     if "pipower5" in modules and "pipower5" in product.get("enabled_optional_hardware", ()):
         extras.append("ups")
     return tuple(extras)
