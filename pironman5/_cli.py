@@ -300,6 +300,73 @@ def handle_fan_command(args, current_config, config_path):
     quit()
 
 
+def _write_config_patch(patch, config_path, dry_run_message=None, dry_run=False):
+    if dry_run:
+        if dry_run_message:
+            print(dry_run_message)
+        print("Would reload running service after saving.")
+        return
+    try:
+        update_config_file({"system": patch}, config_path)
+    except ValueError as exc:
+        print(str(exc), file=sys.stderr)
+        raise SystemExit(1) from exc
+    reload_running_service()
+
+
+def handle_oled_command(args, current_config, config_path):
+    if args.oled_action == "status":
+        enabled = bool(get_system_config_value(current_config, "oled_enable", True))
+        pages = get_system_config_value(current_config, "oled_pages", [])
+        timeout = get_system_config_value(current_config, "oled_sleep_timeout", 10)
+        print(f"OLED: {'on' if enabled else 'off'}")
+        print(f"Pages: {', '.join(pages) if pages else 'none'}")
+        print(f"Sleep timeout: {timeout}")
+        return
+    if args.oled_action == "on":
+        _write_config_patch({"oled_enable": True}, config_path)
+        print("Set OLED: on")
+        return
+    if args.oled_action == "off":
+        _write_config_patch({"oled_enable": False}, config_path)
+        print("Set OLED: off")
+        return
+    if args.oled_action == "sleep":
+        _write_config_patch(
+            {"oled_sleep_timeout": args.seconds},
+            config_path,
+            dry_run_message=f"Would set OLED sleep timeout: {args.seconds}",
+            dry_run=args.dry_run,
+        )
+        if not args.dry_run:
+            print(f"Set OLED sleep timeout: {args.seconds}")
+        return
+    if args.oled_action == "pages":
+        if args.pages_action == "list":
+            pages = available_oled_pages(PERIPHERALS)
+            print("OLED pages:")
+            for page in pages:
+                print(f"- {page}")
+            return
+        if args.pages_action == "set":
+            available = set(available_oled_pages(PERIPHERALS))
+            invalid = [page for page in args.pages if page not in available]
+            if invalid:
+                print(f"Invalid OLED page: {invalid[0]}", file=sys.stderr)
+                raise SystemExit(1)
+            _write_config_patch(
+                {"oled_pages": args.pages},
+                config_path,
+                dry_run_message=f"Would set OLED pages: {', '.join(args.pages)}",
+                dry_run=args.dry_run,
+            )
+            if not args.dry_run:
+                print(f"Set OLED pages: {', '.join(args.pages)}")
+            return
+    print("Invalid OLED command")
+    quit()
+
+
 def _validate_rgb_time(value, label):
     import re
     from datetime import datetime
@@ -587,6 +654,20 @@ def main():
     fan_set_parser = fan_subparsers.add_parser("set", help="Set fan profile")
     fan_set_parser.add_argument("profile", choices=sorted(FAN_PROFILES), help="Fan profile")
     fan_set_parser.add_argument("--dry-run", action="store_true", help="Preview the change without saving")
+    oled_parser = subparsers.add_parser("oled", help="Manage OLED display")
+    oled_subparsers = oled_parser.add_subparsers(dest="oled_action")
+    oled_subparsers.add_parser("status", help="Show OLED settings")
+    oled_subparsers.add_parser("on", help="Enable OLED")
+    oled_subparsers.add_parser("off", help="Disable OLED")
+    oled_sleep_parser = oled_subparsers.add_parser("sleep", help="Set OLED sleep timeout in seconds")
+    oled_sleep_parser.add_argument("seconds", type=int, help="Sleep timeout in seconds")
+    oled_sleep_parser.add_argument("--dry-run", action="store_true", help="Preview the change without saving")
+    oled_pages_parser = oled_subparsers.add_parser("pages", help="Manage OLED pages")
+    oled_pages_subparsers = oled_pages_parser.add_subparsers(dest="pages_action")
+    oled_pages_subparsers.add_parser("list", help="List available OLED pages")
+    oled_pages_set_parser = oled_pages_subparsers.add_parser("set", help="Set OLED pages")
+    oled_pages_set_parser.add_argument("pages", nargs="+", help="OLED pages")
+    oled_pages_set_parser.add_argument("--dry-run", action="store_true", help="Preview the change without saving")
     subparsers.add_parser("setup", help="Apply privileged system integration")
     subparsers.add_parser("doctor", help="Check system integration")
     service_parser = subparsers.add_parser("service", help="Manage the systemd service install")
@@ -663,6 +744,9 @@ def main():
         return
     if args.subcommand == 'fan':
         handle_fan_command(args, current_config, config_path)
+        return
+    if args.subcommand == 'oled':
+        handle_oled_command(args, current_config, config_path)
         return
     if args.subcommand == 'rgb':
         handle_rgb_command(args, current_config, config_path)
