@@ -530,6 +530,55 @@ class RuntimeTest(unittest.TestCase):
         strip.show.assert_called_once()
         self.assertEqual(1, delay)
 
+    def test_ws2812_status_thermal_renders_whole_case_temperature_color(self):
+        from pironman5.runtime import EventBus, WS2812Module
+
+        event = EventBus()
+        strip = mock.Mock()
+        module = WS2812Module(
+            config={
+                "rgb_led_count": 4,
+                "rgb_enable": True,
+                "rgb_mode": "status",
+                "rgb_profile": "thermal",
+                "rgb_brightness": 40,
+            },
+            event=event,
+            strip_factory=lambda _count: strip,
+        )
+
+        event.publish("data_changed", {"cpu_temperature": 72.0})
+        delay = module.render_once()
+
+        strip.fill.assert_called_with((102, 0, 0))
+        strip.show.assert_called()
+        self.assertEqual(1, delay)
+
+    def test_ws2812_night_schedule_dims_current_mode(self):
+        from datetime import time as datetime_time
+        from pironman5.runtime import EventBus, WS2812Module
+
+        strip = mock.Mock()
+        module = WS2812Module(
+            config={
+                "rgb_led_count": 4,
+                "rgb_enable": True,
+                "rgb_color": "#ffffff",
+                "rgb_brightness": 80,
+                "rgb_style": "solid",
+                "rgb_night_brightness": 10,
+                "rgb_night_start": "22:00",
+                "rgb_night_end": "07:00",
+            },
+            event=EventBus(),
+            strip_factory=lambda _count: strip,
+            now_fn=lambda: datetime_time(23, 30),
+        )
+
+        module.render_once()
+
+        strip.fill.assert_called_with((25, 25, 25))
+
     def test_runtime_starts_ws2812_when_present(self):
         from pironman5.runtime import PironmanRuntime
 

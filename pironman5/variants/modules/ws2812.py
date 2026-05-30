@@ -13,5 +13,10 @@ register(Module(
         'rgb_speed': 50,
         'rgb_led_count': 4,
         'rgb_led_count_min': 4,
+        'rgb_mode': 'ambient',
+        'rgb_profile': 'breathing-blue',
+        'rgb_night_brightness': None,
+        'rgb_night_start': None,
+        'rgb_night_end': None,
     },
 ))
