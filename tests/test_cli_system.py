@@ -865,6 +865,9 @@ class SystemCliTest(unittest.TestCase):
         self.assertIn("- Create or update the pironman5 service user and group", output)
         self.assertIn("- Install and enable pironman5.service", output)
         self.assertIn("Commands:", output)
+        self.assertIn("1. Create service group", output)
+        self.assertIn("2. Create service user", output)
+        self.assertIn("  getent group", output)
         self.assertLess(output.index("Privileged changes:"), output.index("Commands:"))
 
     def test_top_level_setup_routes_to_system_setup(self):
