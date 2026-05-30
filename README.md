@@ -26,12 +26,12 @@ Quick Links:
 ## Installation
 
 `pipx` is the primary install path for this fork. It installs the user-facing
-CLI without root, and `pironman5 system setup` performs the small set of
+CLI without root, and `pironman5 setup` performs the small set of
 privileged OS integration steps explicitly.
 
 1. install the Python application without root with `pipx`
 2. review the privileged system changes
-3. run the system setup command with `sudo`
+3. run setup with `sudo`
 
 System setup creates a root-owned service environment at `/opt/pironman5-venv`
 for systemd. This avoids running the service out of a user's home directory.
@@ -41,9 +41,9 @@ sudo apt-get update
 sudo apt-get install pipx -y
 pipx ensurepath
 pipx install git+https://github.com/geoffbelknap/pironman5.git
-pironman5 system plan
-sudo pironman5 system setup
-pironman5 system doctor
+pironman5 setup --dry-run
+sudo pironman5 setup
+pironman5 doctor
 ```
 
 Optional hardware is detected during system setup. The PiPower5 UPS HAT still
@@ -51,42 +51,42 @@ depends on an unaudited upstream compatibility package, so its Python package is
 installed only when explicitly requested:
 
 ```bash
-sudo pironman5 system setup --variant ups --with pipower5
+sudo pironman5 setup --variant ups --with pipower5
 ```
 
 `uv` is also supported for users who already have it installed:
 
 ```bash
 uv tool install git+https://github.com/geoffbelknap/pironman5.git
-pironman5 system plan
-sudo pironman5 system setup
-pironman5 system doctor
+pironman5 setup --dry-run
+sudo pironman5 setup
+pironman5 doctor
 ```
 
 To rebuild the service install:
 
 ```bash
-sudo pironman5 system update
+sudo pironman5 service refresh
 ```
 
 After upgrading the user-facing command, refresh the service environment too:
 
 ```bash
 pipx reinstall pironman5
-sudo pironman5 system update
-pironman5 system doctor
+sudo pironman5 service refresh
+pironman5 doctor
 ```
 
 To remove system integration while keeping runtime config, use:
 
 ```bash
-sudo pironman5 system uninstall
+sudo pironman5 service uninstall
 ```
 
 To also remove `/opt/pironman5` and logs, use:
 
 ```bash
-sudo pironman5 system uninstall --purge
+sudo pironman5 service uninstall --purge
 ```
 
 The legacy `install.py` entry point now prints migration guidance by default.
@@ -99,7 +99,7 @@ sudo python3 install.py --legacy-installer
 ```
 
 Dashboard, graph history, and legacy hardware drivers are optional package
-extras. `pironman5 system setup` installs the legacy hardware extra into the
+extras. `pironman5 setup` installs the legacy hardware extra into the
 service environment only when the selected case profile needs it. The default
 history backend is SQLite. The old InfluxDB path is no longer installed by
 default.
