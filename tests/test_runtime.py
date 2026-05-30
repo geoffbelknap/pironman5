@@ -36,6 +36,13 @@ class RuntimeCoreTest(unittest.TestCase):
         self.assertEqual(["ok"], received)
 
 
+class RuntimeStatusTest(unittest.TestCase):
+    def test_system_status_module_imports_from_status_module(self):
+        from pironman5.runtime_status import SystemStatusModule
+
+        self.assertEqual("SystemStatusModule", SystemStatusModule.__name__)
+
+
 class RuntimeTest(unittest.TestCase):
     def test_legacy_hardware_runtime_does_not_enable_local_modules(self):
         from pironman5.runtime import LegacyHardwareRuntime
@@ -193,14 +200,15 @@ class RuntimeTest(unittest.TestCase):
         self.assertEqual(4, runtime.read()["cpu_count"])
 
     def test_system_module_publishes_host_status(self):
-        from pironman5.runtime import EventBus, SystemStatusModule
+        from pironman5.runtime_core import EventBus
+        from pironman5.runtime_status import SystemStatusModule
 
         event = EventBus()
         data = {}
         event.subscribe("data_changed", data.update)
         module = SystemStatusModule(event=event)
 
-        with mock.patch("pironman5.runtime.host.get_cpu_count", return_value=4):
+        with mock.patch("pironman5.runtime_status.host.get_cpu_count", return_value=4):
             module.task_once()
 
         self.assertEqual(4, data["cpu_count"])
