@@ -38,7 +38,7 @@ What this fork focuses on:
   system environment, not a user folder.
 - **Easier upgrades**: update the CLI, then refresh the service with one
   command.
-- **Less bloat**: optional dashboard, UPS, and legacy hardware packages are not
+- **Less bloat**: optional dashboard, UPS, and bridge packages are not
   installed unless needed.
 - **Safer dependencies**: risky or poorly reviewed optional packages are gated
   behind detection or explicit flags.
@@ -205,7 +205,7 @@ ask for it:
 sudo ~/.local/bin/pironman5 setup --variant ups --with pipower5
 ```
 
-Dashboard, graph history, and legacy hardware drivers are optional extras. The
+Dashboard, graph history, and optional bridge drivers are separate extras. The
 default history backend is SQLite. InfluxDB is no longer installed by default.
 
 To remove the dashboard package from the service install:

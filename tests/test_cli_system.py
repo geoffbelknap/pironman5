@@ -1633,6 +1633,7 @@ class SystemCliTest(unittest.TestCase):
         self.assertIn("pipx reinstall pironman5", readme)
         self.assertNotIn("moving toward a split install model", readme)
         self.assertNotIn("legacy-ups", readme)
+        self.assertNotIn("legacy hardware", readme.lower())
 
     def test_system_help_uses_update_command(self):
         from pironman5 import system
