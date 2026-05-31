@@ -12,6 +12,6 @@ register(Module(
         'rgb_style': 'breathing',
         'rgb_speed': 50,
         'rgb_led_count': 23,
-        'rgb_led_count_min': 23,
+        'rgb_led_count_min': 1,
     },
 ))
