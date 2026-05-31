@@ -55,7 +55,7 @@ What this fork focuses on:
 Links:
 
 - Fork repository: <https://github.com/geoffbelknap/pironman5>
-- Latest stable release: <https://github.com/geoffbelknap/pironman5/releases/tag/v1.0.2>
+- Latest stable release: <https://github.com/geoffbelknap/pironman5/releases/tag/v1.0.3>
 - Upstream hardware documentation: <https://docs.sunfounder.com/projects/pironman5/en/latest/>
 
 ## Install
@@ -76,7 +76,7 @@ normal privileged commands can use `sudo pironman5 ...`.
 sudo apt-get update
 sudo apt-get install pipx -y
 pipx ensurepath
-pipx install git+https://github.com/geoffbelknap/pironman5.git@v1.0.2
+pipx install git+https://github.com/geoffbelknap/pironman5.git@v1.0.3
 
 pironman5 setup --dry-run
 sudo ~/.local/bin/pironman5 setup
@@ -86,13 +86,13 @@ pironman5 doctor
 To install a specific branch, tag, or commit, append the Git ref:
 
 ```bash
-pipx install git+https://github.com/geoffbelknap/pironman5.git@v1.0.2
+pipx install git+https://github.com/geoffbelknap/pironman5.git@v1.0.3
 ```
 
 `uv` works too if you already use it:
 
 ```bash
-uv tool install git+https://github.com/geoffbelknap/pironman5.git@v1.0.2
+uv tool install git+https://github.com/geoffbelknap/pironman5.git@v1.0.3
 
 pironman5 setup --dry-run
 sudo ~/.local/bin/pironman5 setup
