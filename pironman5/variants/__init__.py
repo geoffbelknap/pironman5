@@ -233,11 +233,8 @@ _assembled = assemble(_module_names)
 _config = dict(_assembled["default_config"])
 _config.update(_product.get("config_overrides", {}))
 
-if "event_map_replace" in _product:
-    _event_map = dict(_product["event_map_replace"])
-else:
-    _event_map = dict(_assembled["event_map"])
-    _event_map.update(_product.get("event_map_overrides", {}))
+_event_map = dict(_assembled["event_map"])
+_event_map.update(_product.get("event_map_overrides", {}))
 
 # --- Exports (same names as before) ---
 

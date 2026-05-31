@@ -28,6 +28,24 @@ class VariantAssemblyTest(unittest.TestCase):
                 self.assertIsInstance(result["event_map"], dict)
                 self.assertGreater(len(result["peripherals"]), 0)
 
+    def test_product_definitions_do_not_replace_module_event_maps(self):
+        from pironman5.variants.products import PRODUCT_DEFINITIONS
+
+        for key, product in PRODUCT_DEFINITIONS.items():
+            with self.subTest(key=key):
+                self.assertNotIn("event_map_replace", product)
+        self.assertNotIn(
+            "event_map_replace",
+            Path("pironman5/variants/__init__.py").read_text(encoding="utf-8"),
+        )
+
+    def test_sf_rgb_led_allows_single_led_count(self):
+        from pironman5.variants.modules import assemble
+
+        result = assemble(["sf_rgb_led"])
+
+        self.assertEqual(1, result["default_config"]["rgb_led_count_min"])
+
     def test_dependency_resolution_orders_dependencies_first(self):
         from pironman5.variants.modules import resolve_dependencies
 
